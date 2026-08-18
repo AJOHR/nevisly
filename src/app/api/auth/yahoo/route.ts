@@ -1,39 +1,35 @@
-import { randomBytes } from "crypto";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
-  const clientId = process.env.YAHOO_CLIENT_ID;
-  const redirectUri = process.env.YAHOO_REDIRECT_URI;
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
 
-  if (!clientId || !redirectUri) {
+  const code = searchParams.get("code");
+  const state = searchParams.get("state");
+  const error = searchParams.get("error");
+
+  if (error) {
     return NextResponse.json(
-      { error: "Yahoo OAuth environment variables are missing." },
-      { status: 500 }
+      {
+        success: false,
+        error,
+      },
+      { status: 400 }
     );
   }
 
-  // Random value used to protect the OAuth flow
-  const state = randomBytes(32).toString("hex");
+  if (!code) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Missing Yahoo authorization code.",
+      },
+      { status: 400 }
+    );
+  }
 
-  const yahooAuthUrl = new URL(
-    "https://api.login.yahoo.com/oauth2/request_auth"
-  );
-
-  yahooAuthUrl.searchParams.set("client_id", clientId);
-  yahooAuthUrl.searchParams.set("redirect_uri", redirectUri);
-  yahooAuthUrl.searchParams.set("response_type", "code");
-  yahooAuthUrl.searchParams.set("state", state);
-  yahooAuthUrl.searchParams.set("language", "en-us");
-
-  const response = NextResponse.redirect(yahooAuthUrl);
-
-  response.cookies.set("yahoo_oauth_state", state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 10,
-    path: "/",
+  return NextResponse.json({
+    success: true,
+    message: "Yahoo authorization code received.",
+    stateReceived: Boolean(state),
   });
-
-  return response;
 }
