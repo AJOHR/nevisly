@@ -23,6 +23,7 @@ export async function GET() {
   yahooAuthUrl.searchParams.set("response_type", "code");
   yahooAuthUrl.searchParams.set("state", state);
   yahooAuthUrl.searchParams.set("language", "en-us");
+  yahooAuthUrl.searchParams.set("prompt", "consent");
 
   const response = NextResponse.redirect(yahooAuthUrl);
 
