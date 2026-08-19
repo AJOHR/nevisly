@@ -41,6 +41,12 @@ type SortKey =
 
 type SortDirection = "asc" | "desc";
 
+type RosterSlot = {
+  id: string;
+  position: "C" | "LW" | "RW" | "D" | "BN";
+  player?: RankedPlayer;
+};
+
 const STARTERS_PER_TEAM: Record<string, number> = {
   C: 2,
   LW: 2,
@@ -48,22 +54,20 @@ const STARTERS_PER_TEAM: Record<string, number> = {
   D: 4,
 };
 
-const rosterSlots = [
-  "C",
-  "C",
-  "LW",
-  "LW",
-  "RW",
-  "RW",
-  "D",
-  "D",
-  "D",
-  "D",
-  "BN",
-  "BN",
-  "BN",
-  "BN",
-];
+const STARTING_SLOTS = [
+  { id: "C1", position: "C" },
+  { id: "C2", position: "C" },
+  { id: "LW1", position: "LW" },
+  { id: "LW2", position: "LW" },
+  { id: "RW1", position: "RW" },
+  { id: "RW2", position: "RW" },
+  { id: "D1", position: "D" },
+  { id: "D2", position: "D" },
+  { id: "D3", position: "D" },
+  { id: "D4", position: "D" },
+] as const;
+
+const BENCH_COUNT = 4;
 
 export default function ProjectionUpload() {
   const [players, setPlayers] = useState<SkaterProjection[]>([]);
@@ -80,9 +84,8 @@ export default function ProjectionUpload() {
     new Set()
   );
 
-  const [myTeamIds, setMyTeamIds] = useState<Set<string>>(
-    new Set()
-  );
+  // Keeps YOUR picks in actual draft order.
+  const [myTeamOrder, setMyTeamOrder] = useState<string[]>([]);
 
   const [showDrafted, setShowDrafted] = useState(false);
 
@@ -102,7 +105,7 @@ export default function ProjectionUpload() {
 
       setPlayers(parsedPlayers);
       setDraftedIds(new Set());
-      setMyTeamIds(new Set());
+      setMyTeamOrder([]);
     } catch {
       setError("Could not read projection file.");
     }
@@ -144,6 +147,7 @@ export default function ProjectionUpload() {
 
     const basePlayers = players.map((player) => {
       const zScores = {} as Record<CategoryKey, number>;
+
       let rawScore = 0;
 
       for (const category of categoryKeys) {
@@ -222,10 +226,119 @@ export default function ProjectionUpload() {
   }, [players, leagueTeams]);
 
   const myTeamPlayers = useMemo(() => {
-    return rankedPlayers.filter((player) =>
-      myTeamIds.has(player.id)
+    const playerMap = new Map(
+      rankedPlayers.map((player) => [player.id, player])
     );
-  }, [rankedPlayers, myTeamIds]);
+
+    return myTeamOrder
+      .map((id) => playerMap.get(id))
+      .filter(
+        (player): player is RankedPlayer =>
+          player !== undefined
+      );
+  }, [rankedPlayers, myTeamOrder]);
+
+  /*
+   * Automatically assigns players to the best possible
+   * starting slots.
+   *
+   * This uses a matching algorithm rather than simple
+   * draft order, so multi-position players can move around
+   * to maximize the number of filled starter slots.
+   */
+  const assignedRoster = useMemo<RosterSlot[]>(() => {
+    const starterAssignments = new Map<
+      string,
+      RankedPlayer
+    >();
+
+    const playerAssignments = new Map<string, string>();
+
+    function canUseSlot(
+      player: RankedPlayer,
+      slotPosition: string
+    ) {
+      return player.positions.includes(slotPosition);
+    }
+
+    function tryAssign(
+      player: RankedPlayer,
+      visitedSlots: Set<string>
+    ): boolean {
+      for (const slot of STARTING_SLOTS) {
+        if (!canUseSlot(player, slot.position)) {
+          continue;
+        }
+
+        if (visitedSlots.has(slot.id)) {
+          continue;
+        }
+
+        visitedSlots.add(slot.id);
+
+        const existingPlayer =
+          starterAssignments.get(slot.id);
+
+        if (
+          !existingPlayer ||
+          tryAssign(existingPlayer, visitedSlots)
+        ) {
+          starterAssignments.set(slot.id, player);
+          playerAssignments.set(player.id, slot.id);
+
+          if (existingPlayer) {
+            playerAssignments.delete(existingPlayer.id);
+          }
+
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    /*
+     * Less-flexible players go first.
+     * This prevents a C-only player from losing a C slot
+     * to someone who could also play LW.
+     */
+    const assignmentOrder = [...myTeamPlayers].sort(
+      (a, b) =>
+        a.positions.length - b.positions.length
+    );
+
+    for (const player of assignmentOrder) {
+      tryAssign(player, new Set());
+    }
+
+    const starters: RosterSlot[] =
+      STARTING_SLOTS.map((slot) => ({
+        id: slot.id,
+        position: slot.position,
+        player: starterAssignments.get(slot.id),
+      }));
+
+    const starterPlayerIds = new Set(
+      [...starterAssignments.values()].map(
+        (player) => player.id
+      )
+    );
+
+    const benchPlayers = myTeamPlayers.filter(
+      (player) => !starterPlayerIds.has(player.id)
+    );
+
+    const bench: RosterSlot[] = Array.from(
+      { length: BENCH_COUNT },
+      (_, index) => ({
+        id: `BN${index + 1}`,
+        position: "BN" as const,
+        player: benchPlayers[index],
+      })
+    );
+
+    return [...starters, ...bench];
+  }, [myTeamPlayers]);
 
   const teamTotals = useMemo(() => {
     return {
@@ -233,26 +346,32 @@ export default function ProjectionUpload() {
         (sum, player) => sum + player.goals,
         0
       ),
+
       assists: myTeamPlayers.reduce(
         (sum, player) => sum + player.assists,
         0
       ),
+
       points: myTeamPlayers.reduce(
         (sum, player) => sum + player.points,
         0
       ),
+
       ppp: myTeamPlayers.reduce(
         (sum, player) => sum + player.ppp,
         0
       ),
+
       sog: myTeamPlayers.reduce(
         (sum, player) => sum + player.sog,
         0
       ),
+
       hits: myTeamPlayers.reduce(
         (sum, player) => sum + player.hits,
         0
       ),
+
       blocks: myTeamPlayers.reduce(
         (sum, player) => sum + player.blocks,
         0
@@ -269,6 +388,7 @@ export default function ProjectionUpload() {
 
         return !draftedIds.has(player.id);
       })
+
       .filter((player) => {
         if (!query) return true;
 
@@ -277,11 +397,13 @@ export default function ProjectionUpload() {
           player.team.toLowerCase().includes(query)
         );
       })
+
       .filter((player) => {
         if (positionFilter === "ALL") return true;
 
         return player.positions.includes(positionFilter);
       })
+
       .sort((a, b) => {
         const aValue = a[sortKey];
         const bValue = b[sortKey];
@@ -335,7 +457,9 @@ export default function ProjectionUpload() {
   function sortIndicator(key: SortKey) {
     if (sortKey !== key) return "";
 
-    return sortDirection === "asc" ? " ↑" : " ↓";
+    return sortDirection === "asc"
+      ? " ↑"
+      : " ↓";
   }
 
   function toggleDrafted(playerId: string) {
@@ -353,35 +477,52 @@ export default function ProjectionUpload() {
   }
 
   function toggleMyPick(playerId: string) {
-    setMyTeamIds((current) => {
-      const next = new Set(current);
+    const alreadyMine =
+      myTeamOrder.includes(playerId);
 
-      if (next.has(playerId)) {
+    if (alreadyMine) {
+      setMyTeamOrder((current) =>
+        current.filter((id) => id !== playerId)
+      );
+
+      setDraftedIds((current) => {
+        const next = new Set(current);
         next.delete(playerId);
+        return next;
+      });
 
-        setDraftedIds((drafted) => {
-          const updated = new Set(drafted);
-          updated.delete(playerId);
-          return updated;
-        });
-      } else {
-        next.add(playerId);
+      return;
+    }
 
-        setDraftedIds((drafted) => {
-          const updated = new Set(drafted);
-          updated.add(playerId);
-          return updated;
-        });
-      }
+    setMyTeamOrder((current) => [
+      ...current,
+      playerId,
+    ]);
 
+    setDraftedIds((current) => {
+      const next = new Set(current);
+      next.add(playerId);
       return next;
     });
   }
 
-  const positions = ["ALL", "C", "LW", "RW", "D"];
+  const myTeamIdSet = useMemo(
+    () => new Set(myTeamOrder),
+    [myTeamOrder]
+  );
+
+  const positions = [
+    "ALL",
+    "C",
+    "LW",
+    "RW",
+    "D",
+  ];
 
   const draftedCount = draftedIds.size;
-  const availableCount = players.length - draftedCount;
+
+  const availableCount =
+    players.length - draftedCount;
 
   return (
     <main className="min-h-screen bg-zinc-950 p-8 text-white">
@@ -452,7 +593,10 @@ export default function ProjectionUpload() {
                 >
                   {[8, 10, 12, 14, 16, 18, 20].map(
                     (teams) => (
-                      <option key={teams} value={teams}>
+                      <option
+                        key={teams}
+                        value={teams}
+                      >
                         {teams}
                       </option>
                     )
@@ -462,60 +606,82 @@ export default function ProjectionUpload() {
             </div>
 
             <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold">
-                    My Team
-                  </h2>
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold">
+                  My Team
+                </h2>
 
-                  <p className="text-sm text-zinc-400">
-                    {myTeamPlayers.length} skaters drafted
-                  </p>
-                </div>
+                <p className="text-sm text-zinc-400">
+                  {myTeamPlayers.length} skaters drafted
+                </p>
               </div>
 
               <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-                <TeamStat label="G" value={teamTotals.goals} />
-                <TeamStat label="A" value={teamTotals.assists} />
-                <TeamStat label="P" value={teamTotals.points} />
-                <TeamStat label="PPP" value={teamTotals.ppp} />
-                <TeamStat label="SOG" value={teamTotals.sog} />
-                <TeamStat label="HIT" value={teamTotals.hits} />
-                <TeamStat label="BLK" value={teamTotals.blocks} />
+                <TeamStat
+                  label="G"
+                  value={teamTotals.goals}
+                />
+
+                <TeamStat
+                  label="A"
+                  value={teamTotals.assists}
+                />
+
+                <TeamStat
+                  label="P"
+                  value={teamTotals.points}
+                />
+
+                <TeamStat
+                  label="PPP"
+                  value={teamTotals.ppp}
+                />
+
+                <TeamStat
+                  label="SOG"
+                  value={teamTotals.sog}
+                />
+
+                <TeamStat
+                  label="HIT"
+                  value={teamTotals.hits}
+                />
+
+                <TeamStat
+                  label="BLK"
+                  value={teamTotals.blocks}
+                />
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {rosterSlots.map((slot, index) => {
-                  const player = myTeamPlayers[index];
-
-                  return (
-                    <div
-                      key={`${slot}-${index}`}
-                      className="rounded-lg border border-zinc-800 bg-zinc-950 p-3"
-                    >
-                      <div className="mb-1 text-xs font-semibold text-zinc-500">
-                        {slot}
-                      </div>
-
-                      {player ? (
-                        <>
-                          <div className="font-medium">
-                            {player.name}
-                          </div>
-
-                          <div className="text-xs text-zinc-500">
-                            {player.positions.join(", ")} ·{" "}
-                            {player.team}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-sm text-zinc-600">
-                          Empty
-                        </div>
-                      )}
+                {assignedRoster.map((slot) => (
+                  <div
+                    key={slot.id}
+                    className="rounded-lg border border-zinc-800 bg-zinc-950 p-3"
+                  >
+                    <div className="mb-1 text-xs font-semibold text-zinc-500">
+                      {slot.id}
                     </div>
-                  );
-                })}
+
+                    {slot.player ? (
+                      <>
+                        <div className="font-medium">
+                          {slot.player.name}
+                        </div>
+
+                        <div className="text-xs text-zinc-500">
+                          {slot.player.positions.join(", ")}
+                          {" · "}
+                          {slot.player.team}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-zinc-600">
+                        Empty
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -579,92 +745,155 @@ export default function ProjectionUpload() {
               <table className="w-full text-sm">
                 <thead className="bg-zinc-900 text-left">
                   <tr>
-                    <th className="p-3">Draft</th>
+                    <th className="p-3">
+                      Draft
+                    </th>
 
                     <SortableHeader
                       label="Player"
-                      onClick={() => handleSort("name")}
-                      indicator={sortIndicator("name")}
+                      onClick={() =>
+                        handleSort("name")
+                      }
+                      indicator={
+                        sortIndicator("name")
+                      }
                     />
 
                     <SortableHeader
                       label="Age"
-                      onClick={() => handleSort("age")}
-                      indicator={sortIndicator("age")}
+                      onClick={() =>
+                        handleSort("age")
+                      }
+                      indicator={
+                        sortIndicator("age")
+                      }
                     />
 
-                    <th className="p-3">Pos</th>
+                    <th className="p-3">
+                      Pos
+                    </th>
 
                     <SortableHeader
                       label="Team"
-                      onClick={() => handleSort("team")}
-                      indicator={sortIndicator("team")}
+                      onClick={() =>
+                        handleSort("team")
+                      }
+                      indicator={
+                        sortIndicator("team")
+                      }
                     />
 
                     <SortableHeader
                       label="Score"
-                      onClick={() => handleSort("score")}
-                      indicator={sortIndicator("score")}
+                      onClick={() =>
+                        handleSort("score")
+                      }
+                      indicator={
+                        sortIndicator("score")
+                      }
                     />
 
                     <SortableHeader
                       label="VOR"
-                      onClick={() => handleSort("vor")}
-                      indicator={sortIndicator("vor")}
+                      onClick={() =>
+                        handleSort("vor")
+                      }
+                      indicator={
+                        sortIndicator("vor")
+                      }
                     />
 
-                    <th className="p-3">VOR Pos</th>
+                    <th className="p-3">
+                      VOR Pos
+                    </th>
 
                     <SortableHeader
                       label="GP"
-                      onClick={() => handleSort("gp")}
-                      indicator={sortIndicator("gp")}
+                      onClick={() =>
+                        handleSort("gp")
+                      }
+                      indicator={
+                        sortIndicator("gp")
+                      }
                     />
 
                     <SortableHeader
                       label="G"
-                      onClick={() => handleSort("goals")}
-                      indicator={sortIndicator("goals")}
+                      onClick={() =>
+                        handleSort("goals")
+                      }
+                      indicator={
+                        sortIndicator("goals")
+                      }
                     />
 
                     <SortableHeader
                       label="A"
-                      onClick={() => handleSort("assists")}
-                      indicator={sortIndicator("assists")}
+                      onClick={() =>
+                        handleSort("assists")
+                      }
+                      indicator={
+                        sortIndicator("assists")
+                      }
                     />
 
                     <SortableHeader
                       label="P"
-                      onClick={() => handleSort("points")}
-                      indicator={sortIndicator("points")}
+                      onClick={() =>
+                        handleSort("points")
+                      }
+                      indicator={
+                        sortIndicator("points")
+                      }
                     />
 
                     <SortableHeader
                       label="PPP"
-                      onClick={() => handleSort("ppp")}
-                      indicator={sortIndicator("ppp")}
+                      onClick={() =>
+                        handleSort("ppp")
+                      }
+                      indicator={
+                        sortIndicator("ppp")
+                      }
                     />
 
                     <SortableHeader
                       label="SOG"
-                      onClick={() => handleSort("sog")}
-                      indicator={sortIndicator("sog")}
+                      onClick={() =>
+                        handleSort("sog")
+                      }
+                      indicator={
+                        sortIndicator("sog")
+                      }
                     />
 
                     <SortableHeader
                       label="HIT"
-                      onClick={() => handleSort("hits")}
-                      indicator={sortIndicator("hits")}
+                      onClick={() =>
+                        handleSort("hits")
+                      }
+                      indicator={
+                        sortIndicator("hits")
+                      }
                     />
 
                     <SortableHeader
                       label="BLK"
-                      onClick={() => handleSort("blocks")}
-                      indicator={sortIndicator("blocks")}
+                      onClick={() =>
+                        handleSort("blocks")
+                      }
+                      indicator={
+                        sortIndicator("blocks")
+                      }
                     />
 
-                    <th className="p-3">PO Games</th>
-                    <th className="p-3">Status</th>
+                    <th className="p-3">
+                      PO Games
+                    </th>
+
+                    <th className="p-3">
+                      Status
+                    </th>
                   </tr>
                 </thead>
 
@@ -674,7 +903,7 @@ export default function ProjectionUpload() {
                       draftedIds.has(player.id);
 
                     const myPick =
-                      myTeamIds.has(player.id);
+                      myTeamIdSet.has(player.id);
 
                     return (
                       <tr
@@ -690,7 +919,9 @@ export default function ProjectionUpload() {
                             <button
                               type="button"
                               onClick={() =>
-                                toggleDrafted(player.id)
+                                toggleDrafted(
+                                  player.id
+                                )
                               }
                               disabled={myPick}
                               className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-40"
@@ -703,7 +934,9 @@ export default function ProjectionUpload() {
                             <button
                               type="button"
                               onClick={() =>
-                                toggleMyPick(player.id)
+                                toggleMyPick(
+                                  player.id
+                                )
                               }
                               className={`rounded-lg border px-3 py-1.5 text-xs ${
                                 myPick
@@ -743,7 +976,9 @@ export default function ProjectionUpload() {
                         </td>
 
                         <td className="p-3 text-zinc-400">
-                          {player.replacementPosition}
+                          {
+                            player.replacementPosition
+                          }
                         </td>
 
                         <td className="p-3">
@@ -752,37 +987,51 @@ export default function ProjectionUpload() {
 
                         <HeatmapCell
                           value={player.goals}
-                          zScore={player.zScores.goals}
+                          zScore={
+                            player.zScores.goals
+                          }
                         />
 
                         <HeatmapCell
                           value={player.assists}
-                          zScore={player.zScores.assists}
+                          zScore={
+                            player.zScores.assists
+                          }
                         />
 
                         <HeatmapCell
                           value={player.points}
-                          zScore={player.zScores.points}
+                          zScore={
+                            player.zScores.points
+                          }
                         />
 
                         <HeatmapCell
                           value={player.ppp}
-                          zScore={player.zScores.ppp}
+                          zScore={
+                            player.zScores.ppp
+                          }
                         />
 
                         <HeatmapCell
                           value={player.sog}
-                          zScore={player.zScores.sog}
+                          zScore={
+                            player.zScores.sog
+                          }
                         />
 
                         <HeatmapCell
                           value={player.hits}
-                          zScore={player.zScores.hits}
+                          zScore={
+                            player.zScores.hits
+                          }
                         />
 
                         <HeatmapCell
                           value={player.blocks}
-                          zScore={player.zScores.blocks}
+                          zScore={
+                            player.zScores.blocks
+                          }
                         />
 
                         <td className="p-3 text-zinc-500">
@@ -828,45 +1077,52 @@ function getHeatmapStyle(
 ): React.CSSProperties {
   if (zScore >= 2) {
     return {
-      backgroundColor: "rgba(22, 163, 74, 0.70)",
+      backgroundColor:
+        "rgba(22, 163, 74, 0.70)",
       color: "#ffffff",
     };
   }
 
   if (zScore >= 1) {
     return {
-      backgroundColor: "rgba(22, 163, 74, 0.42)",
+      backgroundColor:
+        "rgba(22, 163, 74, 0.42)",
       color: "#dcfce7",
     };
   }
 
   if (zScore >= 0.35) {
     return {
-      backgroundColor: "rgba(22, 163, 74, 0.20)",
+      backgroundColor:
+        "rgba(22, 163, 74, 0.20)",
     };
   }
 
   if (zScore > -0.35) {
     return {
-      backgroundColor: "rgba(113, 113, 122, 0.10)",
+      backgroundColor:
+        "rgba(113, 113, 122, 0.10)",
     };
   }
 
   if (zScore > -1) {
     return {
-      backgroundColor: "rgba(220, 38, 38, 0.18)",
+      backgroundColor:
+        "rgba(220, 38, 38, 0.18)",
     };
   }
 
   if (zScore > -2) {
     return {
-      backgroundColor: "rgba(220, 38, 38, 0.38)",
+      backgroundColor:
+        "rgba(220, 38, 38, 0.38)",
       color: "#fee2e2",
     };
   }
 
   return {
-    backgroundColor: "rgba(220, 38, 38, 0.65)",
+    backgroundColor:
+      "rgba(220, 38, 38, 0.65)",
     color: "#ffffff",
   };
 }
