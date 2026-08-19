@@ -81,23 +81,31 @@ export default function ProjectionUpload() {
       { mean: number; stdDev: number }
     >;
 
-    for (const category of categoryKeys) {
-      const values = players.map((player) => player[category]);
+    // Use a realistic fantasy-relevant player pool instead of all 757 players.
+// This prevents elite NHL players from all looking equally dominant.
+const fantasyPool = [...players]
+.sort((a, b) => b.points - a.points)
+.slice(0, 250);
 
-      const mean =
-        values.reduce((sum, value) => sum + value, 0) /
-        values.length;
+for (const category of categoryKeys) {
+const values = fantasyPool.map(
+  (player) => player[category]
+);
 
-      const variance =
-        values.reduce((sum, value) => {
-          return sum + Math.pow(value - mean, 2);
-        }, 0) / values.length;
+const mean =
+  values.reduce((sum, value) => sum + value, 0) /
+  values.length;
 
-      stats[category] = {
-        mean,
-        stdDev: Math.sqrt(variance),
-      };
-    }
+const variance =
+  values.reduce((sum, value) => {
+    return sum + Math.pow(value - mean, 2);
+  }, 0) / values.length;
+
+stats[category] = {
+  mean,
+  stdDev: Math.sqrt(variance),
+};
+}
 
     return players.map((player) => {
       const zScores = {} as Record<CategoryKey, number>;
@@ -536,32 +544,53 @@ function HeatmapCell({
 }
 
 function getHeatmapStyle(
-  zScore: number
-): React.CSSProperties {
-  const clamped = Math.max(-2.5, Math.min(2.5, zScore));
-  const strength = Math.abs(clamped) / 2.5;
-
-  if (clamped > 0) {
+    zScore: number
+  ): React.CSSProperties {
+    if (zScore >= 2) {
+      return {
+        backgroundColor: "rgba(22, 163, 74, 0.70)",
+        color: "#ffffff",
+      };
+    }
+  
+    if (zScore >= 1) {
+      return {
+        backgroundColor: "rgba(22, 163, 74, 0.42)",
+        color: "#dcfce7",
+      };
+    }
+  
+    if (zScore >= 0.35) {
+      return {
+        backgroundColor: "rgba(22, 163, 74, 0.20)",
+      };
+    }
+  
+    if (zScore > -0.35) {
+      return {
+        backgroundColor: "rgba(113, 113, 122, 0.10)",
+      };
+    }
+  
+    if (zScore > -1) {
+      return {
+        backgroundColor: "rgba(220, 38, 38, 0.18)",
+      };
+    }
+  
+    if (zScore > -2) {
+      return {
+        backgroundColor: "rgba(220, 38, 38, 0.38)",
+        color: "#fee2e2",
+      };
+    }
+  
     return {
-      backgroundColor: `rgba(34, 197, 94, ${
-        0.08 + strength * 0.34
-      })`,
-      color: strength > 0.55 ? "#dcfce7" : undefined,
+      backgroundColor: "rgba(220, 38, 38, 0.65)",
+      color: "#ffffff",
     };
   }
-
-  if (clamped < 0) {
-    return {
-      backgroundColor: `rgba(239, 68, 68, ${
-        0.05 + strength * 0.24
-      })`,
-      color: strength > 0.55 ? "#fee2e2" : undefined,
-    };
-  }
-
-  return {};
-}
-
+  
 function StatCard({
   label,
   value,
