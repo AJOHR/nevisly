@@ -3,6 +3,7 @@ import type { SkaterProjection } from "@/types/player";
 
 type ProjectionRow = {
   Player?: string;
+  Age?: string | number;
   Pos?: string;
   Team?: string;
   GP?: string | number;
@@ -33,8 +34,13 @@ export function parseSkaterCsv(
           .filter((row) => row.Player)
           .map((row, index) => ({
             id: `${row.Player}-${row.Team}-${index}`,
+
             name: row.Player?.trim() ?? "",
+
+            age: num(row.Age),
+
             team: row.Team?.trim() ?? "",
+
             positions:
               row.Pos?.split(/[,/]/)
                 .map((position) => position.trim())

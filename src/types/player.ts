@@ -1,6 +1,7 @@
 export type SkaterProjection = {
     id: string;
     name: string;
+    age: number;
     team: string;
     positions: string[];
   

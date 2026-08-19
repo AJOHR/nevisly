@@ -26,6 +26,7 @@ type RankedPlayer = SkaterProjection & {
 
 type SortKey =
   | "name"
+  | "age"
   | "team"
   | "score"
   | "vor"
@@ -88,12 +89,6 @@ export default function ProjectionUpload() {
   const rankedPlayers = useMemo<RankedPlayer[]>(() => {
     if (players.length === 0) return [];
 
-    /*
-     * Z-SCORE BASELINE
-     *
-     * We use the top 250 fantasy-relevant skaters rather than
-     * all fringe NHL players.
-     */
     const fantasyPool = [...players]
       .sort((a, b) => b.points - a.points)
       .slice(0, 250);
@@ -125,10 +120,6 @@ export default function ProjectionUpload() {
       };
     }
 
-    /*
-     * FIRST PASS:
-     * Calculate raw 7-category Z-score.
-     */
     const basePlayers = players.map((player) => {
       const zScores = {} as Record<CategoryKey, number>;
 
@@ -153,16 +144,6 @@ export default function ProjectionUpload() {
       };
     });
 
-    /*
-     * REPLACEMENT LEVELS
-     *
-     * Example with a 12-team league:
-     *
-     * C  = 12 × 2 = 24th C
-     * LW = 12 × 2 = 24th LW
-     * RW = 12 × 2 = 24th RW
-     * D  = 12 × 4 = 48th D
-     */
     const replacementScores: Record<string, number> = {};
 
     for (const position of ["C", "LW", "RW", "D"]) {
@@ -187,13 +168,6 @@ export default function ProjectionUpload() {
         positionalPlayers[replacementIndex]?.rawScore ?? 0;
     }
 
-    /*
-     * SECOND PASS:
-     * Calculate Value Over Replacement.
-     *
-     * Multi-position players receive the best VOR available
-     * across their eligible positions.
-     */
     return basePlayers.map((player) => {
       const eligiblePositions = player.positions.filter(
         (position) =>
@@ -220,15 +194,7 @@ export default function ProjectionUpload() {
       return {
         ...player,
         vor: bestVor,
-
-        /*
-         * For this version, Nevisly Score IS positional VOR.
-         *
-         * This avoids an arbitrary scarcity multiplier and makes
-         * players directly comparable across positions.
-         */
         score: bestVor,
-
         replacementPosition: bestPosition,
       };
     });
@@ -482,6 +448,14 @@ export default function ProjectionUpload() {
                       indicator={sortIndicator("name")}
                     />
 
+                    <SortableHeader
+                      label="Age"
+                      onClick={() =>
+                        handleSort("age")
+                      }
+                      indicator={sortIndicator("age")}
+                    />
+
                     <th className="p-3">Pos</th>
 
                     <SortableHeader
@@ -616,6 +590,10 @@ export default function ProjectionUpload() {
 
                         <td className="p-3 font-medium">
                           {player.name}
+                        </td>
+
+                        <td className="p-3">
+                          {player.age}
                         </td>
 
                         <td className="p-3">
