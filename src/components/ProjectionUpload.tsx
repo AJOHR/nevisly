@@ -48,6 +48,23 @@ const STARTERS_PER_TEAM: Record<string, number> = {
   D: 4,
 };
 
+const rosterSlots = [
+  "C",
+  "C",
+  "LW",
+  "LW",
+  "RW",
+  "RW",
+  "D",
+  "D",
+  "D",
+  "D",
+  "BN",
+  "BN",
+  "BN",
+  "BN",
+];
+
 export default function ProjectionUpload() {
   const [players, setPlayers] = useState<SkaterProjection[]>([]);
   const [error, setError] = useState("");
@@ -60,6 +77,10 @@ export default function ProjectionUpload() {
     useState<SortDirection>("desc");
 
   const [draftedIds, setDraftedIds] = useState<Set<string>>(
+    new Set()
+  );
+
+  const [myTeamIds, setMyTeamIds] = useState<Set<string>>(
     new Set()
   );
 
@@ -81,6 +102,7 @@ export default function ProjectionUpload() {
 
       setPlayers(parsedPlayers);
       setDraftedIds(new Set());
+      setMyTeamIds(new Set());
     } catch {
       setError("Could not read projection file.");
     }
@@ -122,7 +144,6 @@ export default function ProjectionUpload() {
 
     const basePlayers = players.map((player) => {
       const zScores = {} as Record<CategoryKey, number>;
-
       let rawScore = 0;
 
       for (const category of categoryKeys) {
@@ -199,6 +220,45 @@ export default function ProjectionUpload() {
       };
     });
   }, [players, leagueTeams]);
+
+  const myTeamPlayers = useMemo(() => {
+    return rankedPlayers.filter((player) =>
+      myTeamIds.has(player.id)
+    );
+  }, [rankedPlayers, myTeamIds]);
+
+  const teamTotals = useMemo(() => {
+    return {
+      goals: myTeamPlayers.reduce(
+        (sum, player) => sum + player.goals,
+        0
+      ),
+      assists: myTeamPlayers.reduce(
+        (sum, player) => sum + player.assists,
+        0
+      ),
+      points: myTeamPlayers.reduce(
+        (sum, player) => sum + player.points,
+        0
+      ),
+      ppp: myTeamPlayers.reduce(
+        (sum, player) => sum + player.ppp,
+        0
+      ),
+      sog: myTeamPlayers.reduce(
+        (sum, player) => sum + player.sog,
+        0
+      ),
+      hits: myTeamPlayers.reduce(
+        (sum, player) => sum + player.hits,
+        0
+      ),
+      blocks: myTeamPlayers.reduce(
+        (sum, player) => sum + player.blocks,
+        0
+      ),
+    };
+  }, [myTeamPlayers]);
 
   const filteredPlayers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -292,6 +352,32 @@ export default function ProjectionUpload() {
     });
   }
 
+  function toggleMyPick(playerId: string) {
+    setMyTeamIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(playerId)) {
+        next.delete(playerId);
+
+        setDraftedIds((drafted) => {
+          const updated = new Set(drafted);
+          updated.delete(playerId);
+          return updated;
+        });
+      } else {
+        next.add(playerId);
+
+        setDraftedIds((drafted) => {
+          const updated = new Set(drafted);
+          updated.add(playerId);
+          return updated;
+        });
+      }
+
+      return next;
+    });
+  }
+
   const positions = ["ALL", "C", "LW", "RW", "D"];
 
   const draftedCount = draftedIds.size;
@@ -299,7 +385,7 @@ export default function ProjectionUpload() {
 
   return (
     <main className="min-h-screen bg-zinc-950 p-8 text-white">
-      <div className="mx-auto max-w-[1700px]">
+      <div className="mx-auto max-w-[1800px]">
         <h1 className="mb-2 text-3xl font-bold">
           Nevisly
         </h1>
@@ -366,15 +452,70 @@ export default function ProjectionUpload() {
                 >
                   {[8, 10, 12, 14, 16, 18, 20].map(
                     (teams) => (
-                      <option
-                        key={teams}
-                        value={teams}
-                      >
+                      <option key={teams} value={teams}>
                         {teams}
                       </option>
                     )
                   )}
                 </select>
+              </div>
+            </div>
+
+            <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold">
+                    My Team
+                  </h2>
+
+                  <p className="text-sm text-zinc-400">
+                    {myTeamPlayers.length} skaters drafted
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+                <TeamStat label="G" value={teamTotals.goals} />
+                <TeamStat label="A" value={teamTotals.assists} />
+                <TeamStat label="P" value={teamTotals.points} />
+                <TeamStat label="PPP" value={teamTotals.ppp} />
+                <TeamStat label="SOG" value={teamTotals.sog} />
+                <TeamStat label="HIT" value={teamTotals.hits} />
+                <TeamStat label="BLK" value={teamTotals.blocks} />
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {rosterSlots.map((slot, index) => {
+                  const player = myTeamPlayers[index];
+
+                  return (
+                    <div
+                      key={`${slot}-${index}`}
+                      className="rounded-lg border border-zinc-800 bg-zinc-950 p-3"
+                    >
+                      <div className="mb-1 text-xs font-semibold text-zinc-500">
+                        {slot}
+                      </div>
+
+                      {player ? (
+                        <>
+                          <div className="font-medium">
+                            {player.name}
+                          </div>
+
+                          <div className="text-xs text-zinc-500">
+                            {player.positions.join(", ")} ·{" "}
+                            {player.team}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-sm text-zinc-600">
+                          Empty
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -442,17 +583,13 @@ export default function ProjectionUpload() {
 
                     <SortableHeader
                       label="Player"
-                      onClick={() =>
-                        handleSort("name")
-                      }
+                      onClick={() => handleSort("name")}
                       indicator={sortIndicator("name")}
                     />
 
                     <SortableHeader
                       label="Age"
-                      onClick={() =>
-                        handleSort("age")
-                      }
+                      onClick={() => handleSort("age")}
                       indicator={sortIndicator("age")}
                     />
 
@@ -460,103 +597,74 @@ export default function ProjectionUpload() {
 
                     <SortableHeader
                       label="Team"
-                      onClick={() =>
-                        handleSort("team")
-                      }
+                      onClick={() => handleSort("team")}
                       indicator={sortIndicator("team")}
                     />
 
                     <SortableHeader
                       label="Score"
-                      onClick={() =>
-                        handleSort("score")
-                      }
+                      onClick={() => handleSort("score")}
                       indicator={sortIndicator("score")}
                     />
 
                     <SortableHeader
                       label="VOR"
-                      onClick={() =>
-                        handleSort("vor")
-                      }
+                      onClick={() => handleSort("vor")}
                       indicator={sortIndicator("vor")}
                     />
 
-                    <th className="p-3">
-                      VOR Pos
-                    </th>
+                    <th className="p-3">VOR Pos</th>
 
                     <SortableHeader
                       label="GP"
-                      onClick={() =>
-                        handleSort("gp")
-                      }
+                      onClick={() => handleSort("gp")}
                       indicator={sortIndicator("gp")}
                     />
 
                     <SortableHeader
                       label="G"
-                      onClick={() =>
-                        handleSort("goals")
-                      }
+                      onClick={() => handleSort("goals")}
                       indicator={sortIndicator("goals")}
                     />
 
                     <SortableHeader
                       label="A"
-                      onClick={() =>
-                        handleSort("assists")
-                      }
+                      onClick={() => handleSort("assists")}
                       indicator={sortIndicator("assists")}
                     />
 
                     <SortableHeader
                       label="P"
-                      onClick={() =>
-                        handleSort("points")
-                      }
+                      onClick={() => handleSort("points")}
                       indicator={sortIndicator("points")}
                     />
 
                     <SortableHeader
                       label="PPP"
-                      onClick={() =>
-                        handleSort("ppp")
-                      }
+                      onClick={() => handleSort("ppp")}
                       indicator={sortIndicator("ppp")}
                     />
 
                     <SortableHeader
                       label="SOG"
-                      onClick={() =>
-                        handleSort("sog")
-                      }
+                      onClick={() => handleSort("sog")}
                       indicator={sortIndicator("sog")}
                     />
 
                     <SortableHeader
                       label="HIT"
-                      onClick={() =>
-                        handleSort("hits")
-                      }
+                      onClick={() => handleSort("hits")}
                       indicator={sortIndicator("hits")}
                     />
 
                     <SortableHeader
                       label="BLK"
-                      onClick={() =>
-                        handleSort("blocks")
-                      }
+                      onClick={() => handleSort("blocks")}
                       indicator={sortIndicator("blocks")}
                     />
 
-                    <th className="p-3">
-                      PO Games
-                    </th>
-
-                    <th className="p-3">
-                      Status
-                    </th>
+                    <th className="p-3">PO Games</th>
+                    <th className="p-3">Status</th>
                   </tr>
                 </thead>
 
@@ -564,6 +672,9 @@ export default function ProjectionUpload() {
                   {filteredPlayers.map((player) => {
                     const drafted =
                       draftedIds.has(player.id);
+
+                    const myPick =
+                      myTeamIds.has(player.id);
 
                     return (
                       <tr
@@ -575,17 +686,36 @@ export default function ProjectionUpload() {
                         }`}
                       >
                         <td className="p-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              toggleDrafted(player.id)
-                            }
-                            className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs hover:border-zinc-500"
-                          >
-                            {drafted
-                              ? "Undo"
-                              : "Drafted"}
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                toggleDrafted(player.id)
+                              }
+                              disabled={myPick}
+                              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {drafted && !myPick
+                                ? "Undo"
+                                : "Drafted"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                toggleMyPick(player.id)
+                              }
+                              className={`rounded-lg border px-3 py-1.5 text-xs ${
+                                myPick
+                                  ? "border-emerald-600 bg-emerald-950 text-emerald-300"
+                                  : "border-zinc-700 bg-zinc-900 hover:border-emerald-700"
+                              }`}
+                            >
+                              {myPick
+                                ? "Remove"
+                                : "My Pick"}
+                            </button>
+                          </div>
                         </td>
 
                         <td className="p-3 font-medium">
@@ -622,51 +752,37 @@ export default function ProjectionUpload() {
 
                         <HeatmapCell
                           value={player.goals}
-                          zScore={
-                            player.zScores.goals
-                          }
+                          zScore={player.zScores.goals}
                         />
 
                         <HeatmapCell
                           value={player.assists}
-                          zScore={
-                            player.zScores.assists
-                          }
+                          zScore={player.zScores.assists}
                         />
 
                         <HeatmapCell
                           value={player.points}
-                          zScore={
-                            player.zScores.points
-                          }
+                          zScore={player.zScores.points}
                         />
 
                         <HeatmapCell
                           value={player.ppp}
-                          zScore={
-                            player.zScores.ppp
-                          }
+                          zScore={player.zScores.ppp}
                         />
 
                         <HeatmapCell
                           value={player.sog}
-                          zScore={
-                            player.zScores.sog
-                          }
+                          zScore={player.zScores.sog}
                         />
 
                         <HeatmapCell
                           value={player.hits}
-                          zScore={
-                            player.zScores.hits
-                          }
+                          zScore={player.zScores.hits}
                         />
 
                         <HeatmapCell
                           value={player.blocks}
-                          zScore={
-                            player.zScores.blocks
-                          }
+                          zScore={player.zScores.blocks}
                         />
 
                         <td className="p-3 text-zinc-500">
@@ -769,6 +885,26 @@ function StatCard({
       </div>
 
       <div className="mt-1 text-2xl font-bold">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function TeamStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+      <div className="text-xs text-zinc-500">
+        {label}
+      </div>
+
+      <div className="mt-1 text-lg font-semibold">
         {value}
       </div>
     </div>
