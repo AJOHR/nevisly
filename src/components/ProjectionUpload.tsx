@@ -106,7 +106,6 @@ export default function ProjectionUpload() {
   const [myTeamOrder, setMyTeamOrder] = useState<string[]>([]);
 
   const [showDrafted, setShowDrafted] = useState(false);
-
   const [leagueTeams, setLeagueTeams] = useState(12);
 
   async function handleFile(
@@ -129,10 +128,6 @@ export default function ProjectionUpload() {
     }
   }
 
-  /*
-   * STEP 1
-   * Calculate category Z-scores + positional VOR.
-   */
   const baseRankedPlayers = useMemo<BaseRankedPlayer[]>(() => {
     if (players.length === 0) return [];
 
@@ -169,7 +164,6 @@ export default function ProjectionUpload() {
 
     const basePlayers = players.map((player) => {
       const zScores = {} as Record<CategoryKey, number>;
-
       let rawScore = 0;
 
       for (const category of categoryKeys) {
@@ -246,9 +240,6 @@ export default function ProjectionUpload() {
     });
   }, [players, leagueTeams]);
 
-  /*
-   * Find your drafted players BEFORE applying team-needs scoring.
-   */
   const baseMyTeamPlayers = useMemo(() => {
     const playerMap = new Map(
       baseRankedPlayers.map((player) => [
@@ -265,12 +256,6 @@ export default function ProjectionUpload() {
       );
   }, [baseRankedPlayers, myTeamOrder]);
 
-  /*
-   * STEP 2
-   * Determine your current strength in each category.
-   *
-   * We use average Z-score per drafted player.
-   */
   const teamCategoryStrength = useMemo(() => {
     const result = {} as Record<CategoryKey, number>;
 
@@ -293,15 +278,6 @@ export default function ProjectionUpload() {
     return result;
   }, [baseMyTeamPlayers]);
 
-  /*
-   * STEP 3
-   * Convert category strength into a need multiplier.
-   *
-   * Weak category = > 1.00
-   * Strong category = < 1.00
-   *
-   * At the start of the draft every category is 1.00.
-   */
   const teamNeedWeights = useMemo(() => {
     const result = {} as Record<CategoryKey, number>;
 
@@ -328,13 +304,6 @@ export default function ProjectionUpload() {
         teamCategoryStrength[category] -
         averageStrength;
 
-      /*
-       * Category weakness increases the multiplier.
-       * Category strength decreases it.
-       *
-       * Clamp prevents the recommendation engine
-       * from overreacting to one category.
-       */
       const weight =
         1 - relativeStrength * 0.18;
 
@@ -350,14 +319,6 @@ export default function ProjectionUpload() {
     teamCategoryStrength,
   ]);
 
-  /*
-   * STEP 4
-   * Apply team needs to every player.
-   *
-   * VOR remains our baseline.
-   * Need Bonus adjusts that baseline according
-   * to YOUR roster composition.
-   */
   const rankedPlayers = useMemo<RankedPlayer[]>(() => {
     return baseRankedPlayers.map((player) => {
       let needBonus = 0;
@@ -370,10 +331,6 @@ export default function ProjectionUpload() {
           player.zScores[category] * extraWeight;
       }
 
-      /*
-       * Keep the needs adjustment meaningful,
-       * but secondary to actual player value.
-       */
       needBonus *= 0.75;
 
       return {
@@ -400,9 +357,6 @@ export default function ProjectionUpload() {
       );
   }, [rankedPlayers, myTeamOrder]);
 
-  /*
-   * Intelligent starting roster assignment.
-   */
   const assignedRoster = useMemo<RosterSlot[]>(() => {
     const starterAssignments = new Map<
       string,
@@ -439,7 +393,6 @@ export default function ProjectionUpload() {
           tryAssign(existingPlayer, visitedSlots)
         ) {
           starterAssignments.set(slot.id, player);
-
           return true;
         }
       }
@@ -486,44 +439,58 @@ export default function ProjectionUpload() {
     return [...starters, ...bench];
   }, [myTeamPlayers]);
 
+  const openStarterPositions = useMemo(() => {
+    return assignedRoster
+      .filter(
+        (slot) =>
+          slot.position !== "BN" &&
+          !slot.player
+      )
+      .map((slot) => slot.position);
+  }, [assignedRoster]);
+
   const teamTotals = useMemo(() => {
     return {
       goals: myTeamPlayers.reduce(
         (sum, player) => sum + player.goals,
         0
       ),
-
       assists: myTeamPlayers.reduce(
         (sum, player) => sum + player.assists,
         0
       ),
-
       points: myTeamPlayers.reduce(
         (sum, player) => sum + player.points,
         0
       ),
-
       ppp: myTeamPlayers.reduce(
         (sum, player) => sum + player.ppp,
         0
       ),
-
       sog: myTeamPlayers.reduce(
         (sum, player) => sum + player.sog,
         0
       ),
-
       hits: myTeamPlayers.reduce(
         (sum, player) => sum + player.hits,
         0
       ),
-
       blocks: myTeamPlayers.reduce(
         (sum, player) => sum + player.blocks,
         0
       ),
     };
   }, [myTeamPlayers]);
+
+  /*
+   * Top 5 available recommendations.
+   */
+  const bestAvailable = useMemo(() => {
+    return rankedPlayers
+      .filter((player) => !draftedIds.has(player.id))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+  }, [rankedPlayers, draftedIds]);
 
   const filteredPlayers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -639,7 +606,6 @@ export default function ProjectionUpload() {
       setDraftedIds((current) => {
         const next = new Set(current);
         next.delete(playerId);
-
         return next;
       });
 
@@ -654,9 +620,110 @@ export default function ProjectionUpload() {
     setDraftedIds((current) => {
       const next = new Set(current);
       next.add(playerId);
-
       return next;
     });
+  }
+
+  function getRecommendationReasons(
+    player: RankedPlayer
+  ) {
+    const reasons: string[] = [];
+
+    const categoryStrengths = categoryKeys
+      .map((category) => ({
+        category,
+        zScore: player.zScores[category],
+        weight: teamNeedWeights[category],
+      }))
+      .sort(
+        (a, b) =>
+          b.zScore * b.weight -
+          a.zScore * a.weight
+      );
+
+    const eliteCategories =
+      categoryStrengths.filter(
+        (item) => item.zScore >= 1
+      );
+
+    if (eliteCategories.length > 0) {
+      const labels = eliteCategories
+        .slice(0, 2)
+        .map(
+          (item) =>
+            CATEGORY_LABELS[item.category]
+        );
+
+      reasons.push(
+        `Strong ${labels.join(" + ")}`
+      );
+    }
+
+    const neededCategories =
+      categoryStrengths.filter(
+        (item) =>
+          item.weight >= 1.08 &&
+          item.zScore > 0.35
+      );
+
+    if (neededCategories.length > 0) {
+      const labels = neededCategories
+        .slice(0, 2)
+        .map(
+          (item) =>
+            CATEGORY_LABELS[item.category]
+        );
+
+      reasons.push(
+        `Helps ${labels.join(" + ")} need`
+      );
+    }
+
+    const fillsOpenPosition =
+      player.positions.find((position) =>
+        openStarterPositions.includes(
+          position as
+            | "C"
+            | "LW"
+            | "RW"
+            | "D"
+        )
+      );
+
+    if (fillsOpenPosition) {
+      reasons.push(
+        `Fills open ${fillsOpenPosition}`
+      );
+    }
+
+    if (
+      player.replacementPosition === "D" &&
+      player.vor > 0
+    ) {
+      reasons.push("D scarcity value");
+    }
+
+    if (player.positions.length > 1) {
+      reasons.push(
+        `${player.positions.join("/")} flexibility`
+      );
+    }
+
+    if (
+      player.needBonus >= 0.2
+    ) {
+      reasons.push(
+        `+${player.needBonus.toFixed(
+          2
+        )} team-fit boost`
+      );
+    }
+
+    if (reasons.length === 0) {
+      reasons.push("Best overall value");
+    }
+
+    return reasons.slice(0, 3);
   }
 
   const myTeamIdSet = useMemo(
@@ -761,6 +828,150 @@ export default function ProjectionUpload() {
                     </option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            <div className="mb-6 rounded-xl border border-emerald-900/60 bg-zinc-900 p-5">
+              <div className="mb-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                  Live Draft Assistant
+                </p>
+
+                <h2 className="mt-1 text-2xl font-bold">
+                  Best Available
+                </h2>
+
+                <p className="mt-1 text-sm text-zinc-400">
+                  Ranked by Nevisly Score using
+                  player value, positional scarcity
+                  and your current team needs.
+                </p>
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-5">
+                {bestAvailable.map(
+                  (player, index) => {
+                    const reasons =
+                      getRecommendationReasons(
+                        player
+                      );
+
+                    return (
+                      <div
+                        key={player.id}
+                        className={`rounded-xl border p-4 ${
+                          index === 0
+                            ? "border-emerald-600 bg-emerald-950/30"
+                            : "border-zinc-800 bg-zinc-950"
+                        }`}
+                      >
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-bold text-zinc-500">
+                              #{index + 1}
+                            </div>
+
+                            <div className="mt-1 font-semibold">
+                              {player.name}
+                            </div>
+
+                            <div className="text-xs text-zinc-500">
+                              {player.positions.join(
+                                "/"
+                              )}
+                              {" · "}
+                              {player.team}
+                              {" · Age "}
+                              {player.age}
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <div className="text-xs text-zinc-500">
+                              Score
+                            </div>
+
+                            <div className="text-xl font-bold text-emerald-400">
+                              {player.score.toFixed(
+                                2
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mb-3 flex gap-4 text-xs">
+                          <div>
+                            <span className="text-zinc-500">
+                              VOR{" "}
+                            </span>
+                            <span className="font-semibold">
+                              {player.vor.toFixed(
+                                2
+                              )}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-zinc-500">
+                              Need{" "}
+                            </span>
+
+                            <span
+                              className={
+                                player.needBonus >
+                                0
+                                  ? "font-semibold text-emerald-400"
+                                  : player.needBonus <
+                                      0
+                                    ? "font-semibold text-red-400"
+                                    : "font-semibold"
+                              }
+                            >
+                              {player.needBonus >
+                              0
+                                ? "+"
+                                : ""}
+                              {player.needBonus.toFixed(
+                                2
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 text-xs text-zinc-300">
+                          {reasons.map(
+                            (reason) => (
+                              <div
+                                key={reason}
+                                className="flex gap-2"
+                              >
+                                <span className="text-emerald-500">
+                                  •
+                                </span>
+
+                                <span>
+                                  {reason}
+                                </span>
+                              </div>
+                            )
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleMyPick(
+                              player.id
+                            )
+                          }
+                          className="mt-4 w-full rounded-lg border border-emerald-700 bg-emerald-950/40 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-950"
+                        >
+                          My Pick
+                        </button>
+                      </div>
+                    );
+                  }
+                )}
               </div>
             </div>
 

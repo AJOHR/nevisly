@@ -2,7 +2,7 @@
 
 ## Project
 
-Nevisly is a Yahoo Fantasy Hockey draft assistant inspired by tools such as TBFHL.
+Nevisly is a Yahoo Fantasy Hockey draft assistant inspired by tools such as _____.
 
 Current production URL:
 
