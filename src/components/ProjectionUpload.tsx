@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 import type { SkaterProjection } from "@/types/player";
 import type { DraftPick, FantasyTeam } from "@/types/draft";
+import LeagueRankings from "@/components/LeagueRankings";
 
 const MY_TEAM_ID = "team-1";
 
@@ -1184,7 +1185,10 @@ export default function ProjectionUpload() {
                   <p className="text-xs font-semibold uppercase tracking-wider text-blue-400">
                     Manual Draft Mode
                   </p>
-
+                  <LeagueRankings
+  fantasyTeams={fantasyTeams}
+  leagueTeamPlayers={leagueTeamPlayers}
+/>
                   <h2 className="mt-1 text-xl font-bold">
                     Draft To Team
                   </h2>
