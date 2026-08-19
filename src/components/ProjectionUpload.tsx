@@ -4,26 +4,6 @@ import { useMemo, useState } from "react";
 import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 import type { SkaterProjection } from "@/types/player";
 
-type RankedPlayer = SkaterProjection & {
-  score: number;
-  zScores: Record<CategoryKey, number>;
-};
-
-type SortKey =
-  | "name"
-  | "team"
-  | "score"
-  | "gp"
-  | "goals"
-  | "assists"
-  | "points"
-  | "ppp"
-  | "sog"
-  | "hits"
-  | "blocks";
-
-type SortDirection = "asc" | "desc";
-
 const categoryKeys = [
   "goals",
   "assists",
@@ -36,11 +16,44 @@ const categoryKeys = [
 
 type CategoryKey = (typeof categoryKeys)[number];
 
+type RankedPlayer = SkaterProjection & {
+  rawScore: number;
+  vor: number;
+  score: number;
+  replacementPosition: string;
+  zScores: Record<CategoryKey, number>;
+};
+
+type SortKey =
+  | "name"
+  | "team"
+  | "score"
+  | "vor"
+  | "gp"
+  | "goals"
+  | "assists"
+  | "points"
+  | "ppp"
+  | "sog"
+  | "hits"
+  | "blocks";
+
+type SortDirection = "asc" | "desc";
+
+const STARTERS_PER_TEAM: Record<string, number> = {
+  C: 2,
+  LW: 2,
+  RW: 2,
+  D: 4,
+};
+
 export default function ProjectionUpload() {
   const [players, setPlayers] = useState<SkaterProjection[]>([]);
   const [error, setError] = useState("");
+
   const [search, setSearch] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
+
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDirection, setSortDirection] =
     useState<SortDirection>("desc");
@@ -50,6 +63,8 @@ export default function ProjectionUpload() {
   );
 
   const [showDrafted, setShowDrafted] = useState(false);
+
+  const [leagueTeams, setLeagueTeams] = useState(12);
 
   async function handleFile(
     event: React.ChangeEvent<HTMLInputElement>
@@ -73,43 +88,51 @@ export default function ProjectionUpload() {
   const rankedPlayers = useMemo<RankedPlayer[]>(() => {
     if (players.length === 0) return [];
 
-    const stats: Record<
-      CategoryKey,
-      { mean: number; stdDev: number }
-    > = {} as Record<
+    /*
+     * Z-SCORE BASELINE
+     *
+     * We use the top 250 fantasy-relevant skaters rather than
+     * all fringe NHL players.
+     */
+    const fantasyPool = [...players]
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 250);
+
+    const stats = {} as Record<
       CategoryKey,
       { mean: number; stdDev: number }
     >;
 
-    // Use a realistic fantasy-relevant player pool instead of all 757 players.
-// This prevents elite NHL players from all looking equally dominant.
-const fantasyPool = [...players]
-.sort((a, b) => b.points - a.points)
-.slice(0, 250);
+    for (const category of categoryKeys) {
+      const values = fantasyPool.map(
+        (player) => player[category]
+      );
 
-for (const category of categoryKeys) {
-const values = fantasyPool.map(
-  (player) => player[category]
-);
+      const mean =
+        values.reduce((sum, value) => sum + value, 0) /
+        values.length;
 
-const mean =
-  values.reduce((sum, value) => sum + value, 0) /
-  values.length;
+      const variance =
+        values.reduce(
+          (sum, value) =>
+            sum + Math.pow(value - mean, 2),
+          0
+        ) / values.length;
 
-const variance =
-  values.reduce((sum, value) => {
-    return sum + Math.pow(value - mean, 2);
-  }, 0) / values.length;
+      stats[category] = {
+        mean,
+        stdDev: Math.sqrt(variance),
+      };
+    }
 
-stats[category] = {
-  mean,
-  stdDev: Math.sqrt(variance),
-};
-}
-
-    return players.map((player) => {
+    /*
+     * FIRST PASS:
+     * Calculate raw 7-category Z-score.
+     */
+    const basePlayers = players.map((player) => {
       const zScores = {} as Record<CategoryKey, number>;
-      let totalZScore = 0;
+
+      let rawScore = 0;
 
       for (const category of categoryKeys) {
         const { mean, stdDev } = stats[category];
@@ -120,16 +143,96 @@ stats[category] = {
             : (player[category] - mean) / stdDev;
 
         zScores[category] = zScore;
-        totalZScore += zScore;
+        rawScore += zScore;
       }
 
       return {
         ...player,
-        score: totalZScore,
+        rawScore,
         zScores,
       };
     });
-  }, [players]);
+
+    /*
+     * REPLACEMENT LEVELS
+     *
+     * Example with a 12-team league:
+     *
+     * C  = 12 × 2 = 24th C
+     * LW = 12 × 2 = 24th LW
+     * RW = 12 × 2 = 24th RW
+     * D  = 12 × 4 = 48th D
+     */
+    const replacementScores: Record<string, number> = {};
+
+    for (const position of ["C", "LW", "RW", "D"]) {
+      const requiredStarters =
+        leagueTeams * STARTERS_PER_TEAM[position];
+
+      const positionalPlayers = basePlayers
+        .filter((player) =>
+          player.positions.includes(position)
+        )
+        .sort((a, b) => b.rawScore - a.rawScore);
+
+      const replacementIndex = Math.max(
+        0,
+        Math.min(
+          requiredStarters - 1,
+          positionalPlayers.length - 1
+        )
+      );
+
+      replacementScores[position] =
+        positionalPlayers[replacementIndex]?.rawScore ?? 0;
+    }
+
+    /*
+     * SECOND PASS:
+     * Calculate Value Over Replacement.
+     *
+     * Multi-position players receive the best VOR available
+     * across their eligible positions.
+     */
+    return basePlayers.map((player) => {
+      const eligiblePositions = player.positions.filter(
+        (position) =>
+          replacementScores[position] !== undefined
+      );
+
+      let bestVor = Number.NEGATIVE_INFINITY;
+      let bestPosition = eligiblePositions[0] ?? "—";
+
+      for (const position of eligiblePositions) {
+        const vor =
+          player.rawScore - replacementScores[position];
+
+        if (vor > bestVor) {
+          bestVor = vor;
+          bestPosition = position;
+        }
+      }
+
+      if (!Number.isFinite(bestVor)) {
+        bestVor = player.rawScore;
+      }
+
+      return {
+        ...player,
+        vor: bestVor,
+
+        /*
+         * For this version, Nevisly Score IS positional VOR.
+         *
+         * This avoids an arbitrary scarcity multiplier and makes
+         * players directly comparable across positions.
+         */
+        score: bestVor,
+
+        replacementPosition: bestPosition,
+      };
+    });
+  }, [players, leagueTeams]);
 
   const filteredPlayers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -163,12 +266,17 @@ stats[category] = {
         ) {
           const result = aValue.localeCompare(bValue);
 
-          return sortDirection === "asc" ? result : -result;
+          return sortDirection === "asc"
+            ? result
+            : -result;
         }
 
-        const result = Number(aValue) - Number(bValue);
+        const result =
+          Number(aValue) - Number(bValue);
 
-        return sortDirection === "asc" ? result : -result;
+        return sortDirection === "asc"
+          ? result
+          : -result;
       });
   }, [
     rankedPlayers,
@@ -192,7 +300,9 @@ stats[category] = {
     setSortKey(key);
 
     setSortDirection(
-      key === "name" || key === "team" ? "asc" : "desc"
+      key === "name" || key === "team"
+        ? "asc"
+        : "desc"
     );
   }
 
@@ -223,7 +333,7 @@ stats[category] = {
 
   return (
     <main className="min-h-screen bg-zinc-950 p-8 text-white">
-      <div className="mx-auto max-w-[1600px]">
+      <div className="mx-auto max-w-[1700px]">
         <h1 className="mb-2 text-3xl font-bold">
           Nevisly
         </h1>
@@ -258,7 +368,7 @@ stats[category] = {
 
         {players.length > 0 && (
           <>
-            <div className="mb-4 grid gap-4 sm:grid-cols-3">
+            <div className="mb-4 grid gap-4 sm:grid-cols-4">
               <StatCard
                 label="Players"
                 value={players.length}
@@ -273,6 +383,33 @@ stats[category] = {
                 label="Drafted"
                 value={draftedCount}
               />
+
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+                <label className="mb-2 block text-sm text-zinc-400">
+                  League Teams
+                </label>
+
+                <select
+                  value={leagueTeams}
+                  onChange={(event) =>
+                    setLeagueTeams(
+                      Number(event.target.value)
+                    )
+                  }
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+                >
+                  {[8, 10, 12, 14, 16, 18, 20].map(
+                    (teams) => (
+                      <option
+                        key={teams}
+                        value={teams}
+                      >
+                        {teams}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
             </div>
 
             <div className="mb-4 flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
@@ -317,7 +454,9 @@ stats[category] = {
                   type="checkbox"
                   checked={showDrafted}
                   onChange={(event) =>
-                    setShowDrafted(event.target.checked)
+                    setShowDrafted(
+                      event.target.checked
+                    )
                   }
                 />
 
@@ -333,77 +472,107 @@ stats[category] = {
               <table className="w-full text-sm">
                 <thead className="bg-zinc-900 text-left">
                   <tr>
-                    <th className="p-3">
-                      Draft
-                    </th>
+                    <th className="p-3">Draft</th>
 
                     <SortableHeader
                       label="Player"
-                      onClick={() => handleSort("name")}
+                      onClick={() =>
+                        handleSort("name")
+                      }
                       indicator={sortIndicator("name")}
                     />
 
-                    <th className="p-3">
-                      Pos
-                    </th>
+                    <th className="p-3">Pos</th>
 
                     <SortableHeader
                       label="Team"
-                      onClick={() => handleSort("team")}
+                      onClick={() =>
+                        handleSort("team")
+                      }
                       indicator={sortIndicator("team")}
                     />
 
                     <SortableHeader
                       label="Score"
-                      onClick={() => handleSort("score")}
+                      onClick={() =>
+                        handleSort("score")
+                      }
                       indicator={sortIndicator("score")}
                     />
 
                     <SortableHeader
+                      label="VOR"
+                      onClick={() =>
+                        handleSort("vor")
+                      }
+                      indicator={sortIndicator("vor")}
+                    />
+
+                    <th className="p-3">
+                      VOR Pos
+                    </th>
+
+                    <SortableHeader
                       label="GP"
-                      onClick={() => handleSort("gp")}
+                      onClick={() =>
+                        handleSort("gp")
+                      }
                       indicator={sortIndicator("gp")}
                     />
 
                     <SortableHeader
                       label="G"
-                      onClick={() => handleSort("goals")}
+                      onClick={() =>
+                        handleSort("goals")
+                      }
                       indicator={sortIndicator("goals")}
                     />
 
                     <SortableHeader
                       label="A"
-                      onClick={() => handleSort("assists")}
+                      onClick={() =>
+                        handleSort("assists")
+                      }
                       indicator={sortIndicator("assists")}
                     />
 
                     <SortableHeader
                       label="P"
-                      onClick={() => handleSort("points")}
+                      onClick={() =>
+                        handleSort("points")
+                      }
                       indicator={sortIndicator("points")}
                     />
 
                     <SortableHeader
                       label="PPP"
-                      onClick={() => handleSort("ppp")}
+                      onClick={() =>
+                        handleSort("ppp")
+                      }
                       indicator={sortIndicator("ppp")}
                     />
 
                     <SortableHeader
                       label="SOG"
-                      onClick={() => handleSort("sog")}
+                      onClick={() =>
+                        handleSort("sog")
+                      }
                       indicator={sortIndicator("sog")}
                     />
 
                     <SortableHeader
                       label="HIT"
-                      onClick={() => handleSort("hits")}
+                      onClick={() =>
+                        handleSort("hits")
+                      }
                       indicator={sortIndicator("hits")}
                     />
 
                     <SortableHeader
                       label="BLK"
-                      onClick={() => handleSort("blocks")}
+                      onClick={() =>
+                        handleSort("blocks")
+                      }
                       indicator={sortIndicator("blocks")}
                     />
 
@@ -419,7 +588,8 @@ stats[category] = {
 
                 <tbody>
                   {filteredPlayers.map((player) => {
-                    const drafted = draftedIds.has(player.id);
+                    const drafted =
+                      draftedIds.has(player.id);
 
                     return (
                       <tr
@@ -436,11 +606,7 @@ stats[category] = {
                             onClick={() =>
                               toggleDrafted(player.id)
                             }
-                            className={`rounded-lg border px-3 py-1.5 text-xs ${
-                              drafted
-                                ? "border-zinc-600 text-zinc-300"
-                                : "border-zinc-700 bg-zinc-900 hover:border-zinc-500"
-                            }`}
+                            className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs hover:border-zinc-500"
                           >
                             {drafted
                               ? "Undo"
@@ -460,8 +626,16 @@ stats[category] = {
                           {player.team}
                         </td>
 
-                        <td className="p-3 font-semibold">
+                        <td className="p-3 font-bold">
                           {player.score.toFixed(2)}
+                        </td>
+
+                        <td className="p-3">
+                          {player.vor.toFixed(2)}
+                        </td>
+
+                        <td className="p-3 text-zinc-400">
+                          {player.replacementPosition}
                         </td>
 
                         <td className="p-3">
@@ -470,37 +644,51 @@ stats[category] = {
 
                         <HeatmapCell
                           value={player.goals}
-                          zScore={player.zScores.goals}
+                          zScore={
+                            player.zScores.goals
+                          }
                         />
 
                         <HeatmapCell
                           value={player.assists}
-                          zScore={player.zScores.assists}
+                          zScore={
+                            player.zScores.assists
+                          }
                         />
 
                         <HeatmapCell
                           value={player.points}
-                          zScore={player.zScores.points}
+                          zScore={
+                            player.zScores.points
+                          }
                         />
 
                         <HeatmapCell
                           value={player.ppp}
-                          zScore={player.zScores.ppp}
+                          zScore={
+                            player.zScores.ppp
+                          }
                         />
 
                         <HeatmapCell
                           value={player.sog}
-                          zScore={player.zScores.sog}
+                          zScore={
+                            player.zScores.sog
+                          }
                         />
 
                         <HeatmapCell
                           value={player.hits}
-                          zScore={player.zScores.hits}
+                          zScore={
+                            player.zScores.hits
+                          }
                         />
 
                         <HeatmapCell
                           value={player.blocks}
-                          zScore={player.zScores.blocks}
+                          zScore={
+                            player.zScores.blocks
+                          }
                         />
 
                         <td className="p-3 text-zinc-500">
@@ -530,12 +718,10 @@ function HeatmapCell({
   value: number;
   zScore: number;
 }) {
-  const style = getHeatmapStyle(zScore);
-
   return (
     <td
-      className="p-3 font-medium transition-colors"
-      style={style}
+      className="p-3 font-medium"
+      style={getHeatmapStyle(zScore)}
       title={`Z-score: ${zScore.toFixed(2)}`}
     >
       {value}
@@ -544,53 +730,53 @@ function HeatmapCell({
 }
 
 function getHeatmapStyle(
-    zScore: number
-  ): React.CSSProperties {
-    if (zScore >= 2) {
-      return {
-        backgroundColor: "rgba(22, 163, 74, 0.70)",
-        color: "#ffffff",
-      };
-    }
-  
-    if (zScore >= 1) {
-      return {
-        backgroundColor: "rgba(22, 163, 74, 0.42)",
-        color: "#dcfce7",
-      };
-    }
-  
-    if (zScore >= 0.35) {
-      return {
-        backgroundColor: "rgba(22, 163, 74, 0.20)",
-      };
-    }
-  
-    if (zScore > -0.35) {
-      return {
-        backgroundColor: "rgba(113, 113, 122, 0.10)",
-      };
-    }
-  
-    if (zScore > -1) {
-      return {
-        backgroundColor: "rgba(220, 38, 38, 0.18)",
-      };
-    }
-  
-    if (zScore > -2) {
-      return {
-        backgroundColor: "rgba(220, 38, 38, 0.38)",
-        color: "#fee2e2",
-      };
-    }
-  
+  zScore: number
+): React.CSSProperties {
+  if (zScore >= 2) {
     return {
-      backgroundColor: "rgba(220, 38, 38, 0.65)",
+      backgroundColor: "rgba(22, 163, 74, 0.70)",
       color: "#ffffff",
     };
   }
-  
+
+  if (zScore >= 1) {
+    return {
+      backgroundColor: "rgba(22, 163, 74, 0.42)",
+      color: "#dcfce7",
+    };
+  }
+
+  if (zScore >= 0.35) {
+    return {
+      backgroundColor: "rgba(22, 163, 74, 0.20)",
+    };
+  }
+
+  if (zScore > -0.35) {
+    return {
+      backgroundColor: "rgba(113, 113, 122, 0.10)",
+    };
+  }
+
+  if (zScore > -1) {
+    return {
+      backgroundColor: "rgba(220, 38, 38, 0.18)",
+    };
+  }
+
+  if (zScore > -2) {
+    return {
+      backgroundColor: "rgba(220, 38, 38, 0.38)",
+      color: "#fee2e2",
+    };
+  }
+
+  return {
+    backgroundColor: "rgba(220, 38, 38, 0.65)",
+    color: "#ffffff",
+  };
+}
+
 function StatCard({
   label,
   value,
