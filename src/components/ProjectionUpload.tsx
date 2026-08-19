@@ -5,6 +5,7 @@ import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 import type { SkaterProjection } from "@/types/player";
 import type { DraftPick, FantasyTeam } from "@/types/draft";
 import LeagueRankings from "@/components/LeagueRankings";
+import { calculateMarginalStandingsGain } from "@/lib/draft/marginalStandings";
 
 const MY_TEAM_ID = "team-1";
 
@@ -31,13 +32,14 @@ const CATEGORY_LABELS: Record<CategoryKey, string> = {
 };
 
 type RankedPlayer = SkaterProjection & {
-  rawScore: number;
-  vor: number;
-  score: number;
-  needBonus: number;
-  replacementPosition: string;
-  zScores: Record<CategoryKey, number>;
-};
+    rawScore: number;
+    vor: number;
+    score: number;
+    needBonus: number;
+    leagueGain: number;
+    replacementPosition: string;
+    zScores: Record<CategoryKey, number>;
+  };
 
 type BaseRankedPlayer = SkaterProjection & {
   rawScore: number;
