@@ -16,10 +16,28 @@ const categoryKeys = [
 
 type CategoryKey = (typeof categoryKeys)[number];
 
+const CATEGORY_LABELS: Record<CategoryKey, string> = {
+  goals: "G",
+  assists: "A",
+  points: "P",
+  ppp: "PPP",
+  sog: "SOG",
+  hits: "HIT",
+  blocks: "BLK",
+};
+
 type RankedPlayer = SkaterProjection & {
   rawScore: number;
   vor: number;
   score: number;
+  needBonus: number;
+  replacementPosition: string;
+  zScores: Record<CategoryKey, number>;
+};
+
+type BaseRankedPlayer = SkaterProjection & {
+  rawScore: number;
+  vor: number;
   replacementPosition: string;
   zScores: Record<CategoryKey, number>;
 };
@@ -30,6 +48,7 @@ type SortKey =
   | "team"
   | "score"
   | "vor"
+  | "needBonus"
   | "gp"
   | "goals"
   | "assists"
@@ -84,7 +103,6 @@ export default function ProjectionUpload() {
     new Set()
   );
 
-  // Keeps YOUR picks in actual draft order.
   const [myTeamOrder, setMyTeamOrder] = useState<string[]>([]);
 
   const [showDrafted, setShowDrafted] = useState(false);
@@ -111,7 +129,11 @@ export default function ProjectionUpload() {
     }
   }
 
-  const rankedPlayers = useMemo<RankedPlayer[]>(() => {
+  /*
+   * STEP 1
+   * Calculate category Z-scores + positional VOR.
+   */
+  const baseRankedPlayers = useMemo<BaseRankedPlayer[]>(() => {
     if (players.length === 0) return [];
 
     const fantasyPool = [...players]
@@ -219,15 +241,155 @@ export default function ProjectionUpload() {
       return {
         ...player,
         vor: bestVor,
-        score: bestVor,
         replacementPosition: bestPosition,
       };
     });
   }, [players, leagueTeams]);
 
+  /*
+   * Find your drafted players BEFORE applying team-needs scoring.
+   */
+  const baseMyTeamPlayers = useMemo(() => {
+    const playerMap = new Map(
+      baseRankedPlayers.map((player) => [
+        player.id,
+        player,
+      ])
+    );
+
+    return myTeamOrder
+      .map((id) => playerMap.get(id))
+      .filter(
+        (player): player is BaseRankedPlayer =>
+          player !== undefined
+      );
+  }, [baseRankedPlayers, myTeamOrder]);
+
+  /*
+   * STEP 2
+   * Determine your current strength in each category.
+   *
+   * We use average Z-score per drafted player.
+   */
+  const teamCategoryStrength = useMemo(() => {
+    const result = {} as Record<CategoryKey, number>;
+
+    for (const category of categoryKeys) {
+      if (baseMyTeamPlayers.length === 0) {
+        result[category] = 0;
+        continue;
+      }
+
+      const total = baseMyTeamPlayers.reduce(
+        (sum, player) =>
+          sum + player.zScores[category],
+        0
+      );
+
+      result[category] =
+        total / baseMyTeamPlayers.length;
+    }
+
+    return result;
+  }, [baseMyTeamPlayers]);
+
+  /*
+   * STEP 3
+   * Convert category strength into a need multiplier.
+   *
+   * Weak category = > 1.00
+   * Strong category = < 1.00
+   *
+   * At the start of the draft every category is 1.00.
+   */
+  const teamNeedWeights = useMemo(() => {
+    const result = {} as Record<CategoryKey, number>;
+
+    if (baseMyTeamPlayers.length === 0) {
+      for (const category of categoryKeys) {
+        result[category] = 1;
+      }
+
+      return result;
+    }
+
+    const strengths = categoryKeys.map(
+      (category) => teamCategoryStrength[category]
+    );
+
+    const averageStrength =
+      strengths.reduce(
+        (sum, value) => sum + value,
+        0
+      ) / strengths.length;
+
+    for (const category of categoryKeys) {
+      const relativeStrength =
+        teamCategoryStrength[category] -
+        averageStrength;
+
+      /*
+       * Category weakness increases the multiplier.
+       * Category strength decreases it.
+       *
+       * Clamp prevents the recommendation engine
+       * from overreacting to one category.
+       */
+      const weight =
+        1 - relativeStrength * 0.18;
+
+      result[category] = Math.max(
+        0.75,
+        Math.min(1.35, weight)
+      );
+    }
+
+    return result;
+  }, [
+    baseMyTeamPlayers.length,
+    teamCategoryStrength,
+  ]);
+
+  /*
+   * STEP 4
+   * Apply team needs to every player.
+   *
+   * VOR remains our baseline.
+   * Need Bonus adjusts that baseline according
+   * to YOUR roster composition.
+   */
+  const rankedPlayers = useMemo<RankedPlayer[]>(() => {
+    return baseRankedPlayers.map((player) => {
+      let needBonus = 0;
+
+      for (const category of categoryKeys) {
+        const extraWeight =
+          teamNeedWeights[category] - 1;
+
+        needBonus +=
+          player.zScores[category] * extraWeight;
+      }
+
+      /*
+       * Keep the needs adjustment meaningful,
+       * but secondary to actual player value.
+       */
+      needBonus *= 0.75;
+
+      return {
+        ...player,
+        needBonus,
+        score: player.vor + needBonus,
+      };
+    });
+  }, [baseRankedPlayers, teamNeedWeights]);
+
   const myTeamPlayers = useMemo(() => {
     const playerMap = new Map(
-      rankedPlayers.map((player) => [player.id, player])
+      rankedPlayers.map((player) => [
+        player.id,
+        player,
+      ])
     );
 
     return myTeamOrder
@@ -239,20 +401,13 @@ export default function ProjectionUpload() {
   }, [rankedPlayers, myTeamOrder]);
 
   /*
-   * Automatically assigns players to the best possible
-   * starting slots.
-   *
-   * This uses a matching algorithm rather than simple
-   * draft order, so multi-position players can move around
-   * to maximize the number of filled starter slots.
+   * Intelligent starting roster assignment.
    */
   const assignedRoster = useMemo<RosterSlot[]>(() => {
     const starterAssignments = new Map<
       string,
       RankedPlayer
     >();
-
-    const playerAssignments = new Map<string, string>();
 
     function canUseSlot(
       player: RankedPlayer,
@@ -284,11 +439,6 @@ export default function ProjectionUpload() {
           tryAssign(existingPlayer, visitedSlots)
         ) {
           starterAssignments.set(slot.id, player);
-          playerAssignments.set(player.id, slot.id);
-
-          if (existingPlayer) {
-            playerAssignments.delete(existingPlayer.id);
-          }
 
           return true;
         }
@@ -297,11 +447,6 @@ export default function ProjectionUpload() {
       return false;
     }
 
-    /*
-     * Less-flexible players go first.
-     * This prevents a C-only player from losing a C slot
-     * to someone who could also play LW.
-     */
     const assignmentOrder = [...myTeamPlayers].sort(
       (a, b) =>
         a.positions.length - b.positions.length
@@ -325,7 +470,8 @@ export default function ProjectionUpload() {
     );
 
     const benchPlayers = myTeamPlayers.filter(
-      (player) => !starterPlayerIds.has(player.id)
+      (player) =>
+        !starterPlayerIds.has(player.id)
     );
 
     const bench: RosterSlot[] = Array.from(
@@ -401,7 +547,9 @@ export default function ProjectionUpload() {
       .filter((player) => {
         if (positionFilter === "ALL") return true;
 
-        return player.positions.includes(positionFilter);
+        return player.positions.includes(
+          positionFilter
+        );
       })
 
       .sort((a, b) => {
@@ -412,7 +560,8 @@ export default function ProjectionUpload() {
           typeof aValue === "string" &&
           typeof bValue === "string"
         ) {
-          const result = aValue.localeCompare(bValue);
+          const result =
+            aValue.localeCompare(bValue);
 
           return sortDirection === "asc"
             ? result
@@ -482,12 +631,15 @@ export default function ProjectionUpload() {
 
     if (alreadyMine) {
       setMyTeamOrder((current) =>
-        current.filter((id) => id !== playerId)
+        current.filter(
+          (id) => id !== playerId
+        )
       );
 
       setDraftedIds((current) => {
         const next = new Set(current);
         next.delete(playerId);
+
         return next;
       });
 
@@ -502,6 +654,7 @@ export default function ProjectionUpload() {
     setDraftedIds((current) => {
       const next = new Set(current);
       next.add(playerId);
+
       return next;
     });
   }
@@ -591,16 +744,22 @@ export default function ProjectionUpload() {
                   }
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
                 >
-                  {[8, 10, 12, 14, 16, 18, 20].map(
-                    (teams) => (
-                      <option
-                        key={teams}
-                        value={teams}
-                      >
-                        {teams}
-                      </option>
-                    )
-                  )}
+                  {[
+                    8,
+                    10,
+                    12,
+                    14,
+                    16,
+                    18,
+                    20,
+                  ].map((teams) => (
+                    <option
+                      key={teams}
+                      value={teams}
+                    >
+                      {teams}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -653,6 +812,39 @@ export default function ProjectionUpload() {
                 />
               </div>
 
+              {myTeamPlayers.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="mb-3 font-semibold">
+                    Team Needs
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+                    {categoryKeys.map(
+                      (category) => (
+                        <TeamNeedCard
+                          key={category}
+                          label={
+                            CATEGORY_LABELS[
+                              category
+                            ]
+                          }
+                          strength={
+                            teamCategoryStrength[
+                              category
+                            ]
+                          }
+                          weight={
+                            teamNeedWeights[
+                              category
+                            ]
+                          }
+                        />
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {assignedRoster.map((slot) => (
                   <div
@@ -670,7 +862,9 @@ export default function ProjectionUpload() {
                         </div>
 
                         <div className="text-xs text-zinc-500">
-                          {slot.player.positions.join(", ")}
+                          {slot.player.positions.join(
+                            ", "
+                          )}
                           {" · "}
                           {slot.player.team}
                         </div>
@@ -692,7 +886,9 @@ export default function ProjectionUpload() {
                   placeholder="Search player or team..."
                   value={search}
                   onChange={(event) =>
-                    setSearch(event.target.value)
+                    setSearch(
+                      event.target.value
+                    )
                   }
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 outline-none placeholder:text-zinc-500 focus:border-zinc-500 md:max-w-md"
                 />
@@ -700,14 +896,17 @@ export default function ProjectionUpload() {
                 <div className="flex flex-wrap gap-2">
                   {positions.map((position) => {
                     const active =
-                      positionFilter === position;
+                      positionFilter ===
+                      position;
 
                     return (
                       <button
                         key={position}
                         type="button"
                         onClick={() =>
-                          setPositionFilter(position)
+                          setPositionFilter(
+                            position
+                          )
                         }
                         className={`rounded-lg border px-4 py-2 text-sm transition ${
                           active
@@ -803,6 +1002,20 @@ export default function ProjectionUpload() {
                       }
                     />
 
+                    <SortableHeader
+                      label="Need"
+                      onClick={() =>
+                        handleSort(
+                          "needBonus"
+                        )
+                      }
+                      indicator={
+                        sortIndicator(
+                          "needBonus"
+                        )
+                      }
+                    />
+
                     <th className="p-3">
                       VOR Pos
                     </th>
@@ -833,7 +1046,9 @@ export default function ProjectionUpload() {
                         handleSort("assists")
                       }
                       indicator={
-                        sortIndicator("assists")
+                        sortIndicator(
+                          "assists"
+                        )
                       }
                     />
 
@@ -843,7 +1058,9 @@ export default function ProjectionUpload() {
                         handleSort("points")
                       }
                       indicator={
-                        sortIndicator("points")
+                        sortIndicator(
+                          "points"
+                        )
                       }
                     />
 
@@ -883,7 +1100,9 @@ export default function ProjectionUpload() {
                         handleSort("blocks")
                       }
                       indicator={
-                        sortIndicator("blocks")
+                        sortIndicator(
+                          "blocks"
+                        )
                       }
                     />
 
@@ -898,152 +1117,200 @@ export default function ProjectionUpload() {
                 </thead>
 
                 <tbody>
-                  {filteredPlayers.map((player) => {
-                    const drafted =
-                      draftedIds.has(player.id);
+                  {filteredPlayers.map(
+                    (player) => {
+                      const drafted =
+                        draftedIds.has(
+                          player.id
+                        );
 
-                    const myPick =
-                      myTeamIdSet.has(player.id);
+                      const myPick =
+                        myTeamIdSet.has(
+                          player.id
+                        );
 
-                    return (
-                      <tr
-                        key={player.id}
-                        className={`border-t border-zinc-800 ${
-                          drafted
-                            ? "opacity-40"
-                            : "hover:bg-zinc-900/60"
-                        }`}
-                      >
-                        <td className="p-3">
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                toggleDrafted(
-                                  player.id
-                                )
-                              }
-                              disabled={myPick}
-                              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              {drafted && !myPick
-                                ? "Undo"
-                                : "Drafted"}
-                            </button>
+                      return (
+                        <tr
+                          key={player.id}
+                          className={`border-t border-zinc-800 ${
+                            drafted
+                              ? "opacity-40"
+                              : "hover:bg-zinc-900/60"
+                          }`}
+                        >
+                          <td className="p-3">
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  toggleDrafted(
+                                    player.id
+                                  )
+                                }
+                                disabled={myPick}
+                                className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {drafted &&
+                                !myPick
+                                  ? "Undo"
+                                  : "Drafted"}
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                toggleMyPick(
-                                  player.id
-                                )
-                              }
-                              className={`rounded-lg border px-3 py-1.5 text-xs ${
-                                myPick
-                                  ? "border-emerald-600 bg-emerald-950 text-emerald-300"
-                                  : "border-zinc-700 bg-zinc-900 hover:border-emerald-700"
-                              }`}
-                            >
-                              {myPick
-                                ? "Remove"
-                                : "My Pick"}
-                            </button>
-                          </div>
-                        </td>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  toggleMyPick(
+                                    player.id
+                                  )
+                                }
+                                className={`rounded-lg border px-3 py-1.5 text-xs ${
+                                  myPick
+                                    ? "border-emerald-600 bg-emerald-950 text-emerald-300"
+                                    : "border-zinc-700 bg-zinc-900 hover:border-emerald-700"
+                                }`}
+                              >
+                                {myPick
+                                  ? "Remove"
+                                  : "My Pick"}
+                              </button>
+                            </div>
+                          </td>
 
-                        <td className="p-3 font-medium">
-                          {player.name}
-                        </td>
+                          <td className="p-3 font-medium">
+                            {player.name}
+                          </td>
 
-                        <td className="p-3">
-                          {player.age}
-                        </td>
+                          <td className="p-3">
+                            {player.age}
+                          </td>
 
-                        <td className="p-3">
-                          {player.positions.join(", ")}
-                        </td>
+                          <td className="p-3">
+                            {player.positions.join(
+                              ", "
+                            )}
+                          </td>
 
-                        <td className="p-3">
-                          {player.team}
-                        </td>
+                          <td className="p-3">
+                            {player.team}
+                          </td>
 
-                        <td className="p-3 font-bold">
-                          {player.score.toFixed(2)}
-                        </td>
+                          <td className="p-3 font-bold">
+                            {player.score.toFixed(
+                              2
+                            )}
+                          </td>
 
-                        <td className="p-3">
-                          {player.vor.toFixed(2)}
-                        </td>
+                          <td className="p-3">
+                            {player.vor.toFixed(
+                              2
+                            )}
+                          </td>
 
-                        <td className="p-3 text-zinc-400">
-                          {
-                            player.replacementPosition
-                          }
-                        </td>
+                          <td
+                            className={`p-3 font-medium ${
+                              player.needBonus >
+                              0.1
+                                ? "text-emerald-400"
+                                : player.needBonus <
+                                    -0.1
+                                  ? "text-red-400"
+                                  : "text-zinc-400"
+                            }`}
+                          >
+                            {player.needBonus >
+                            0
+                              ? "+"
+                              : ""}
+                            {player.needBonus.toFixed(
+                              2
+                            )}
+                          </td>
 
-                        <td className="p-3">
-                          {player.gp}
-                        </td>
+                          <td className="p-3 text-zinc-400">
+                            {
+                              player.replacementPosition
+                            }
+                          </td>
 
-                        <HeatmapCell
-                          value={player.goals}
-                          zScore={
-                            player.zScores.goals
-                          }
-                        />
+                          <td className="p-3">
+                            {player.gp}
+                          </td>
 
-                        <HeatmapCell
-                          value={player.assists}
-                          zScore={
-                            player.zScores.assists
-                          }
-                        />
+                          <HeatmapCell
+                            value={
+                              player.goals
+                            }
+                            zScore={
+                              player.zScores
+                                .goals
+                            }
+                          />
 
-                        <HeatmapCell
-                          value={player.points}
-                          zScore={
-                            player.zScores.points
-                          }
-                        />
+                          <HeatmapCell
+                            value={
+                              player.assists
+                            }
+                            zScore={
+                              player.zScores
+                                .assists
+                            }
+                          />
 
-                        <HeatmapCell
-                          value={player.ppp}
-                          zScore={
-                            player.zScores.ppp
-                          }
-                        />
+                          <HeatmapCell
+                            value={
+                              player.points
+                            }
+                            zScore={
+                              player.zScores
+                                .points
+                            }
+                          />
 
-                        <HeatmapCell
-                          value={player.sog}
-                          zScore={
-                            player.zScores.sog
-                          }
-                        />
+                          <HeatmapCell
+                            value={player.ppp}
+                            zScore={
+                              player.zScores
+                                .ppp
+                            }
+                          />
 
-                        <HeatmapCell
-                          value={player.hits}
-                          zScore={
-                            player.zScores.hits
-                          }
-                        />
+                          <HeatmapCell
+                            value={player.sog}
+                            zScore={
+                              player.zScores
+                                .sog
+                            }
+                          />
 
-                        <HeatmapCell
-                          value={player.blocks}
-                          zScore={
-                            player.zScores.blocks
-                          }
-                        />
+                          <HeatmapCell
+                            value={player.hits}
+                            zScore={
+                              player.zScores
+                                .hits
+                            }
+                          />
 
-                        <td className="p-3 text-zinc-500">
-                          —
-                        </td>
+                          <HeatmapCell
+                            value={
+                              player.blocks
+                            }
+                            zScore={
+                              player.zScores
+                                .blocks
+                            }
+                          />
 
-                        <td className="p-3 text-zinc-500">
-                          —
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          <td className="p-3 text-zinc-500">
+                            —
+                          </td>
+
+                          <td className="p-3 text-zinc-500">
+                            —
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1051,6 +1318,51 @@ export default function ProjectionUpload() {
         )}
       </div>
     </main>
+  );
+}
+
+function TeamNeedCard({
+  label,
+  strength,
+  weight,
+}: {
+  label: string;
+  strength: number;
+  weight: number;
+}) {
+  let status = "Balanced";
+  let className =
+    "border-zinc-700 bg-zinc-950";
+
+  if (weight >= 1.1) {
+    status = "Need";
+    className =
+      "border-red-900 bg-red-950/40";
+  } else if (weight <= 0.9) {
+    status = "Strong";
+    className =
+      "border-emerald-900 bg-emerald-950/40";
+  }
+
+  return (
+    <div
+      className={`rounded-lg border p-3 ${className}`}
+      title={`Average Z-score: ${strength.toFixed(
+        2
+      )} · Need weight: ${weight.toFixed(2)}`}
+    >
+      <div className="text-xs text-zinc-400">
+        {label}
+      </div>
+
+      <div className="mt-1 font-semibold">
+        {status}
+      </div>
+
+      <div className="mt-1 text-xs text-zinc-500">
+        {weight.toFixed(2)}×
+      </div>
+    </div>
   );
 }
 
