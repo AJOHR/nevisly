@@ -6,6 +6,7 @@ import type { SkaterProjection } from "@/types/player";
 
 type RankedPlayer = SkaterProjection & {
   score: number;
+  zScores: Record<CategoryKey, number>;
 };
 
 type SortKey =
@@ -38,10 +39,8 @@ type CategoryKey = (typeof categoryKeys)[number];
 export default function ProjectionUpload() {
   const [players, setPlayers] = useState<SkaterProjection[]>([]);
   const [error, setError] = useState("");
-
   const [search, setSearch] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
-
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDirection, setSortDirection] =
     useState<SortDirection>("desc");
@@ -94,29 +93,32 @@ export default function ProjectionUpload() {
           return sum + Math.pow(value - mean, 2);
         }, 0) / values.length;
 
-      const stdDev = Math.sqrt(variance);
-
       stats[category] = {
         mean,
-        stdDev,
+        stdDev: Math.sqrt(variance),
       };
     }
 
     return players.map((player) => {
+      const zScores = {} as Record<CategoryKey, number>;
       let totalZScore = 0;
 
       for (const category of categoryKeys) {
         const { mean, stdDev } = stats[category];
 
-        if (stdDev === 0) continue;
+        const zScore =
+          stdDev === 0
+            ? 0
+            : (player[category] - mean) / stdDev;
 
-        totalZScore +=
-          (player[category] - mean) / stdDev;
+        zScores[category] = zScore;
+        totalZScore += zScore;
       }
 
       return {
         ...player,
         score: totalZScore,
+        zScores,
       };
     });
   }, [players]);
@@ -213,7 +215,7 @@ export default function ProjectionUpload() {
 
   return (
     <main className="min-h-screen bg-zinc-950 p-8 text-white">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-[1600px]">
         <h1 className="mb-2 text-3xl font-bold">
           Nevisly
         </h1>
@@ -249,35 +251,20 @@ export default function ProjectionUpload() {
         {players.length > 0 && (
           <>
             <div className="mb-4 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-                <div className="text-sm text-zinc-400">
-                  Players
-                </div>
+              <StatCard
+                label="Players"
+                value={players.length}
+              />
 
-                <div className="mt-1 text-2xl font-bold">
-                  {players.length}
-                </div>
-              </div>
+              <StatCard
+                label="Available"
+                value={availableCount}
+              />
 
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-                <div className="text-sm text-zinc-400">
-                  Available
-                </div>
-
-                <div className="mt-1 text-2xl font-bold">
-                  {availableCount}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-                <div className="text-sm text-zinc-400">
-                  Drafted
-                </div>
-
-                <div className="mt-1 text-2xl font-bold">
-                  {draftedCount}
-                </div>
-              </div>
+              <StatCard
+                label="Drafted"
+                value={draftedCount}
+              />
             </div>
 
             <div className="mb-4 flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
@@ -378,9 +365,7 @@ export default function ProjectionUpload() {
 
                     <SortableHeader
                       label="A"
-                      onClick={() =>
-                        handleSort("assists")
-                      }
+                      onClick={() => handleSort("assists")}
                       indicator={sortIndicator("assists")}
                     />
 
@@ -413,6 +398,14 @@ export default function ProjectionUpload() {
                       onClick={() => handleSort("blocks")}
                       indicator={sortIndicator("blocks")}
                     />
+
+                    <th className="p-3">
+                      PO Games
+                    </th>
+
+                    <th className="p-3">
+                      Status
+                    </th>
                   </tr>
                 </thead>
 
@@ -467,32 +460,47 @@ export default function ProjectionUpload() {
                           {player.gp}
                         </td>
 
-                        <td className="p-3">
-                          {player.goals}
+                        <HeatmapCell
+                          value={player.goals}
+                          zScore={player.zScores.goals}
+                        />
+
+                        <HeatmapCell
+                          value={player.assists}
+                          zScore={player.zScores.assists}
+                        />
+
+                        <HeatmapCell
+                          value={player.points}
+                          zScore={player.zScores.points}
+                        />
+
+                        <HeatmapCell
+                          value={player.ppp}
+                          zScore={player.zScores.ppp}
+                        />
+
+                        <HeatmapCell
+                          value={player.sog}
+                          zScore={player.zScores.sog}
+                        />
+
+                        <HeatmapCell
+                          value={player.hits}
+                          zScore={player.zScores.hits}
+                        />
+
+                        <HeatmapCell
+                          value={player.blocks}
+                          zScore={player.zScores.blocks}
+                        />
+
+                        <td className="p-3 text-zinc-500">
+                          —
                         </td>
 
-                        <td className="p-3">
-                          {player.assists}
-                        </td>
-
-                        <td className="p-3">
-                          {player.points}
-                        </td>
-
-                        <td className="p-3">
-                          {player.ppp}
-                        </td>
-
-                        <td className="p-3">
-                          {player.sog}
-                        </td>
-
-                        <td className="p-3">
-                          {player.hits}
-                        </td>
-
-                        <td className="p-3">
-                          {player.blocks}
+                        <td className="p-3 text-zinc-500">
+                          —
                         </td>
                       </tr>
                     );
@@ -504,6 +512,73 @@ export default function ProjectionUpload() {
         )}
       </div>
     </main>
+  );
+}
+
+function HeatmapCell({
+  value,
+  zScore,
+}: {
+  value: number;
+  zScore: number;
+}) {
+  const style = getHeatmapStyle(zScore);
+
+  return (
+    <td
+      className="p-3 font-medium transition-colors"
+      style={style}
+      title={`Z-score: ${zScore.toFixed(2)}`}
+    >
+      {value}
+    </td>
+  );
+}
+
+function getHeatmapStyle(
+  zScore: number
+): React.CSSProperties {
+  const clamped = Math.max(-2.5, Math.min(2.5, zScore));
+  const strength = Math.abs(clamped) / 2.5;
+
+  if (clamped > 0) {
+    return {
+      backgroundColor: `rgba(34, 197, 94, ${
+        0.08 + strength * 0.34
+      })`,
+      color: strength > 0.55 ? "#dcfce7" : undefined,
+    };
+  }
+
+  if (clamped < 0) {
+    return {
+      backgroundColor: `rgba(239, 68, 68, ${
+        0.05 + strength * 0.24
+      })`,
+      color: strength > 0.55 ? "#fee2e2" : undefined,
+    };
+  }
+
+  return {};
+}
+
+function StatCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+      <div className="text-sm text-zinc-400">
+        {label}
+      </div>
+
+      <div className="mt-1 text-2xl font-bold">
+        {value}
+      </div>
+    </div>
   );
 }
 
