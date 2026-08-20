@@ -45,6 +45,7 @@ type BaseRankedPlayer = SkaterProjection & {
 
 type RankedPlayer = BaseRankedPlayer & {
   needBonus: number;
+
   h2hGain: number;
 
   scarcityBonus: number;
@@ -129,9 +130,12 @@ export default function ProjectionUpload() {
   const [players, setPlayers] =
     useState<SkaterProjection[]>([]);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] =
+    useState("");
+
   const [positionFilter, setPositionFilter] =
     useState("ALL");
 
@@ -153,33 +157,39 @@ export default function ProjectionUpload() {
   const [draftPicks, setDraftPicks] =
     useState<DraftPick[]>([]);
 
-  const [selectedDraftTeamId, setSelectedDraftTeamId] =
-    useState("team-1");
+  const [
+    selectedDraftTeamId,
+    setSelectedDraftTeamId,
+  ] = useState("team-1");
 
   const myTeamId =
     getMyTeamId(myDraftSlot);
 
-  const fantasyTeams = useMemo<FantasyTeam[]>(() => {
-    return Array.from(
-      { length: leagueTeams },
-      (_, index) => {
-        const teamNumber =
-          index + 1;
+  const fantasyTeams =
+    useMemo<FantasyTeam[]>(() => {
+      return Array.from(
+        { length: leagueTeams },
+        (_, index) => {
+          const teamNumber =
+            index + 1;
 
-        return {
-          id: `team-${teamNumber}`,
+          return {
+            id: `team-${teamNumber}`,
 
-          name:
-            teamNumber === myDraftSlot
-              ? "My Team"
-              : `Team ${teamNumber}`,
+            name:
+              teamNumber === myDraftSlot
+                ? "My Team"
+                : `Team ${teamNumber}`,
 
-          isMyTeam:
-            teamNumber === myDraftSlot,
-        };
-      }
-    );
-  }, [leagueTeams, myDraftSlot]);
+            isMyTeam:
+              teamNumber === myDraftSlot,
+          };
+        }
+      );
+    }, [
+      leagueTeams,
+      myDraftSlot,
+    ]);
 
   async function handleFile(
     event: React.ChangeEvent<HTMLInputElement>
@@ -187,9 +197,7 @@ export default function ProjectionUpload() {
     const file =
       event.target.files?.[0];
 
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     try {
       setError("");
@@ -229,7 +237,9 @@ export default function ProjectionUpload() {
     setDraftPicks([]);
 
     setSelectedDraftTeamId(
-      getMyTeamId(nextDraftSlot)
+      getMyTeamId(
+        nextDraftSlot
+      )
     );
   }
 
@@ -249,7 +259,8 @@ export default function ProjectionUpload() {
     useMemo(() => {
       return new Set(
         draftPicks.map(
-          (pick) => pick.playerId
+          (pick) =>
+            pick.playerId
         )
       );
     }, [draftPicks]);
@@ -257,9 +268,15 @@ export default function ProjectionUpload() {
   const ownerByPlayerId =
     useMemo(() => {
       const result =
-        new Map<string, string>();
+        new Map<
+          string,
+          string
+        >();
 
-      for (const pick of draftPicks) {
+      for (
+        const pick of
+        draftPicks
+      ) {
         result.set(
           pick.playerId,
           pick.fantasyTeamId
@@ -309,13 +326,14 @@ export default function ProjectionUpload() {
         )
         .slice(0, 250);
 
-      const stats = {} as Record<
-        CategoryKey,
-        {
-          mean: number;
-          stdDev: number;
-        }
-      >;
+      const stats =
+        {} as Record<
+          CategoryKey,
+          {
+            mean: number;
+            stdDev: number;
+          }
+        >;
 
       for (
         const category of
@@ -324,30 +342,42 @@ export default function ProjectionUpload() {
         const values =
           fantasyPool.map(
             (player) =>
-              player[category]
+              player[
+                category
+              ]
           );
 
         const mean =
           values.reduce(
-            (sum, value) =>
-              sum + value,
+            (
+              sum,
+              value
+            ) =>
+              sum +
+              value,
             0
           ) /
           values.length;
 
         const variance =
           values.reduce(
-            (sum, value) =>
+            (
+              sum,
+              value
+            ) =>
               sum +
               Math.pow(
-                value - mean,
+                value -
+                  mean,
                 2
               ),
             0
           ) /
           values.length;
 
-        stats[category] = {
+        stats[
+          category
+        ] = {
           mean,
           stdDev:
             Math.sqrt(
@@ -365,7 +395,8 @@ export default function ProjectionUpload() {
                 number
               >;
 
-            let rawScore = 0;
+            let rawScore =
+              0;
 
             for (
               const category of
@@ -375,7 +406,9 @@ export default function ProjectionUpload() {
                 mean,
                 stdDev,
               } =
-                stats[category];
+                stats[
+                  category
+                ];
 
               const zScore =
                 stdDev === 0
@@ -407,12 +440,14 @@ export default function ProjectionUpload() {
         number
       > = {};
 
-      for (const position of [
-        "C",
-        "LW",
-        "RW",
-        "D",
-      ]) {
+      for (
+        const position of [
+          "C",
+          "LW",
+          "RW",
+          "D",
+        ]
+      ) {
         const requiredStarters =
           leagueTeams *
           STARTERS_PER_TEAM[
@@ -449,7 +484,8 @@ export default function ProjectionUpload() {
         ] =
           positionalPlayers[
             replacementIndex
-          ]?.rawScore ?? 0;
+          ]?.rawScore ??
+          0;
       }
 
       return basePlayers.map(
@@ -459,7 +495,8 @@ export default function ProjectionUpload() {
               (position) =>
                 replacementScores[
                   position
-                ] !== undefined
+                ] !==
+                undefined
             );
 
           let bestVor =
@@ -484,7 +521,8 @@ export default function ProjectionUpload() {
               vor >
               bestVor
             ) {
-              bestVor = vor;
+              bestVor =
+                vor;
 
               bestPosition =
                 position;
@@ -565,7 +603,9 @@ export default function ProjectionUpload() {
           continue;
         }
 
-        result[category] =
+        result[
+          category
+        ] =
           baseMyTeamPlayers.reduce(
             (
               sum,
@@ -581,7 +621,9 @@ export default function ProjectionUpload() {
       }
 
       return result;
-    }, [baseMyTeamPlayers]);
+    }, [
+      baseMyTeamPlayers,
+    ]);
 
   const teamNeedWeights =
     useMemo(() => {
@@ -617,8 +659,12 @@ export default function ProjectionUpload() {
 
       const averageStrength =
         strengths.reduce(
-          (sum, value) =>
-            sum + value,
+          (
+            sum,
+            value
+          ) =>
+            sum +
+            value,
           0
         ) /
         strengths.length;
@@ -659,7 +705,8 @@ export default function ProjectionUpload() {
     >(() => {
       return baseRankedPlayers.map(
         (player) => {
-          let needBonus = 0;
+          let needBonus =
+            0;
 
           for (
             const category of
@@ -685,15 +732,20 @@ export default function ProjectionUpload() {
 
             h2hGain: 0,
 
-            scarcityBonus: 0,
+            scarcityBonus:
+              0,
 
             scarcityReasons:
               [],
 
-              returnRisk: "SAFE",
-              returnProbability: 0,
-              returnReason: "",
-              picksUntilNext: 0,
+            returnRisk:
+              "SAFE",
+
+            returnProbability:
+              0,
+
+            returnReason:
+              "",
 
             picksUntilNext:
               0,
@@ -719,7 +771,9 @@ export default function ProjectionUpload() {
           ]
         )
       );
-    }, [rankedPlayers]);
+    }, [
+      rankedPlayers,
+    ]);
 
   const myTeamPlayers =
     useMemo(() => {
@@ -802,10 +856,8 @@ export default function ProjectionUpload() {
           ...myTeamPlayers,
         ].sort(
           (a, b) =>
-            a.positions
-              .length -
-            b.positions
-              .length
+            a.positions.length -
+            b.positions.length
         );
 
       for (
@@ -822,10 +874,8 @@ export default function ProjectionUpload() {
         STARTING_SLOTS.map(
           (slot) => ({
             id: slot.id,
-
             position:
               slot.position,
-
             player:
               assignments.get(
                 slot.id
@@ -857,9 +907,13 @@ export default function ProjectionUpload() {
             length:
               BENCH_COUNT,
           },
-          (_, index) => ({
+          (
+            _,
+            index
+          ) => ({
             id: `BN${
-              index + 1
+              index +
+              1
             }`,
 
             position:
@@ -876,7 +930,9 @@ export default function ProjectionUpload() {
         ...starters,
         ...bench,
       ];
-    }, [myTeamPlayers]);
+    }, [
+      myTeamPlayers,
+    ]);
 
   const openStarterPositions =
     useMemo(() => {
@@ -891,68 +947,93 @@ export default function ProjectionUpload() {
           (slot) =>
             slot.position
         );
-    }, [assignedRoster]);
+    }, [
+      assignedRoster,
+    ]);
 
   const teamTotals =
     useMemo(() => {
       return {
         goals:
           myTeamPlayers.reduce(
-            (sum, p) =>
+            (
+              sum,
+              player
+            ) =>
               sum +
-              p.goals,
+              player.goals,
             0
           ),
 
         assists:
           myTeamPlayers.reduce(
-            (sum, p) =>
+            (
+              sum,
+              player
+            ) =>
               sum +
-              p.assists,
+              player.assists,
             0
           ),
 
         points:
           myTeamPlayers.reduce(
-            (sum, p) =>
+            (
+              sum,
+              player
+            ) =>
               sum +
-              p.points,
+              player.points,
             0
           ),
 
         ppp:
           myTeamPlayers.reduce(
-            (sum, p) =>
+            (
+              sum,
+              player
+            ) =>
               sum +
-              p.ppp,
+              player.ppp,
             0
           ),
 
         sog:
           myTeamPlayers.reduce(
-            (sum, p) =>
+            (
+              sum,
+              player
+            ) =>
               sum +
-              p.sog,
+              player.sog,
             0
           ),
 
         hits:
           myTeamPlayers.reduce(
-            (sum, p) =>
+            (
+              sum,
+              player
+            ) =>
               sum +
-              p.hits,
+              player.hits,
             0
           ),
 
         blocks:
           myTeamPlayers.reduce(
-            (sum, p) =>
+            (
+              sum,
+              player
+            ) =>
               sum +
-              p.blocks,
+              player.blocks,
             0
           ),
       };
-    }, [myTeamPlayers]);
+    }, [
+      myTeamPlayers,
+    ]);
 
   const leagueTeamPlayers =
     useMemo(() => {
@@ -1037,10 +1118,17 @@ export default function ProjectionUpload() {
               scarcityReasons:
                 [],
 
-                returnRisk: "SAFE",
-                returnProbability: 0,
-                returnReason: "",
-                picksUntilNext: 0,
+              returnRisk:
+                "SAFE",
+
+              returnProbability:
+                0,
+
+              returnReason:
+                "",
+
+              picksUntilNext:
+                0,
             };
           }
 
@@ -1065,13 +1153,19 @@ export default function ProjectionUpload() {
               fantasyTeams,
             });
 
-            const returnRisk =
+          const returnRisk =
             calculateReturnRisk({
               player,
-              allPlayers: rankedPlayers,
+
+              allPlayers:
+                rankedPlayers,
+
               draftPicks,
+
               fantasyTeams,
+
               leagueTeams,
+
               myDraftSlot,
             });
 
@@ -1087,15 +1181,15 @@ export default function ProjectionUpload() {
             scarcityReasons:
               scarcity.reasons,
 
-              returnRisk:
+            returnRisk:
               returnRisk.level,
-            
+
             returnProbability:
               returnRisk.probability,
-            
+
             returnReason:
               returnRisk.reason,
-            
+
             picksUntilNext:
               returnRisk.picksUntilNext,
 
@@ -1134,7 +1228,10 @@ export default function ProjectionUpload() {
             b.score -
             a.score
         )
-        .slice(0, 5);
+        .slice(
+          0,
+          5
+        );
     }, [
       finalRankedPlayers,
       draftedIds,
@@ -1203,10 +1300,14 @@ export default function ProjectionUpload() {
         .sort(
           (a, b) => {
             const aValue =
-              a[sortKey];
+              a[
+                sortKey
+              ];
 
             const bValue =
-              b[sortKey];
+              b[
+                sortKey
+              ];
 
             if (
               typeof aValue ===
@@ -1316,7 +1417,8 @@ export default function ProjectionUpload() {
                 ...pick,
 
                 pickNumber:
-                  index + 1,
+                  index +
+                  1,
               })
             );
 
@@ -1365,7 +1467,8 @@ export default function ProjectionUpload() {
     key: SortKey
   ) {
     if (
-      sortKey === key
+      sortKey ===
+      key
     ) {
       setSortDirection(
         (current) =>
@@ -1381,8 +1484,10 @@ export default function ProjectionUpload() {
     setSortKey(key);
 
     setSortDirection(
-      key === "name" ||
-        key === "team"
+      key ===
+          "name" ||
+        key ===
+          "team"
         ? "asc"
         : "desc"
     );
@@ -1392,7 +1497,8 @@ export default function ProjectionUpload() {
     key: SortKey
   ) {
     if (
-      sortKey !== key
+      sortKey !==
+      key
     ) {
       return "";
     }
@@ -1425,7 +1531,9 @@ export default function ProjectionUpload() {
     const strengths =
       categoryKeys
         .map(
-          (category) => ({
+          (
+            category
+          ) => ({
             category,
 
             z:
@@ -1441,17 +1549,23 @@ export default function ProjectionUpload() {
         )
         .sort(
           (a, b) =>
-            b.z * b.need -
-            a.z * a.need
+            b.z *
+              b.need -
+            a.z *
+              a.need
         );
 
     const strong =
       strengths
         .filter(
           (item) =>
-            item.z >= 1
+            item.z >=
+            1
         )
-        .slice(0, 2)
+        .slice(
+          0,
+          2
+        )
         .map(
           (item) =>
             CATEGORY_LABELS[
@@ -1460,7 +1574,8 @@ export default function ProjectionUpload() {
         );
 
     if (
-      strong.length > 0
+      strong.length >
+      0
     ) {
       reasons.push(
         `Strong ${strong.join(
@@ -1478,7 +1593,10 @@ export default function ProjectionUpload() {
             item.z >
               0.35
         )
-        .slice(0, 2)
+        .slice(
+          0,
+          2
+        )
         .map(
           (item) =>
             CATEGORY_LABELS[
@@ -1487,7 +1605,8 @@ export default function ProjectionUpload() {
         );
 
     if (
-      needed.length > 0
+      needed.length >
+      0
     ) {
       reasons.push(
         `Helps ${needed.join(
@@ -1519,7 +1638,8 @@ export default function ProjectionUpload() {
     if (
       player.replacementPosition ===
         "D" &&
-      player.vor > 0
+      player.vor >
+        0
     ) {
       reasons.push(
         "Scarce D value"
@@ -1547,19 +1667,19 @@ export default function ProjectionUpload() {
     }
 
     if (
-      player.scarcityReasons
-        .length > 0
+      player.scarcityReasons.length >
+      0
     ) {
       reasons.push(
-        player
-          .scarcityReasons[
+        player.scarcityReasons[
           0
         ]
       );
     }
 
     if (
-      reasons.length === 0
+      reasons.length ===
+      0
     ) {
       reasons.push(
         "Best overall value"
@@ -1604,7 +1724,8 @@ export default function ProjectionUpload() {
     Math.floor(
       draftPicks.length /
         leagueTeams
-    ) + 1;
+    ) +
+    1;
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -1685,7 +1806,7 @@ export default function ProjectionUpload() {
                   lastPickPlayer && (
                     <div className="hidden text-right lg:block">
                       <div className="text-[9px] uppercase text-zinc-500">
-                        Last pick
+                        Last Pick
                       </div>
 
                       <div className="text-xs">
@@ -1728,8 +1849,7 @@ export default function ProjectionUpload() {
             </h1>
 
             <p className="mt-2 text-sm text-zinc-400">
-              Import your projection
-              CSV.
+              Import your projection CSV.
             </p>
 
             <input
@@ -1825,8 +1945,12 @@ export default function ProjectionUpload() {
                       length:
                         leagueTeams,
                     },
-                    (_, index) =>
-                      index + 1
+                    (
+                      _,
+                      index
+                    ) =>
+                      index +
+                      1
                   ).map(
                     (slot) => (
                       <option
@@ -1845,8 +1969,7 @@ export default function ProjectionUpload() {
               </div>
 
               <span className="ml-auto text-xs text-zinc-500">
-                H2H Categories ·
-                90 sec pick
+                H2H Categories · 90 sec pick
               </span>
             </div>
 
@@ -1855,8 +1978,7 @@ export default function ProjectionUpload() {
                 <section className="mb-5 overflow-hidden rounded-xl border border-emerald-800/60 bg-zinc-900">
                   <div className="border-b border-zinc-800 px-4 py-3">
                     <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                      Who should I
-                      take?
+                      Who should I take?
                     </div>
 
                     <h2 className="text-lg font-bold">
@@ -1931,19 +2053,19 @@ export default function ProjectionUpload() {
                               </div>
 
                               <ReturnRiskDisplay
-  level={
-    player.returnRisk
-  }
-  probability={
-    player.returnProbability
-  }
-  reason={
-    player.returnReason
-  }
-  picksUntilNext={
-    player.picksUntilNext
-  }
-/>
+                                level={
+                                  player.returnRisk
+                                }
+                                probability={
+                                  player.returnProbability
+                                }
+                                reason={
+                                  player.returnReason
+                                }
+                                picksUntilNext={
+                                  player.picksUntilNext
+                                }
+                              />
                             </div>
 
                             <div className="lg:text-right">
@@ -2123,7 +2245,7 @@ export default function ProjectionUpload() {
                           />
 
                           <th className="p-2">
-                            Return
+                            Gone Risk
                           </th>
 
                           <SortableHeader
@@ -2263,8 +2385,7 @@ export default function ProjectionUpload() {
                                       {getTeamName(
                                         ownerId
                                       )}{" "}
-                                      ·
-                                      Undo
+                                      · Undo
                                     </button>
                                   ) : (
                                     <div className="flex gap-1">
@@ -2325,9 +2446,12 @@ export default function ProjectionUpload() {
                                 </td>
 
                                 <td className="p-2">
-                                  <ReturnRiskBadge
+                                  <GoneRiskBadge
                                     level={
                                       player.returnRisk
+                                    }
+                                    probability={
+                                      player.returnProbability
                                     }
                                   />
                                 </td>
@@ -2509,17 +2633,13 @@ export default function ProjectionUpload() {
                                 : "text-zinc-700"
                             }
                           >
-                            {slot
-                              .player
-                              ?.name ??
+                            {slot.player?.name ??
                               "Empty"}
                           </span>
 
                           <span className="text-[10px] text-zinc-600">
                             {
-                              slot
-                                .player
-                                ?.team
+                              slot.player?.team
                             }
                           </span>
                         </div>
@@ -2591,10 +2711,7 @@ export default function ProjectionUpload() {
                   </div>
 
                   <div className="mt-1 text-xs text-zinc-500">
-                    Snake order
-                    automatically
-                    advances after each
-                    pick.
+                    Snake order automatically advances after each pick.
                   </div>
 
                   <div className="mt-3 grid grid-cols-3 gap-1.5">
@@ -2628,8 +2745,7 @@ export default function ProjectionUpload() {
                           <div className="text-zinc-600">
                             {leagueTeamPlayers.get(
                               team.id
-                            )
-                              ?.length ??
+                            )?.length ??
                               0}{" "}
                             picks
                           </div>
@@ -2643,8 +2759,7 @@ export default function ProjectionUpload() {
 
             <details className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900">
               <summary className="cursor-pointer px-4 py-3 font-semibold">
-                League Rankings &
-                Category Matrix
+                League Rankings & Category Matrix
               </summary>
 
               <div className="px-4 pb-4">
@@ -2666,73 +2781,85 @@ export default function ProjectionUpload() {
 }
 
 function ReturnRiskDisplay({
-    level,
-    probability,
-    reason,
-    picksUntilNext,
-  }: {
-    level: ReturnRiskLevel;
-    probability: number;
-    reason: string;
-    picksUntilNext: number;
-  }) {
-    let className =
-      "text-zinc-500";
-  
-    if (level === "TAKE NOW") {
-      className =
-        "text-red-400";
-    } else if (
-      level === "RISKY"
-    ) {
-      className =
-        "text-orange-400";
-    } else if (
-      level === "POSSIBLE"
-    ) {
-      className =
-        "text-yellow-400";
-    }
-  
-    const percentage =
-      Math.round(
-        probability * 100
-      );
-  
-    return (
-      <div className="mt-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={`text-[10px] font-bold ${className}`}
-          >
-            GONE RISK: {percentage}%
-          </span>
-  
-          <span className="text-[10px] text-zinc-600">
-            {level}
-          </span>
-  
-          {picksUntilNext > 0 && (
-            <span className="text-[10px] text-zinc-600">
-              {picksUntilNext} picks
-              until yours
-            </span>
-          )}
-        </div>
-  
-        {reason && (
-          <div className="mt-0.5 text-[10px] text-zinc-600">
-            {reason}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-function ReturnRiskBadge({
   level,
+  probability,
+  reason,
+  picksUntilNext,
 }: {
   level: ReturnRiskLevel;
+  probability: number;
+  reason: string;
+  picksUntilNext: number;
+}) {
+  let className =
+    "text-zinc-500";
+
+  if (
+    level ===
+    "TAKE NOW"
+  ) {
+    className =
+      "text-red-400";
+  } else if (
+    level ===
+    "RISKY"
+  ) {
+    className =
+      "text-orange-400";
+  } else if (
+    level ===
+    "POSSIBLE"
+  ) {
+    className =
+      "text-yellow-400";
+  }
+
+  const percentage =
+    Math.round(
+      probability *
+        100
+    );
+
+  return (
+    <div className="mt-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`text-[10px] font-bold ${className}`}
+        >
+          GONE RISK:{" "}
+          {percentage}%
+        </span>
+
+        <span className="text-[10px] text-zinc-600">
+          {level}
+        </span>
+
+        {picksUntilNext >
+          0 && (
+          <span className="text-[10px] text-zinc-600">
+            {
+              picksUntilNext
+            }{" "}
+            picks until yours
+          </span>
+        )}
+      </div>
+
+      {reason && (
+        <div className="mt-0.5 text-[10px] text-zinc-600">
+          {reason}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GoneRiskBadge({
+  level,
+  probability,
+}: {
+  level: ReturnRiskLevel;
+  probability: number;
 }) {
   let className =
     "text-zinc-500";
@@ -2760,8 +2887,15 @@ function ReturnRiskBadge({
   return (
     <span
       className={`whitespace-nowrap text-[9px] font-bold ${className}`}
+      title={
+        level
+      }
     >
-      {level}
+      {Math.round(
+        probability *
+          100
+      )}
+      %
     </span>
   );
 }
@@ -2817,12 +2951,14 @@ function CompactNeed({
     "border-zinc-700 bg-zinc-950 text-zinc-400";
 
   if (
-    weight >= 1.1
+    weight >=
+    1.1
   ) {
     className =
       "border-red-900 bg-red-950/40 text-red-300";
   } else if (
-    weight <= 0.9
+    weight <=
+    0.9
   ) {
     className =
       "border-emerald-900 bg-emerald-950/40 text-emerald-300";
@@ -2887,7 +3023,8 @@ function getHeatmapStyle(
   }
 
   if (
-    zScore >= 0.35
+    zScore >=
+    0.35
   ) {
     return {
       backgroundColor:
@@ -2896,7 +3033,8 @@ function getHeatmapStyle(
   }
 
   if (
-    zScore > -0.35
+    zScore >
+    -0.35
   ) {
     return {
       backgroundColor:
@@ -2905,7 +3043,8 @@ function getHeatmapStyle(
   }
 
   if (
-    zScore > -1
+    zScore >
+    -1
   ) {
     return {
       backgroundColor:
@@ -2914,7 +3053,8 @@ function getHeatmapStyle(
   }
 
   if (
-    zScore > -2
+    zScore >
+    -2
   ) {
     return {
       backgroundColor:
@@ -2942,7 +3082,9 @@ function SortableHeader({
     <th className="p-2">
       <button
         type="button"
-        onClick={onClick}
+        onClick={
+          onClick
+        }
         className="whitespace-nowrap font-semibold hover:text-white"
       >
         {label}
