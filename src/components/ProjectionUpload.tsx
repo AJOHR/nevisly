@@ -1152,6 +1152,30 @@ export default function ProjectionUpload() {
 
               fantasyTeams,
             });
+            let flexibilityBonus = 0;
+
+            if (player.positions.length === 2) {
+              flexibilityBonus = 0.1;
+            } else if (player.positions.length >= 3) {
+              flexibilityBonus = 0.18;
+            }
+            
+            const coversOpenPosition =
+              player.positions.some((position) =>
+                openStarterPositions.includes(
+                  position as "C" | "LW" | "RW" | "D"
+                )
+              );
+            
+            if (coversOpenPosition) {
+              flexibilityBonus += 0.08;
+            }
+            
+            flexibilityBonus =
+              Math.min(
+                flexibilityBonus,
+                0.25
+              );
 
           const returnRisk =
             calculateReturnRisk({
@@ -1193,12 +1217,12 @@ export default function ProjectionUpload() {
             picksUntilNext:
               returnRisk.picksUntilNext,
 
-            score:
-              player.vor +
-              player.needBonus +
-              h2h.matchupGain *
-                1.25 +
-              scarcity.scarcityBonus,
+score:
+  player.vor +
+  player.needBonus +
+  h2h.matchupGain * 1.25 +
+  scarcity.scarcityBonus +
+  flexibilityBonus,
           };
         }
       );
