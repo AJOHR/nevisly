@@ -5,7 +5,7 @@ import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 import type { SkaterProjection } from "@/types/player";
 import type { DraftPick, FantasyTeam } from "@/types/draft";
 import LeagueRankings from "@/components/LeagueRankings";
-import { calculateMarginalStandingsGain } from "@/lib/draft/marginalStandings";
+import { calculateH2HImpact } from "@/lib/draft/h2hImpact";
 
 const MY_TEAM_ID = "team-1";
 
@@ -40,7 +40,7 @@ type BaseRankedPlayer = SkaterProjection & {
 
 type RankedPlayer = BaseRankedPlayer & {
   needBonus: number;
-  leagueGain: number;
+  h2hGain: number;
   score: number;
 };
 
@@ -49,9 +49,6 @@ type SortKey =
   | "age"
   | "team"
   | "score"
-  | "vor"
-  | "needBonus"
-  | "leagueGain"
   | "gp"
   | "goals"
   | "assists"
@@ -106,6 +103,7 @@ export default function ProjectionUpload() {
   const [leagueTeams, setLeagueTeams] = useState(12);
 
   const [draftPicks, setDraftPicks] = useState<DraftPick[]>([]);
+
   const [selectedDraftTeamId, setSelectedDraftTeamId] =
     useState(MY_TEAM_ID);
 
@@ -281,15 +279,12 @@ export default function ProjectionUpload() {
   }, [players, leagueTeams]);
 
   const baseMyTeamPlayers = useMemo(() => {
-    const playerMap = new Map(
-      baseRankedPlayers.map((player) => [
-        player.id,
-        player,
-      ])
+    const map = new Map(
+      baseRankedPlayers.map((player) => [player.id, player])
     );
 
     return myTeamOrder
-      .map((id) => playerMap.get(id))
+      .map((id) => map.get(id))
       .filter(
         (
           player
@@ -307,14 +302,12 @@ export default function ProjectionUpload() {
         continue;
       }
 
-      const total = baseMyTeamPlayers.reduce(
-        (sum, player) =>
-          sum + player.zScores[category],
-        0
-      );
-
       result[category] =
-        total / baseMyTeamPlayers.length;
+        baseMyTeamPlayers.reduce(
+          (sum, player) =>
+            sum + player.zScores[category],
+          0
+        ) / baseMyTeamPlayers.length;
     }
 
     return result;
@@ -344,12 +337,12 @@ export default function ProjectionUpload() {
         teamCategoryStrength[category] -
         averageStrength;
 
-      const weight =
-        1 - relativeStrength * 0.18;
-
       result[category] = Math.max(
         0.75,
-        Math.min(1.35, weight)
+        Math.min(
+          1.35,
+          1 - relativeStrength * 0.18
+        )
       );
     }
 
@@ -364,11 +357,9 @@ export default function ProjectionUpload() {
       let needBonus = 0;
 
       for (const category of categoryKeys) {
-        const extraWeight =
-          teamNeedWeights[category] - 1;
-
         needBonus +=
-          player.zScores[category] * extraWeight;
+          player.zScores[category] *
+          (teamNeedWeights[category] - 1);
       }
 
       needBonus *= 0.75;
@@ -376,7 +367,7 @@ export default function ProjectionUpload() {
       return {
         ...player,
         needBonus,
-        leagueGain: 0,
+        h2hGain: 0,
         score: player.vor + needBonus,
       };
     });
@@ -403,41 +394,32 @@ export default function ProjectionUpload() {
   }, [playerMap, myTeamOrder]);
 
   const assignedRoster = useMemo<RosterSlot[]>(() => {
-    const starterAssignments = new Map<
+    const assignments = new Map<
       string,
       RankedPlayer
     >();
 
-    function canUseSlot(
-      player: RankedPlayer,
-      slotPosition: string
-    ) {
-      return player.positions.includes(slotPosition);
-    }
-
     function tryAssign(
       player: RankedPlayer,
-      visitedSlots: Set<string>
+      visited: Set<string>
     ): boolean {
       for (const slot of STARTING_SLOTS) {
-        if (!canUseSlot(player, slot.position)) {
+        if (
+          !player.positions.includes(slot.position) ||
+          visited.has(slot.id)
+        ) {
           continue;
         }
 
-        if (visitedSlots.has(slot.id)) {
-          continue;
-        }
+        visited.add(slot.id);
 
-        visitedSlots.add(slot.id);
-
-        const existingPlayer =
-          starterAssignments.get(slot.id);
+        const existing = assignments.get(slot.id);
 
         if (
-          !existingPlayer ||
-          tryAssign(existingPlayer, visitedSlots)
+          !existing ||
+          tryAssign(existing, visited)
         ) {
-          starterAssignments.set(slot.id, player);
+          assignments.set(slot.id, player);
           return true;
         }
       }
@@ -458,18 +440,17 @@ export default function ProjectionUpload() {
       STARTING_SLOTS.map((slot) => ({
         id: slot.id,
         position: slot.position,
-        player: starterAssignments.get(slot.id),
+        player: assignments.get(slot.id),
       }));
 
-    const starterPlayerIds = new Set(
-      [...starterAssignments.values()].map(
+    const starterIds = new Set(
+      [...assignments.values()].map(
         (player) => player.id
       )
     );
 
     const benchPlayers = myTeamPlayers.filter(
-      (player) =>
-        !starterPlayerIds.has(player.id)
+      (player) => !starterIds.has(player.id)
     );
 
     const bench: RosterSlot[] = Array.from(
@@ -497,31 +478,31 @@ export default function ProjectionUpload() {
   const teamTotals = useMemo(() => {
     return {
       goals: myTeamPlayers.reduce(
-        (sum, player) => sum + player.goals,
+        (sum, p) => sum + p.goals,
         0
       ),
       assists: myTeamPlayers.reduce(
-        (sum, player) => sum + player.assists,
+        (sum, p) => sum + p.assists,
         0
       ),
       points: myTeamPlayers.reduce(
-        (sum, player) => sum + player.points,
+        (sum, p) => sum + p.points,
         0
       ),
       ppp: myTeamPlayers.reduce(
-        (sum, player) => sum + player.ppp,
+        (sum, p) => sum + p.ppp,
         0
       ),
       sog: myTeamPlayers.reduce(
-        (sum, player) => sum + player.sog,
+        (sum, p) => sum + p.sog,
         0
       ),
       hits: myTeamPlayers.reduce(
-        (sum, player) => sum + player.hits,
+        (sum, p) => sum + p.hits,
         0
       ),
       blocks: myTeamPlayers.reduce(
-        (sum, player) => sum + player.blocks,
+        (sum, p) => sum + p.blocks,
         0
       ),
     };
@@ -537,24 +518,14 @@ export default function ProjectionUpload() {
       result.set(team.id, []);
     }
 
-    const orderedPicks = [...draftPicks].sort(
+    for (const pick of [...draftPicks].sort(
       (a, b) => a.pickNumber - b.pickNumber
-    );
-
-    for (const pick of orderedPicks) {
+    )) {
       const player = playerMap.get(pick.playerId);
 
       if (!player) continue;
 
-      const current =
-        result.get(pick.fantasyTeamId) ?? [];
-
-      current.push(player);
-
-      result.set(
-        pick.fantasyTeamId,
-        current
-      );
+      result.get(pick.fantasyTeamId)?.push(player);
     }
 
     return result;
@@ -564,25 +535,32 @@ export default function ProjectionUpload() {
     playerMap,
   ]);
 
-  const playersWithLeagueGain = useMemo(() => {
+  const finalRankedPlayers = useMemo<RankedPlayer[]>(() => {
     return rankedPlayers.map((player) => {
       if (draftedIds.has(player.id)) {
         return {
           ...player,
-          leagueGain: 0,
+          h2hGain: 0,
         };
       }
-
-      const result =
-        calculateMarginalStandingsGain({
+  
+      const h2h =
+        calculateH2HImpact({
           player,
           fantasyTeams,
           leagueTeamPlayers,
         });
-
+  
       return {
         ...player,
-        leagueGain: result.totalGain,
+  
+        h2hGain:
+          h2h.matchupGain,
+  
+        score:
+          player.vor +
+          player.needBonus +
+          h2h.matchupGain * 1.25,
       };
     });
   }, [
@@ -592,26 +570,12 @@ export default function ProjectionUpload() {
     leagueTeamPlayers,
   ]);
 
-  const finalRankedPlayers = useMemo<RankedPlayer[]>(() => {
-    return playersWithLeagueGain.map((player) => ({
-      ...player,
-      score:
-        player.vor +
-        player.needBonus +
-        player.leagueGain * 0.35,
-    }));
-  }, [playersWithLeagueGain]);
-
   const bestAvailable = useMemo(() => {
     return [...finalRankedPlayers]
       .filter(
-        (player) =>
-          !draftedIds.has(player.id)
+        (player) => !draftedIds.has(player.id)
       )
-      .sort(
-        (a, b) =>
-          b.score - a.score
-      )
+      .sort((a, b) => b.score - a.score)
       .slice(0, 5);
   }, [
     finalRankedPlayers,
@@ -624,10 +588,7 @@ export default function ProjectionUpload() {
 
     return [...finalRankedPlayers]
       .filter((player) => {
-        if (showDrafted) {
-          return true;
-        }
-
+        if (showDrafted) return true;
         return !draftedIds.has(player.id);
       })
 
@@ -691,9 +652,7 @@ export default function ProjectionUpload() {
     playerId: string,
     fantasyTeamId: string
   ) {
-    if (draftedIds.has(playerId)) {
-      return;
-    }
+    if (draftedIds.has(playerId)) return;
 
     setDraftPicks((current) => [
       ...current,
@@ -705,22 +664,17 @@ export default function ProjectionUpload() {
     ]);
   }
 
-  function undoDraftPlayer(
-    playerId: string
-  ) {
-    setDraftPicks((current) => {
-      const filtered = current.filter(
-        (pick) =>
-          pick.playerId !== playerId
-      );
-
-      return filtered.map(
-        (pick, index) => ({
+  function undoDraftPlayer(playerId: string) {
+    setDraftPicks((current) =>
+      current
+        .filter(
+          (pick) => pick.playerId !== playerId
+        )
+        .map((pick, index) => ({
           ...pick,
           pickNumber: index + 1,
-        })
-      );
-    });
+        }))
+    );
   }
 
   function undoLastPick() {
@@ -750,25 +704,18 @@ export default function ProjectionUpload() {
     );
   }
 
-  function sortIndicator(
-    key: SortKey
-  ) {
-    if (sortKey !== key) {
-      return "";
-    }
+  function sortIndicator(key: SortKey) {
+    if (sortKey !== key) return "";
 
     return sortDirection === "asc"
       ? " ↑"
       : " ↓";
   }
 
-  function getTeamName(
-    teamId: string
-  ) {
+  function getTeamName(teamId: string) {
     return (
       fantasyTeams.find(
-        (team) =>
-          team.id === teamId
+        (team) => team.id === teamId
       )?.name ?? teamId
     );
   }
@@ -778,61 +725,51 @@ export default function ProjectionUpload() {
   ) {
     const reasons: string[] = [];
 
-    const categoryStrengths =
-      categoryKeys
-        .map((category) => ({
-          category,
-          zScore:
-            player.zScores[category],
-          weight:
-            teamNeedWeights[category],
-        }))
-        .sort(
-          (a, b) =>
-            b.zScore * b.weight -
-            a.zScore * a.weight
-        );
-
-    const eliteCategories =
-      categoryStrengths.filter(
-        (item) =>
-          item.zScore >= 1
+    const strengths = categoryKeys
+      .map((category) => ({
+        category,
+        z: player.zScores[category],
+        need: teamNeedWeights[category],
+      }))
+      .sort(
+        (a, b) =>
+          b.z * b.need -
+          a.z * a.need
       );
 
-    if (eliteCategories.length > 0) {
-      const labels = eliteCategories
-        .slice(0, 2)
-        .map(
-          (item) =>
-            CATEGORY_LABELS[item.category]
-        );
+    const strong = strengths
+      .filter((item) => item.z >= 1)
+      .slice(0, 2)
+      .map(
+        (item) =>
+          CATEGORY_LABELS[item.category]
+      );
 
+    if (strong.length > 0) {
       reasons.push(
-        `Strong ${labels.join(" + ")}`
+        `Strong ${strong.join(" + ")}`
       );
     }
 
-    const neededCategories =
-      categoryStrengths.filter(
+    const needed = strengths
+      .filter(
         (item) =>
-          item.weight >= 1.08 &&
-          item.zScore > 0.35
+          item.need >= 1.08 &&
+          item.z > 0.35
+      )
+      .slice(0, 2)
+      .map(
+        (item) =>
+          CATEGORY_LABELS[item.category]
       );
 
-    if (neededCategories.length > 0) {
-      const labels = neededCategories
-        .slice(0, 2)
-        .map(
-          (item) =>
-            CATEGORY_LABELS[item.category]
-        );
-
+    if (needed.length > 0) {
       reasons.push(
-        `Helps ${labels.join(" + ")}`
+        `Helps ${needed.join(" + ")}`
       );
     }
 
-    const fillsOpenPosition =
+    const openPosition =
       player.positions.find((position) =>
         openStarterPositions.includes(
           position as
@@ -843,9 +780,9 @@ export default function ProjectionUpload() {
         )
       );
 
-    if (fillsOpenPosition) {
+    if (openPosition) {
       reasons.push(
-        `Fills ${fillsOpenPosition}`
+        `Fills ${openPosition}`
       );
     }
 
@@ -853,22 +790,20 @@ export default function ProjectionUpload() {
       player.replacementPosition === "D" &&
       player.vor > 0
     ) {
-      reasons.push("D scarcity");
+      reasons.push("Scarce D value");
     }
 
     if (player.positions.length > 1) {
       reasons.push(
-        `${player.positions.join("/")} flex`
+        `${player.positions.join("/")} flexibility`
       );
     }
 
-    if (player.leagueGain >= 1) {
-      reasons.push(
-        `+${player.leagueGain.toFixed(
-          1
-        )} league pts`
-      );
-    }
+    if (player.h2hGain >= 0.15) {
+        reasons.push(
+          `Improves H2H matchup strength`
+        );
+      }
 
     if (reasons.length === 0) {
       reasons.push("Best overall value");
@@ -885,21 +820,11 @@ export default function ProjectionUpload() {
     "D",
   ];
 
-  const draftedCount = draftPicks.length;
-
   const availableCount =
-    players.length - draftedCount;
-
-  const currentDraftTeam =
-    fantasyTeams.find(
-      (team) =>
-        team.id === selectedDraftTeamId
-    );
+    players.length - draftPicks.length;
 
   const lastPick =
-    draftPicks.length > 0
-      ? draftPicks[draftPicks.length - 1]
-      : undefined;
+    draftPicks.at(-1);
 
   const lastPickPlayer =
     lastPick
@@ -910,12 +835,13 @@ export default function ProjectionUpload() {
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1900px] flex-wrap items-center gap-3 px-4 py-3 lg:px-6">
-          <div className="mr-3">
-            <div className="text-xl font-bold">
-              Nevisly
+          <div className="mr-4">
+            <div className="text-xl font-black">
+              NEVISLY
             </div>
-            <div className="text-[11px] text-zinc-500">
-              Draft Assistant
+
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+              Championship Draft Assistant
             </div>
           </div>
 
@@ -931,8 +857,8 @@ export default function ProjectionUpload() {
                 value={`${availableCount}`}
               />
 
-              <div className="min-w-[170px]">
-                <div className="mb-1 text-[10px] uppercase tracking-wide text-zinc-500">
+              <div className="min-w-[165px]">
+                <div className="mb-1 text-[9px] uppercase text-zinc-500">
                   Drafting Team
                 </div>
 
@@ -956,14 +882,14 @@ export default function ProjectionUpload() {
                 </select>
               </div>
 
-              <div className="ml-auto flex items-center gap-2">
-                {lastPickPlayer && lastPick && (
+              <div className="ml-auto flex items-center gap-3">
+                {lastPick && lastPickPlayer && (
                   <div className="hidden text-right lg:block">
-                    <div className="text-[10px] uppercase text-zinc-500">
-                      Last Pick
+                    <div className="text-[9px] uppercase text-zinc-500">
+                      Last pick
                     </div>
 
-                    <div className="text-xs text-zinc-300">
+                    <div className="text-xs">
                       {lastPickPlayer.name}
                       {" → "}
                       {getTeamName(
@@ -974,10 +900,9 @@ export default function ProjectionUpload() {
                 )}
 
                 <button
-                  type="button"
                   onClick={undoLastPick}
                   disabled={draftPicks.length === 0}
-                  className="rounded-lg border border-red-900 bg-red-950/20 px-3 py-2 text-sm text-red-300 hover:border-red-600 disabled:cursor-not-allowed disabled:opacity-30"
+                  className="rounded-lg border border-red-900 px-3 py-2 text-xs font-semibold text-red-300 disabled:opacity-30"
                 >
                   Undo Last
                 </button>
@@ -988,24 +913,22 @@ export default function ProjectionUpload() {
       </div>
 
       <div className="mx-auto max-w-[1900px] p-4 lg:p-6">
-        {players.length === 0 && (
+        {players.length === 0 ? (
           <div className="mx-auto mt-16 max-w-xl rounded-xl border border-zinc-800 bg-zinc-900 p-8">
             <h1 className="text-2xl font-bold">
-              Start Draft
+              Start Nevisly
             </h1>
 
             <p className="mt-2 text-sm text-zinc-400">
-              Import your projection CSV to load
-              Nevisly.
+              Import your projection CSV.
             </p>
 
-            <div className="mt-6">
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFile}
-              />
-            </div>
+            <input
+              className="mt-6"
+              type="file"
+              accept=".csv"
+              onChange={handleFile}
+            />
 
             {error && (
               <p className="mt-4 text-red-400">
@@ -1013,14 +936,12 @@ export default function ProjectionUpload() {
               </p>
             )}
           </div>
-        )}
-
-        {players.length > 0 && (
+        ) : (
           <>
-            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
-              <div className="text-sm text-zinc-400">
-                League:
-              </div>
+            <div className="mb-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2">
+              <span className="text-xs text-zinc-500">
+                League
+              </span>
 
               <select
                 value={leagueTeams}
@@ -1029,58 +950,36 @@ export default function ProjectionUpload() {
                     Number(event.target.value)
                   )
                 }
-                className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm"
+                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs"
               >
-                {[
-                  8,
-                  10,
-                  12,
-                  14,
-                  16,
-                  18,
-                  20,
-                ].map((teams) => (
-                  <option
-                    key={teams}
-                    value={teams}
-                  >
-                    {teams} teams
-                  </option>
-                ))}
+                {[8, 10, 12, 14, 16].map(
+                  (teams) => (
+                    <option
+                      key={teams}
+                      value={teams}
+                    >
+                      {teams} teams
+                    </option>
+                  )
+                )}
               </select>
 
-              <div className="h-5 w-px bg-zinc-700" />
-
-              <div className="text-xs text-zinc-500">
-                Current:
-              </div>
-
-              <div className="font-semibold text-blue-300">
-                {currentDraftTeam?.name}
-              </div>
-
-              <div className="ml-auto text-xs text-zinc-500">
-                {draftedCount} drafted
-              </div>
+              <span className="ml-auto text-xs text-zinc-500">
+                H2H Categories · 90 sec pick
+              </span>
             </div>
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
               <div className="min-w-0">
-                <section className="mb-5 overflow-hidden rounded-xl border border-emerald-900/60 bg-zinc-900">
-                  <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-                    <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
-                        Live Recommendation
-                      </div>
-
-                      <h2 className="text-lg font-bold">
-                        Best Available
-                      </h2>
+                <section className="mb-5 overflow-hidden rounded-xl border border-emerald-800/60 bg-zinc-900">
+                  <div className="border-b border-zinc-800 px-4 py-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                      Who should I take?
                     </div>
 
-                    <div className="text-xs text-zinc-500">
-                      Top 5
-                    </div>
+                    <h2 className="text-lg font-bold">
+                      Best Available
+                    </h2>
                   </div>
 
                   <div className="divide-y divide-zinc-800">
@@ -1094,24 +993,30 @@ export default function ProjectionUpload() {
                         return (
                           <div
                             key={player.id}
-                            className={`grid gap-3 px-4 py-3 ${
+                            className={`grid gap-3 px-4 py-3 lg:grid-cols-[42px_minmax(200px,1fr)_110px_125px] lg:items-center ${
                               index === 0
-                                ? "bg-emerald-950/20"
+                                ? "bg-emerald-950/25"
                                 : ""
-                            } lg:grid-cols-[40px_minmax(180px,1fr)_auto_auto_auto_auto_120px] lg:items-center`}
+                            }`}
                           >
                             <div
-                              className={`text-lg font-black ${
+                              className={`text-xl font-black ${
                                 index === 0
                                   ? "text-emerald-400"
-                                  : "text-zinc-500"
+                                  : "text-zinc-600"
                               }`}
                             >
                               #{index + 1}
                             </div>
 
                             <div>
-                              <div className="font-semibold">
+                              <div
+                                className={
+                                  index === 0
+                                    ? "text-lg font-bold"
+                                    : "font-semibold"
+                                }
+                              >
                                 {player.name}
                               </div>
 
@@ -1121,49 +1026,28 @@ export default function ProjectionUpload() {
                                 )}
                                 {" · "}
                                 {player.team}
-                                {" · "}
+                              </div>
+
+                              <div className="mt-1 text-xs text-zinc-300">
                                 {reasons.join(" · ")}
                               </div>
                             </div>
 
-                            <MiniMetric
-                              label="Score"
-                              value={player.score.toFixed(
-                                2
-                              )}
-                              strong={
-                                index === 0
-                              }
-                            />
+                            <div className="lg:text-right">
+                              <div className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500">
+                                Nevisly
+                              </div>
 
-                            <MiniMetric
-                              label="VOR"
-                              value={player.vor.toFixed(
-                                2
-                              )}
-                            />
-
-                            <MiniMetric
-                              label="Need"
-                              value={`${
-                                player.needBonus > 0
-                                  ? "+"
-                                  : ""
-                              }${player.needBonus.toFixed(
-                                2
-                              )}`}
-                            />
-
-                            <MiniMetric
-                              label="League"
-                              value={`${
-                                player.leagueGain > 0
-                                  ? "+"
-                                  : ""
-                              }${player.leagueGain.toFixed(
-                                1
-                              )}`}
-                            />
+                              <div
+                                className={`font-black ${
+                                  index === 0
+                                    ? "text-2xl text-emerald-400"
+                                    : "text-lg"
+                                }`}
+                              >
+                                {player.score.toFixed(2)}
+                              </div>
+                            </div>
 
                             <button
                               type="button"
@@ -1173,13 +1057,13 @@ export default function ProjectionUpload() {
                                   MY_TEAM_ID
                                 )
                               }
-                              className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                              className={`rounded-lg px-4 py-2 font-bold ${
                                 index === 0
                                   ? "bg-emerald-500 text-black hover:bg-emerald-400"
-                                  : "border border-emerald-800 bg-emerald-950/30 text-emerald-300 hover:border-emerald-600"
+                                  : "border border-emerald-800 text-emerald-300"
                               }`}
                             >
-                              My Pick
+                              MY PICK
                             </button>
                           </div>
                         );
@@ -1188,49 +1072,42 @@ export default function ProjectionUpload() {
                   </div>
                 </section>
 
-                <section className="sticky top-[73px] z-30 mb-3 rounded-xl border border-zinc-800 bg-zinc-900/95 p-3 backdrop-blur">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <section className="sticky top-[72px] z-30 mb-3 rounded-xl border border-zinc-800 bg-zinc-900/95 p-3 backdrop-blur">
+                  <div className="flex flex-col gap-2 lg:flex-row">
                     <input
-                      type="text"
                       autoFocus
-                      placeholder="Search player or NHL team..."
                       value={search}
                       onChange={(event) =>
                         setSearch(
                           event.target.value
                         )
                       }
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm outline-none placeholder:text-zinc-600 focus:border-zinc-500 lg:max-w-sm"
+                      placeholder="Search player..."
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm lg:max-w-sm"
                     />
 
-                    <div className="flex flex-wrap gap-1.5">
-                      {positions.map((position) => {
-                        const active =
-                          positionFilter ===
-                          position;
-
-                        return (
-                          <button
-                            key={position}
-                            type="button"
-                            onClick={() =>
-                              setPositionFilter(
-                                position
-                              )
-                            }
-                            className={`rounded-lg px-3 py-2 text-xs font-semibold ${
-                              active
-                                ? "bg-white text-black"
-                                : "border border-zinc-700 bg-zinc-950 text-zinc-300"
-                            }`}
-                          >
-                            {position}
-                          </button>
-                        );
-                      })}
+                    <div className="flex gap-1.5">
+                      {positions.map((position) => (
+                        <button
+                          key={position}
+                          type="button"
+                          onClick={() =>
+                            setPositionFilter(
+                              position
+                            )
+                          }
+                          className={`rounded-lg px-3 py-2 text-xs font-bold ${
+                            positionFilter === position
+                              ? "bg-white text-black"
+                              : "border border-zinc-700 bg-zinc-950"
+                          }`}
+                        >
+                          {position}
+                        </button>
+                      ))}
                     </div>
 
-                    <label className="ml-auto flex items-center gap-2 text-xs text-zinc-400">
+                    <label className="ml-auto flex items-center gap-2 text-xs text-zinc-500">
                       <input
                         type="checkbox"
                         checked={showDrafted}
@@ -1241,7 +1118,7 @@ export default function ProjectionUpload() {
                         }
                       />
 
-                      Show drafted
+                      Drafted
                     </label>
                   </div>
                 </section>
@@ -1253,12 +1130,12 @@ export default function ProjectionUpload() {
                     </h2>
 
                     <span className="text-xs text-zinc-500">
-                      {filteredPlayers.length} players
+                      {filteredPlayers.length}
                     </span>
                   </div>
 
                   <div className="max-h-[720px] overflow-auto">
-                    <table className="w-full min-w-[1050px] text-xs">
+                    <table className="w-full min-w-[880px] text-xs">
                       <thead className="sticky top-0 z-20 bg-zinc-900 text-left text-zinc-400">
                         <tr>
                           <th className="p-2">
@@ -1290,46 +1167,12 @@ export default function ProjectionUpload() {
                           />
 
                           <SortableHeader
-                            label="Score"
+                            label="Nevisly"
                             onClick={() =>
                               handleSort("score")
                             }
                             indicator={sortIndicator(
                               "score"
-                            )}
-                          />
-
-                          <SortableHeader
-                            label="VOR"
-                            onClick={() =>
-                              handleSort("vor")
-                            }
-                            indicator={sortIndicator(
-                              "vor"
-                            )}
-                          />
-
-                          <SortableHeader
-                            label="Need"
-                            onClick={() =>
-                              handleSort(
-                                "needBonus"
-                              )
-                            }
-                            indicator={sortIndicator(
-                              "needBonus"
-                            )}
-                          />
-
-                          <SortableHeader
-                            label="League"
-                            onClick={() =>
-                              handleSort(
-                                "leagueGain"
-                              )
-                            }
-                            indicator={sortIndicator(
-                              "leagueGain"
                             )}
                           />
 
@@ -1407,19 +1250,15 @@ export default function ProjectionUpload() {
                             )}
                           />
 
-                          <th className="hidden p-2 xl:table-cell">
+                          <th className="p-2">
                             Age
                           </th>
 
-                          <th className="hidden p-2 xl:table-cell">
-                            GP
-                          </th>
-
-                          <th className="hidden p-2 2xl:table-cell">
+                          <th className="p-2">
                             PO
                           </th>
 
-                          <th className="hidden p-2 2xl:table-cell">
+                          <th className="p-2">
                             Status
                           </th>
                         </tr>
@@ -1440,7 +1279,7 @@ export default function ProjectionUpload() {
                             return (
                               <tr
                                 key={player.id}
-                                className={`border-t border-zinc-800/80 ${
+                                className={`border-t border-zinc-800 ${
                                   drafted
                                     ? "opacity-40"
                                     : "hover:bg-zinc-800/50"
@@ -1448,36 +1287,29 @@ export default function ProjectionUpload() {
                               >
                                 <td className="p-2">
                                   {drafted ? (
-                                    <div className="flex items-center gap-2">
-                                      <span className="max-w-[70px] truncate text-[10px] text-zinc-500">
-                                        {getTeamName(
-                                          ownerId
-                                        )}
-                                      </span>
-
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          undoDraftPlayer(
-                                            player.id
-                                          )
-                                        }
-                                        className="text-[10px] text-red-400 hover:text-red-300"
-                                      >
-                                        Undo
-                                      </button>
-                                    </div>
+                                    <button
+                                      onClick={() =>
+                                        undoDraftPlayer(
+                                          player.id
+                                        )
+                                      }
+                                      className="text-[10px] text-red-400"
+                                    >
+                                      {getTeamName(
+                                        ownerId
+                                      )}{" "}
+                                      · Undo
+                                    </button>
                                   ) : (
                                     <div className="flex gap-1">
                                       <button
-                                        type="button"
                                         onClick={() =>
                                           draftPlayer(
                                             player.id,
                                             selectedDraftTeamId
                                           )
                                         }
-                                        className="rounded border border-blue-800 bg-blue-950/30 px-2 py-1 text-[10px] font-semibold text-blue-300 hover:border-blue-500"
+                                        className="rounded border border-blue-800 px-2 py-1 text-[10px] text-blue-300"
                                       >
                                         Draft
                                       </button>
@@ -1485,14 +1317,13 @@ export default function ProjectionUpload() {
                                       {selectedDraftTeamId !==
                                         MY_TEAM_ID && (
                                         <button
-                                          type="button"
                                           onClick={() =>
                                             draftPlayer(
                                               player.id,
                                               MY_TEAM_ID
                                             )
                                           }
-                                          className="rounded border border-emerald-800 bg-emerald-950/30 px-2 py-1 text-[10px] font-semibold text-emerald-300"
+                                          className="rounded border border-emerald-800 px-2 py-1 text-[10px] text-emerald-300"
                                         >
                                           Mine
                                         </button>
@@ -1505,7 +1336,7 @@ export default function ProjectionUpload() {
                                   {player.name}
                                 </td>
 
-                                <td className="whitespace-nowrap p-2 text-zinc-400">
+                                <td className="p-2 text-zinc-400">
                                   {player.positions.join(
                                     "/"
                                   )}
@@ -1515,45 +1346,9 @@ export default function ProjectionUpload() {
                                   {player.team}
                                 </td>
 
-                                <td className="p-2 font-bold">
+                                <td className="p-2 font-black text-emerald-400">
                                   {player.score.toFixed(
                                     2
-                                  )}
-                                </td>
-
-                                <td className="p-2">
-                                  {player.vor.toFixed(
-                                    2
-                                  )}
-                                </td>
-
-                                <td
-                                  className={`p-2 ${
-                                    player.needBonus >
-                                    0.1
-                                      ? "text-emerald-400"
-                                      : player.needBonus <
-                                          -0.1
-                                        ? "text-red-400"
-                                        : "text-zinc-400"
-                                  }`}
-                                >
-                                  {player.needBonus >
-                                  0
-                                    ? "+"
-                                    : ""}
-                                  {player.needBonus.toFixed(
-                                    2
-                                  )}
-                                </td>
-
-                                <td className="p-2 text-violet-400">
-                                  {player.leagueGain >
-                                  0
-                                    ? "+"
-                                    : ""}
-                                  {player.leagueGain.toFixed(
-                                    1
                                   )}
                                 </td>
 
@@ -1615,19 +1410,15 @@ export default function ProjectionUpload() {
                                   }
                                 />
 
-                                <td className="hidden p-2 text-zinc-500 xl:table-cell">
+                                <td className="p-2 text-zinc-500">
                                   {player.age}
                                 </td>
 
-                                <td className="hidden p-2 text-zinc-500 xl:table-cell">
-                                  {player.gp}
-                                </td>
-
-                                <td className="hidden p-2 text-zinc-600 2xl:table-cell">
+                                <td className="p-2 text-zinc-600">
                                   —
                                 </td>
 
-                                <td className="hidden p-2 text-zinc-600 2xl:table-cell">
+                                <td className="p-2 text-zinc-600">
                                   —
                                 </td>
                               </tr>
@@ -1640,25 +1431,25 @@ export default function ProjectionUpload() {
                 </section>
               </div>
 
-              <aside className="xl:sticky xl:top-[86px] xl:self-start">
+              <aside className="xl:sticky xl:top-[84px] xl:self-start">
                 <section className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex justify-between">
                     <div>
                       <h2 className="font-bold">
                         My Team
                       </h2>
 
-                      <div className="text-xs text-zinc-500">
+                      <span className="text-xs text-zinc-500">
                         {myTeamPlayers.length} skaters
-                      </div>
+                      </span>
                     </div>
 
                     <div className="rounded-lg bg-zinc-950 px-3 py-2 text-center">
-                      <div className="text-[9px] uppercase text-zinc-500">
-                        Open
+                      <div className="text-[9px] text-zinc-500">
+                        OPEN
                       </div>
 
-                      <div className="font-bold">
+                      <div className="font-black">
                         {
                           openStarterPositions.length
                         }
@@ -1691,7 +1482,7 @@ export default function ProjectionUpload() {
                       (slot) => (
                         <div
                           key={slot.id}
-                          className="grid grid-cols-[38px_1fr_auto] items-center gap-2 rounded-md bg-zinc-950 px-2 py-1.5 text-xs"
+                          className="grid grid-cols-[38px_1fr_auto] gap-2 rounded-md bg-zinc-950 px-2 py-1.5 text-xs"
                         >
                           <span className="font-bold text-zinc-500">
                             {slot.id}
@@ -1704,16 +1495,13 @@ export default function ProjectionUpload() {
                                 : "text-zinc-700"
                             }
                           >
-                            {slot.player
-                              ? slot.player.name
-                              : "Empty"}
+                            {slot.player?.name ??
+                              "Empty"}
                           </span>
 
-                          {slot.player && (
-                            <span className="text-[10px] text-zinc-600">
-                              {slot.player.team}
-                            </span>
-                          )}
+                          <span className="text-[10px] text-zinc-600">
+                            {slot.player?.team}
+                          </span>
                         </div>
                       )
                     )}
@@ -1721,47 +1509,35 @@ export default function ProjectionUpload() {
                 </section>
 
                 <section className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h2 className="font-bold">
-                      Team Totals
-                    </h2>
-
-                    <span className="text-[10px] text-zinc-500">
-                      projected
-                    </span>
-                  </div>
+                  <h2 className="mb-3 font-bold">
+                    Team Totals
+                  </h2>
 
                   <div className="grid grid-cols-4 gap-2">
                     <TinyStat
                       label="G"
                       value={teamTotals.goals}
                     />
-
                     <TinyStat
                       label="A"
                       value={teamTotals.assists}
                     />
-
                     <TinyStat
                       label="P"
                       value={teamTotals.points}
                     />
-
                     <TinyStat
                       label="PPP"
                       value={teamTotals.ppp}
                     />
-
                     <TinyStat
                       label="SOG"
                       value={teamTotals.sog}
                     />
-
                     <TinyStat
                       label="HIT"
                       value={teamTotals.hits}
                     />
-
                     <TinyStat
                       label="BLK"
                       value={teamTotals.blocks}
@@ -1770,48 +1546,39 @@ export default function ProjectionUpload() {
                 </section>
 
                 <section className="rounded-xl border border-blue-900/50 bg-zinc-900 p-4">
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-blue-400">
+                  <div className="text-[10px] font-bold uppercase text-blue-400">
                     Manual Draft
                   </div>
 
-                  <div className="mt-1 text-sm text-zinc-400">
-                    Click a team, then use
-                    Draft in the player table.
-                  </div>
-
                   <div className="mt-3 grid grid-cols-3 gap-1.5">
-                    {fantasyTeams.map((team) => {
-                      const count =
-                        leagueTeamPlayers.get(
-                          team.id
-                        )?.length ?? 0;
-
-                      return (
-                        <button
-                          key={team.id}
-                          type="button"
-                          onClick={() =>
-                            setSelectedDraftTeamId(
-                              team.id
-                            )
-                          }
-                          className={`rounded-md border px-2 py-2 text-left text-[10px] ${
-                            selectedDraftTeamId ===
+                    {fantasyTeams.map((team) => (
+                      <button
+                        key={team.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedDraftTeamId(
                             team.id
-                              ? "border-blue-500 bg-blue-950/40 text-blue-200"
-                              : "border-zinc-800 bg-zinc-950 text-zinc-400"
-                          }`}
-                        >
-                          <div className="truncate font-semibold">
-                            {team.name}
-                          </div>
+                          )
+                        }
+                        className={`rounded-md border px-2 py-2 text-left text-[10px] ${
+                          selectedDraftTeamId ===
+                          team.id
+                            ? "border-blue-500 bg-blue-950/40"
+                            : "border-zinc-800 bg-zinc-950 text-zinc-400"
+                        }`}
+                      >
+                        <div className="truncate font-bold">
+                          {team.name}
+                        </div>
 
-                          <div className="mt-0.5 text-zinc-600">
-                            {count} picks
-                          </div>
-                        </button>
-                      );
-                    })}
+                        <div className="text-zinc-600">
+                          {leagueTeamPlayers.get(
+                            team.id
+                          )?.length ?? 0}{" "}
+                          picks
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </section>
               </aside>
@@ -1851,35 +1618,7 @@ function TopStat({
         {label}
       </div>
 
-      <div className="text-sm font-bold">
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function MiniMetric({
-  label,
-  value,
-  strong = false,
-}: {
-  label: string;
-  value: string;
-  strong?: boolean;
-}) {
-  return (
-    <div className="text-right">
-      <div className="text-[9px] uppercase text-zinc-600">
-        {label}
-      </div>
-
-      <div
-        className={`text-sm font-bold ${
-          strong
-            ? "text-emerald-400"
-            : ""
-        }`}
-      >
+      <div className="font-black">
         {value}
       </div>
     </div>
@@ -1927,9 +1666,7 @@ function CompactNeed({
   return (
     <div
       className={`rounded-md border px-1 py-2 text-center ${className}`}
-      title={`Need weight ${weight.toFixed(
-        2
-      )}×`}
+      title={`Need weight ${weight.toFixed(2)}×`}
     >
       <div className="text-[9px] font-bold">
         {label}
@@ -1963,7 +1700,7 @@ function getHeatmapStyle(
     return {
       backgroundColor:
         "rgba(22, 163, 74, 0.70)",
-      color: "#ffffff",
+      color: "#fff",
     };
   }
 
@@ -1971,7 +1708,6 @@ function getHeatmapStyle(
     return {
       backgroundColor:
         "rgba(22, 163, 74, 0.42)",
-      color: "#dcfce7",
     };
   }
 
@@ -1985,29 +1721,28 @@ function getHeatmapStyle(
   if (zScore > -0.35) {
     return {
       backgroundColor:
-        "rgba(113, 113, 122, 0.10)",
+        "rgba(113,113,122,0.10)",
     };
   }
 
   if (zScore > -1) {
     return {
       backgroundColor:
-        "rgba(220, 38, 38, 0.18)",
+        "rgba(220,38,38,0.18)",
     };
   }
 
   if (zScore > -2) {
     return {
       backgroundColor:
-        "rgba(220, 38, 38, 0.38)",
-      color: "#fee2e2",
+        "rgba(220,38,38,0.38)",
     };
   }
 
   return {
     backgroundColor:
-      "rgba(220, 38, 38, 0.65)",
-    color: "#ffffff",
+      "rgba(220,38,38,0.65)",
+    color: "#fff",
   };
 }
 
