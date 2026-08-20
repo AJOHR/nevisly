@@ -1,13 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ChangeEvent,
+} from "react";
+
 import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
+
 import type { SkaterProjection } from "@/types/player";
 import type { DraftPick, FantasyTeam } from "@/types/draft";
+
 import LeagueRankings from "@/components/LeagueRankings";
 
 import { calculateH2HImpact } from "@/lib/draft/h2hImpact";
 import { calculateDraftRoomScarcity } from "@/lib/draft/draftRoomScarcity";
+
+import {
+  calculatePlayoffScheduleBonus,
+  type PlayoffScheduleMap,
+} from "@/lib/draft/playoffSchedule";
 
 import {
   calculateReturnRisk,
@@ -56,6 +70,9 @@ type RankedPlayer = BaseRankedPlayer & {
   returnReason: string;
   picksUntilNext: number;
 
+  playoffGames: number;
+  playoffBonus: number;
+
   score: number;
 };
 
@@ -65,6 +82,7 @@ type SortKey =
   | "team"
   | "score"
   | "gp"
+  | "playoffGames"
   | "goals"
   | "assists"
   | "points"
@@ -162,8 +180,51 @@ export default function ProjectionUpload() {
     setSelectedDraftTeamId,
   ] = useState("team-1");
 
+  const [
+    playoffSchedule,
+    setPlayoffSchedule,
+  ] = useState<PlayoffScheduleMap>({});
+
   const myTeamId =
     getMyTeamId(myDraftSlot);
+
+  /*
+   * Load NHL playoff schedule.
+   *
+   * The API route owns the playoff date range.
+   * Once we confirm the exact Yahoo playoff weeks,
+   * we can update that route without rewriting
+   * this component.
+   */
+  useEffect(() => {
+    async function loadPlayoffSchedule() {
+      try {
+        const response =
+          await fetch(
+            "/api/nhl/playoff-schedule"
+          );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        setPlayoffSchedule(
+          data.teams ?? {}
+        );
+      } catch {
+        /*
+         * Schedule data is optional.
+         * Nevisly should continue functioning
+         * even if the NHL endpoint is unavailable.
+         */
+      }
+    }
+
+    loadPlayoffSchedule();
+  }, []);
 
   const fantasyTeams =
     useMemo<FantasyTeam[]>(() => {
@@ -192,12 +253,14 @@ export default function ProjectionUpload() {
     ]);
 
   async function handleFile(
-    event: React.ChangeEvent<HTMLInputElement>
+    event: ChangeEvent<HTMLInputElement>
   ) {
     const file =
       event.target.files?.[0];
 
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     try {
       setError("");
@@ -263,15 +326,14 @@ export default function ProjectionUpload() {
             pick.playerId
         )
       );
-    }, [draftPicks]);
+    }, [
+      draftPicks,
+    ]);
 
   const ownerByPlayerId =
     useMemo(() => {
       const result =
-        new Map<
-          string,
-          string
-        >();
+        new Map<string, string>();
 
       for (
         const pick of
@@ -284,7 +346,9 @@ export default function ProjectionUpload() {
       }
 
       return result;
-    }, [draftPicks]);
+    }, [
+      draftPicks,
+    ]);
 
   const myTeamOrder =
     useMemo(() => {
@@ -308,6 +372,13 @@ export default function ProjectionUpload() {
       myTeamId,
     ]);
 
+  /*
+   * --------------------------------------------------------
+   * BASE PLAYER VALUE
+   * --------------------------------------------------------
+   *
+   * Seven-category Z-scores + positional replacement value.
+   */
   const baseRankedPlayers =
     useMemo<BaseRankedPlayer[]>(() => {
       if (
@@ -316,15 +387,14 @@ export default function ProjectionUpload() {
         return [];
       }
 
-      const fantasyPool = [
-        ...players,
-      ]
-        .sort(
-          (a, b) =>
-            b.points -
-            a.points
-        )
-        .slice(0, 250);
+      const fantasyPool =
+        [...players]
+          .sort(
+            (a, b) =>
+              b.points -
+              a.points
+          )
+          .slice(0, 250);
 
       const stats =
         {} as Record<
@@ -413,15 +483,18 @@ export default function ProjectionUpload() {
               const zScore =
                 stdDev === 0
                   ? 0
-                  : (player[
-                      category
-                    ] -
-                      mean) /
+                  : (
+                      player[
+                        category
+                      ] -
+                      mean
+                    ) /
                     stdDev;
 
               zScores[
                 category
-              ] = zScore;
+              ] =
+                zScore;
 
               rawScore +=
                 zScore;
@@ -540,7 +613,10 @@ export default function ProjectionUpload() {
 
           return {
             ...player,
-            vor: bestVor,
+
+            vor:
+              bestVor,
+
             replacementPosition:
               bestPosition,
           };
@@ -580,6 +656,11 @@ export default function ProjectionUpload() {
       myTeamOrder,
     ]);
 
+  /*
+   * --------------------------------------------------------
+   * TEAM CATEGORY NEEDS
+   * --------------------------------------------------------
+   */
   const teamCategoryStrength =
     useMemo(() => {
       const result =
@@ -643,7 +724,8 @@ export default function ProjectionUpload() {
         ) {
           result[
             category
-          ] = 1;
+          ] =
+            1;
         }
 
         return result;
@@ -699,10 +781,13 @@ export default function ProjectionUpload() {
       teamCategoryStrength,
     ]);
 
+  /*
+   * First-pass ranking.
+   *
+   * Dynamic draft-room values are added later.
+   */
   const rankedPlayers =
-    useMemo<
-      RankedPlayer[]
-    >(() => {
+    useMemo<RankedPlayer[]>(() => {
       return baseRankedPlayers.map(
         (player) => {
           let needBonus =
@@ -716,10 +801,12 @@ export default function ProjectionUpload() {
               player.zScores[
                 category
               ] *
-              (teamNeedWeights[
-                category
-              ] -
-                1);
+              (
+                teamNeedWeights[
+                  category
+                ] -
+                1
+              );
           }
 
           needBonus *=
@@ -730,7 +817,8 @@ export default function ProjectionUpload() {
 
             needBonus,
 
-            h2hGain: 0,
+            h2hGain:
+              0,
 
             scarcityBonus:
               0,
@@ -748,6 +836,12 @@ export default function ProjectionUpload() {
               "",
 
             picksUntilNext:
+              0,
+
+            playoffGames:
+              0,
+
+            playoffBonus:
               0,
 
             score:
@@ -794,10 +888,13 @@ export default function ProjectionUpload() {
       myTeamOrder,
     ]);
 
+  /*
+   * --------------------------------------------------------
+   * ROSTER FIT
+   * --------------------------------------------------------
+   */
   const assignedRoster =
-    useMemo<
-      RosterSlot[]
-    >(() => {
+    useMemo<RosterSlot[]>(() => {
       const assignments =
         new Map<
           string,
@@ -852,9 +949,7 @@ export default function ProjectionUpload() {
       }
 
       const assignmentOrder =
-        [
-          ...myTeamPlayers,
-        ].sort(
+        [...myTeamPlayers].sort(
           (a, b) =>
             a.positions.length -
             b.positions.length
@@ -873,9 +968,12 @@ export default function ProjectionUpload() {
       const starters: RosterSlot[] =
         STARTING_SLOTS.map(
           (slot) => ({
-            id: slot.id,
+            id:
+              slot.id,
+
             position:
               slot.position,
+
             player:
               assignments.get(
                 slot.id
@@ -911,10 +1009,8 @@ export default function ProjectionUpload() {
             _,
             index
           ) => ({
-            id: `BN${
-              index +
-              1
-            }`,
+            id:
+              `BN${index + 1}`,
 
             position:
               "BN" as const,
@@ -1035,6 +1131,11 @@ export default function ProjectionUpload() {
       myTeamPlayers,
     ]);
 
+  /*
+   * --------------------------------------------------------
+   * LEAGUE ROSTERS
+   * --------------------------------------------------------
+   */
   const leagueTeamPlayers =
     useMemo(() => {
       const result =
@@ -1054,9 +1155,7 @@ export default function ProjectionUpload() {
       }
 
       const orderedPicks =
-        [
-          ...draftPicks,
-        ].sort(
+        [...draftPicks].sort(
           (a, b) =>
             a.pickNumber -
             b.pickNumber
@@ -1096,12 +1195,44 @@ export default function ProjectionUpload() {
       playerMap,
     ]);
 
+  /*
+   * --------------------------------------------------------
+   * FINAL NEVISLY SCORE
+   * --------------------------------------------------------
+   *
+   * Current components:
+   *
+   * VOR
+   * + team need
+   * + H2H matchup impact
+   * + draft-room scarcity
+   * + positional flexibility
+   * + playoff schedule
+   *
+   * Gone Risk remains informational for now.
+   */
   const finalRankedPlayers =
-    useMemo<
-      RankedPlayer[]
-    >(() => {
+    useMemo<RankedPlayer[]>(() => {
       return rankedPlayers.map(
         (player) => {
+          const teamSchedule =
+            playoffSchedule[
+              player.team
+            ];
+
+          const playoffGames =
+            teamSchedule?.games ??
+            0;
+
+          const playoffBonus =
+            calculatePlayoffScheduleBonus(
+              teamSchedule
+            );
+
+          /*
+           * Keep schedule fields populated
+           * even when Show Drafted is enabled.
+           */
           if (
             draftedIds.has(
               player.id
@@ -1110,7 +1241,8 @@ export default function ProjectionUpload() {
             return {
               ...player,
 
-              h2hGain: 0,
+              h2hGain:
+                0,
 
               scarcityBonus:
                 0,
@@ -1129,15 +1261,17 @@ export default function ProjectionUpload() {
 
               picksUntilNext:
                 0,
+
+              playoffGames,
+
+              playoffBonus,
             };
           }
 
           const h2h =
             calculateH2HImpact({
               player,
-
               fantasyTeams,
-
               leagueTeamPlayers,
             });
 
@@ -1152,30 +1286,54 @@ export default function ProjectionUpload() {
 
               fantasyTeams,
             });
-            let flexibilityBonus = 0;
 
-            if (player.positions.length === 2) {
-              flexibilityBonus = 0.1;
-            } else if (player.positions.length >= 3) {
-              flexibilityBonus = 0.18;
-            }
-            
-            const coversOpenPosition =
-              player.positions.some((position) =>
-                openStarterPositions.includes(
-                  position as "C" | "LW" | "RW" | "D"
-                )
-              );
-            
-            if (coversOpenPosition) {
-              flexibilityBonus += 0.08;
-            }
-            
+          /*
+           * Positional flexibility is a
+           * tiebreaker, not a dominant input.
+           */
+          let flexibilityBonus =
+            0;
+
+          if (
+            player.positions.length ===
+            2
+          ) {
             flexibilityBonus =
-              Math.min(
-                flexibilityBonus,
-                0.25
-              );
+              0.1;
+          } else if (
+            player.positions.length >=
+            3
+          ) {
+            flexibilityBonus =
+              0.18;
+          }
+
+          const coversOpenPosition =
+            player.positions.some(
+              (position) =>
+                openStarterPositions.includes(
+                  position as
+                    | "C"
+                    | "LW"
+                    | "RW"
+                    | "D"
+                )
+            );
+
+          if (
+            coversOpenPosition &&
+            player.positions.length >
+              1
+          ) {
+            flexibilityBonus +=
+              0.08;
+          }
+
+          flexibilityBonus =
+            Math.min(
+              flexibilityBonus,
+              0.25
+            );
 
           const returnRisk =
             calculateReturnRisk({
@@ -1217,12 +1375,18 @@ export default function ProjectionUpload() {
             picksUntilNext:
               returnRisk.picksUntilNext,
 
-score:
-  player.vor +
-  player.needBonus +
-  h2h.matchupGain * 1.25 +
-  scarcity.scarcityBonus +
-  flexibilityBonus,
+            playoffGames,
+
+            playoffBonus,
+
+            score:
+              player.vor +
+              player.needBonus +
+              h2h.matchupGain *
+                1.25 +
+              scarcity.scarcityBonus +
+              flexibilityBonus +
+              playoffBonus,
           };
         }
       );
@@ -1234,6 +1398,8 @@ score:
       draftPicks,
       leagueTeams,
       myDraftSlot,
+      openStarterPositions,
+      playoffSchedule,
     ]);
 
   const bestAvailable =
@@ -1505,7 +1671,9 @@ score:
       return;
     }
 
-    setSortKey(key);
+    setSortKey(
+      key
+    );
 
     setSortDirection(
       key ===
@@ -1546,110 +1714,152 @@ score:
     );
   }
 
+  /*
+   * Recommendation explanation:
+   *
+   * 1. True league-wide elite traits
+   * 2. Team-specific category needs
+   * 3. Roster / scarcity / flexibility
+   * 4. H2H impact
+   * 5. Exceptional playoff schedule
+   */
   function getRecommendationReasons(
     player: RankedPlayer
   ) {
-    const reasons: string[] = [];
-  
+    const reasons: string[] =
+      [];
+
     const availablePlayers =
       finalRankedPlayers.filter(
         (candidate) =>
-          !draftedIds.has(candidate.id)
+          !draftedIds.has(
+            candidate.id
+          )
       );
-  
+
     const categoryRanks =
       categoryKeys
-        .map((category) => {
-          const sorted =
-            [...availablePlayers].sort(
-              (a, b) =>
-                b[category] -
-                a[category]
-            );
-  
-          const rank =
-            sorted.findIndex(
-              (candidate) =>
-                candidate.id ===
-                player.id
-            ) + 1;
-  
-          return {
-            category,
-            rank,
-            z:
-              player.zScores[
-                category
-              ],
-            need:
-              teamNeedWeights[
-                category
-              ],
-          };
-        })
+        .map(
+          (category) => {
+            const sorted =
+              [
+                ...availablePlayers,
+              ].sort(
+                (a, b) =>
+                  b[
+                    category
+                  ] -
+                  a[
+                    category
+                  ]
+              );
+
+            const rank =
+              sorted.findIndex(
+                (
+                  candidate
+                ) =>
+                  candidate.id ===
+                  player.id
+              ) +
+              1;
+
+            return {
+              category,
+
+              rank,
+
+              z:
+                player.zScores[
+                  category
+                ],
+
+              need:
+                teamNeedWeights[
+                  category
+                ],
+            };
+          }
+        )
         .sort(
           (a, b) =>
-            a.rank - b.rank
+            a.rank -
+            b.rank
         );
-  
-    /*
-     * First: truly elite league-wide
-     * category strengths.
-     */
+
     const numberOneCategories =
       categoryRanks.filter(
         (item) =>
-          item.rank === 1
+          item.rank ===
+          1
       );
-  
+
     for (
       const item of
       numberOneCategories
     ) {
       reasons.push(
-        `#1 ${CATEGORY_LABELS[item.category]}`
+        `#1 ${
+          CATEGORY_LABELS[
+            item.category
+          ]
+        }`
       );
     }
-  
+
     const eliteCategories =
       categoryRanks
         .filter(
           (item) =>
-            item.rank > 1 &&
-            item.rank <= 5 &&
-            item.z >= 1
+            item.rank >
+              1 &&
+            item.rank <=
+              5 &&
+            item.z >=
+              1
         )
-        .slice(0, 2);
-  
+        .slice(
+          0,
+          2
+        );
+
     for (
       const item of
       eliteCategories
     ) {
       reasons.push(
-        `Elite ${CATEGORY_LABELS[item.category]}`
+        `Elite ${
+          CATEGORY_LABELS[
+            item.category
+          ]
+        }`
       );
     }
-  
-    /*
-     * Then: categories that specifically
-     * help My Team.
-     */
+
     const neededCategories =
       categoryRanks
         .filter(
           (item) =>
-            item.need >= 1.08 &&
-            item.z > 0.35
+            item.need >=
+              1.08 &&
+            item.z >
+              0.35
         )
         .sort(
           (a, b) =>
-            b.z * b.need -
-            a.z * a.need
+            b.z *
+              b.need -
+            a.z *
+              a.need
         )
-        .slice(0, 2);
-  
+        .slice(
+          0,
+          2
+        );
+
     if (
-      neededCategories.length > 0
+      neededCategories.length >
+      0
     ) {
       reasons.push(
         `Helps ${neededCategories
@@ -1659,10 +1869,12 @@ score:
                 item.category
               ]
           )
-          .join(" + ")}`
+          .join(
+            " + "
+          )}`
       );
     }
-  
+
     const openPosition =
       player.positions.find(
         (position) =>
@@ -1674,55 +1886,84 @@ score:
               | "D"
           )
       );
-  
-    if (openPosition) {
+
+    if (
+      openPosition
+    ) {
       reasons.push(
         `Fills ${openPosition}`
       );
     }
-  
+
     if (
-      player.replacementPosition === "D" &&
-      player.vor > 0
+      player.replacementPosition ===
+        "D" &&
+      player.vor >
+        0
     ) {
       reasons.push(
         "Scarce D value"
       );
     }
-  
+
     if (
-      player.positions.length > 1
+      player.positions.length >
+      1
     ) {
       reasons.push(
-        `${player.positions.join("/")} flexibility`
+        `${player.positions.join(
+          "/"
+        )} flexibility`
       );
     }
-  
+
     if (
-      player.h2hGain >= 0.15
+      player.h2hGain >=
+      0.15
     ) {
       reasons.push(
         "Improves H2H matchup strength"
       );
     }
-  
+
     if (
-      player.scarcityReasons.length > 0
+      player.scarcityReasons.length >
+      0
     ) {
       reasons.push(
-        player.scarcityReasons[0]
+        player
+          .scarcityReasons[
+          0
+        ]
       );
     }
-  
+
+    /*
+     * Only advertise playoff schedule when
+     * it is meaningfully above the baseline.
+     */
     if (
-      reasons.length === 0
+      player.playoffGames >=
+      11
+    ) {
+      reasons.push(
+        `${player.playoffGames} playoff games`
+      );
+    }
+
+    if (
+      reasons.length ===
+      0
     ) {
       reasons.push(
         "Best overall value"
       );
     }
-  
-    return reasons.slice(0, 3);
+
+    return reasons.slice(
+      0,
+      3
+    );
   }
 
   const positions = [
@@ -2077,6 +2318,17 @@ score:
                                 {
                                   player.team
                                 }
+
+                                {player.playoffGames >
+                                  0 && (
+                                  <>
+                                    {" · "}
+                                    PO{" "}
+                                    {
+                                      player.playoffGames
+                                    }
+                                  </>
+                                )}
                               </div>
 
                               <div className="mt-1 text-xs text-zinc-300">
@@ -2369,9 +2621,17 @@ score:
                             Age
                           </th>
 
-                          <th className="p-2">
-                            PO
-                          </th>
+                          <SortableHeader
+                            label="PO"
+                            onClick={() =>
+                              handleSort(
+                                "playoffGames"
+                              )
+                            }
+                            indicator={sortIndicator(
+                              "playoffGames"
+                            )}
+                          />
 
                           <th className="p-2">
                             Status
@@ -2572,8 +2832,29 @@ score:
                                   }
                                 </td>
 
-                                <td className="p-2 text-zinc-600">
-                                  —
+                                <td
+                                  className={`p-2 font-semibold ${
+                                    player.playoffGames >=
+                                    11
+                                      ? "text-emerald-400"
+                                      : player.playoffGames >
+                                          0 &&
+                                        player.playoffGames <=
+                                          8
+                                        ? "text-red-400"
+                                        : "text-zinc-300"
+                                  }`}
+                                  title={`Playoff schedule bonus: ${
+                                    player.playoffBonus >=
+                                    0
+                                      ? "+"
+                                      : ""
+                                  }${player.playoffBonus.toFixed(
+                                    2
+                                  )}`}
+                                >
+                                  {player.playoffGames ||
+                                    "—"}
                                 </td>
 
                                 <td className="p-2 text-zinc-600">
@@ -3035,19 +3316,22 @@ function HeatmapCell({
 
 function getHeatmapStyle(
   zScore: number
-): React.CSSProperties {
+): CSSProperties {
   if (
-    zScore >= 2
+    zScore >=
+    2
   ) {
     return {
       backgroundColor:
         "rgba(22, 163, 74, 0.70)",
-      color: "#fff",
+      color:
+        "#fff",
     };
   }
 
   if (
-    zScore >= 1
+    zScore >=
+    1
   ) {
     return {
       backgroundColor:
@@ -3098,7 +3382,8 @@ function getHeatmapStyle(
   return {
     backgroundColor:
       "rgba(220,38,38,0.65)",
-    color: "#fff",
+    color:
+      "#fff",
   };
 }
 
