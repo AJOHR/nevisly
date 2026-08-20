@@ -99,6 +99,7 @@ type SortKey =
   | "score"
   | "gp"
   | "playoffGames"
+  | "seasonOffNightGames"
   | "goals"
   | "assists"
   | "points"
@@ -2520,6 +2521,32 @@ export default function ProjectionUpload() {
         `${player.playoffGames} playoff games`
       );
     }
+    if (
+        player.seasonOffNightGames >=
+        scheduleAverages.seasonOffNightGames +
+          4
+      ) {
+        reasons.push(
+          "Strong off-night schedule"
+        );
+      }
+      if (
+
+        player.playoffOffNightGames >=
+      
+        scheduleAverages.playoffOffNightGames +
+      
+          2
+      
+      ) {
+      
+        reasons.push(
+      
+          "Strong playoff off-nights"
+      
+        );
+      
+      }
 
     if (
       reasons.length ===
@@ -3193,12 +3220,24 @@ export default function ProjectionUpload() {
                             )}
                           />
 
-                          <th className="p-2">
-                            Age
-                          </th>
+<th className="p-2">
+  Age
+</th>
 
-                          <SortableHeader
-                            label="PO"
+<SortableHeader
+  label="OFF"
+  onClick={() =>
+    handleSort(
+      "seasonOffNightGames"
+    )
+  }
+  indicator={sortIndicator(
+    "seasonOffNightGames"
+  )}
+/>
+
+<SortableHeader
+  label="PO"
                             onClick={() =>
                               handleSort(
                                 "playoffGames"
@@ -3414,6 +3453,14 @@ export default function ProjectionUpload() {
                                     player.age
                                   }
                                 </td>
+
+                                <td
+  className="p-2 font-semibold text-zinc-300"
+  title="Season off-night games"
+>
+  {player.seasonOffNightGames ||
+    "—"}
+</td>
 
                                 <td
                                   className={`p-2 font-semibold ${
