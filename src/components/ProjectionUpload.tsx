@@ -106,7 +106,6 @@ export default function ProjectionUpload() {
   const [leagueTeams, setLeagueTeams] = useState(12);
 
   const [draftPicks, setDraftPicks] = useState<DraftPick[]>([]);
-
   const [selectedDraftTeamId, setSelectedDraftTeamId] =
     useState(MY_TEAM_ID);
 
@@ -165,11 +164,6 @@ export default function ProjectionUpload() {
       .map((pick) => pick.playerId);
   }, [draftPicks]);
 
-  /*
-   * BASE PLAYER VALUE
-   *
-   * Z-scores + positional VOR.
-   */
   const baseRankedPlayers = useMemo<BaseRankedPlayer[]>(() => {
     if (players.length === 0) return [];
 
@@ -286,9 +280,6 @@ export default function ProjectionUpload() {
     });
   }, [players, leagueTeams]);
 
-  /*
-   * MY TEAM BEFORE NEED ADJUSTMENTS
-   */
   const baseMyTeamPlayers = useMemo(() => {
     const playerMap = new Map(
       baseRankedPlayers.map((player) => [
@@ -307,9 +298,6 @@ export default function ProjectionUpload() {
       );
   }, [baseRankedPlayers, myTeamOrder]);
 
-  /*
-   * TEAM CATEGORY STRENGTH
-   */
   const teamCategoryStrength = useMemo(() => {
     const result = {} as Record<CategoryKey, number>;
 
@@ -332,9 +320,6 @@ export default function ProjectionUpload() {
     return result;
   }, [baseMyTeamPlayers]);
 
-  /*
-   * TEAM NEED WEIGHTS
-   */
   const teamNeedWeights = useMemo(() => {
     const result = {} as Record<CategoryKey, number>;
 
@@ -374,34 +359,26 @@ export default function ProjectionUpload() {
     teamCategoryStrength,
   ]);
 
-  /*
-   * FIRST-PASS RANKING
-   *
-   * VOR + team-needs adjustment.
-   *
-   * leagueGain starts at 0 here.
-   */
   const rankedPlayers = useMemo<RankedPlayer[]>(() => {
     return baseRankedPlayers.map((player) => {
       let needBonus = 0;
-  
+
       for (const category of categoryKeys) {
         const extraWeight =
           teamNeedWeights[category] - 1;
-  
+
         needBonus +=
           player.zScores[category] * extraWeight;
       }
-  
+
       needBonus *= 0.75;
-  
+
       return {
         ...player,
         needBonus,
         leagueGain: 0,
         score: player.vor + needBonus,
       };
-      
     });
   }, [baseRankedPlayers, teamNeedWeights]);
 
@@ -425,9 +402,6 @@ export default function ProjectionUpload() {
       );
   }, [playerMap, myTeamOrder]);
 
-  /*
-   * INTELLIGENT MY TEAM ROSTER ASSIGNMENT
-   */
   const assignedRoster = useMemo<RosterSlot[]>(() => {
     const starterAssignments = new Map<
       string,
@@ -464,7 +438,6 @@ export default function ProjectionUpload() {
           tryAssign(existingPlayer, visitedSlots)
         ) {
           starterAssignments.set(slot.id, player);
-
           return true;
         }
       }
@@ -521,41 +494,32 @@ export default function ProjectionUpload() {
       .map((slot) => slot.position);
   }, [assignedRoster]);
 
-  /*
-   * MY TEAM TOTALS
-   */
   const teamTotals = useMemo(() => {
     return {
       goals: myTeamPlayers.reduce(
         (sum, player) => sum + player.goals,
         0
       ),
-
       assists: myTeamPlayers.reduce(
         (sum, player) => sum + player.assists,
         0
       ),
-
       points: myTeamPlayers.reduce(
         (sum, player) => sum + player.points,
         0
       ),
-
       ppp: myTeamPlayers.reduce(
         (sum, player) => sum + player.ppp,
         0
       ),
-
       sog: myTeamPlayers.reduce(
         (sum, player) => sum + player.sog,
         0
       ),
-
       hits: myTeamPlayers.reduce(
         (sum, player) => sum + player.hits,
         0
       ),
-
       blocks: myTeamPlayers.reduce(
         (sum, player) => sum + player.blocks,
         0
@@ -563,13 +527,6 @@ export default function ProjectionUpload() {
     };
   }, [myTeamPlayers]);
 
-  /*
-   * ALL LEAGUE TEAM ROSTERS
-   *
-   * This is shared draft state.
-   * Manual draft populates it now.
-   * Yahoo can populate the same data later.
-   */
   const leagueTeamPlayers = useMemo(() => {
     const result = new Map<
       string,
@@ -607,13 +564,6 @@ export default function ProjectionUpload() {
     playerMap,
   ]);
 
-  /*
-   * MARGINAL LEAGUE STANDINGS VALUE
-   *
-   * Simulates adding each available player
-   * to My Team and determines how many roto
-   * standings points could be gained.
-   */
   const playersWithLeagueGain = useMemo(() => {
     return rankedPlayers.map((player) => {
       if (draftedIds.has(player.id)) {
@@ -642,16 +592,9 @@ export default function ProjectionUpload() {
     leagueTeamPlayers,
   ]);
 
-  /*
-   * FINAL NEVISLY SCORE
-   *
-   * Base positional/team-fit score
-   * + marginal league standings value.
-   */
   const finalRankedPlayers = useMemo<RankedPlayer[]>(() => {
     return playersWithLeagueGain.map((player) => ({
       ...player,
-
       score:
         player.vor +
         player.needBonus +
@@ -659,9 +602,6 @@ export default function ProjectionUpload() {
     }));
   }, [playersWithLeagueGain]);
 
-  /*
-   * TOP 5 RECOMMENDATIONS
-   */
   const bestAvailable = useMemo(() => {
     return [...finalRankedPlayers]
       .filter(
@@ -678,9 +618,6 @@ export default function ProjectionUpload() {
     draftedIds,
   ]);
 
-  /*
-   * PLAYER TABLE
-   */
   const filteredPlayers = useMemo(() => {
     const query =
       search.trim().toLowerCase();
@@ -786,6 +723,12 @@ export default function ProjectionUpload() {
     });
   }
 
+  function undoLastPick() {
+    setDraftPicks((current) =>
+      current.slice(0, -1)
+    );
+  }
+
   function handleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDirection((current) =>
@@ -885,7 +828,7 @@ export default function ProjectionUpload() {
         );
 
       reasons.push(
-        `Helps ${labels.join(" + ")} need`
+        `Helps ${labels.join(" + ")}`
       );
     }
 
@@ -902,7 +845,7 @@ export default function ProjectionUpload() {
 
     if (fillsOpenPosition) {
       reasons.push(
-        `Fills open ${fillsOpenPosition}`
+        `Fills ${fillsOpenPosition}`
       );
     }
 
@@ -910,26 +853,18 @@ export default function ProjectionUpload() {
       player.replacementPosition === "D" &&
       player.vor > 0
     ) {
-      reasons.push("D scarcity value");
+      reasons.push("D scarcity");
     }
 
     if (player.positions.length > 1) {
       reasons.push(
-        `${player.positions.join("/")} flexibility`
-      );
-    }
-
-    if (player.needBonus >= 0.2) {
-      reasons.push(
-        `+${player.needBonus.toFixed(
-          2
-        )} team-fit boost`
+        `${player.positions.join("/")} flex`
       );
     }
 
     if (player.leagueGain >= 1) {
       reasons.push(
-        `Could gain ${player.leagueGain.toFixed(
+        `+${player.leagueGain.toFixed(
           1
         )} league pts`
       );
@@ -939,7 +874,7 @@ export default function ProjectionUpload() {
       reasons.push("Best overall value");
     }
 
-    return reasons.slice(0, 3);
+    return reasons.slice(0, 2);
   }
 
   const positions = [
@@ -955,854 +890,947 @@ export default function ProjectionUpload() {
   const availableCount =
     players.length - draftedCount;
 
+  const currentDraftTeam =
+    fantasyTeams.find(
+      (team) =>
+        team.id === selectedDraftTeamId
+    );
+
+  const lastPick =
+    draftPicks.length > 0
+      ? draftPicks[draftPicks.length - 1]
+      : undefined;
+
+  const lastPickPlayer =
+    lastPick
+      ? playerMap.get(lastPick.playerId)
+      : undefined;
+
   return (
-    <main className="min-h-screen bg-zinc-950 p-8 text-white">
-      <div className="mx-auto max-w-[1800px]">
-        <h1 className="mb-2 text-3xl font-bold">
-          Nevisly
-        </h1>
-
-        <p className="mb-8 text-zinc-400">
-          Fantasy Hockey Draft Tool
-        </p>
-
-        <div className="mb-8 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-          <h2 className="mb-4 text-xl font-semibold">
-            Import Projections
-          </h2>
-
-          <input
-            type="file"
-            accept=".csv"
-            onChange={handleFile}
-          />
-
-          {error && (
-            <p className="mt-4 text-red-400">
-              {error}
-            </p>
-          )}
+    <main className="min-h-screen bg-zinc-950 text-white">
+      <div className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur">
+        <div className="mx-auto flex max-w-[1900px] flex-wrap items-center gap-3 px-4 py-3 lg:px-6">
+          <div className="mr-3">
+            <div className="text-xl font-bold">
+              Nevisly
+            </div>
+            <div className="text-[11px] text-zinc-500">
+              Draft Assistant
+            </div>
+          </div>
 
           {players.length > 0 && (
-            <p className="mt-4 text-green-400">
-              Loaded {players.length} players
-            </p>
-          )}
-        </div>
-
-        {players.length > 0 && (
-          <>
-            <div className="mb-4 grid gap-4 sm:grid-cols-4">
-              <StatCard
-                label="Players"
-                value={players.length}
+            <>
+              <TopStat
+                label="Pick"
+                value={`${draftPicks.length + 1}`}
               />
 
-              <StatCard
+              <TopStat
                 label="Available"
-                value={availableCount}
+                value={`${availableCount}`}
               />
 
-              <StatCard
-                label="Drafted"
-                value={draftedCount}
-              />
-
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-                <label className="mb-2 block text-sm text-zinc-400">
-                  League Teams
-                </label>
+              <div className="min-w-[170px]">
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                  Drafting Team
+                </div>
 
                 <select
-                  value={leagueTeams}
+                  value={selectedDraftTeamId}
                   onChange={(event) =>
-                    handleLeagueTeamChange(
-                      Number(event.target.value)
+                    setSelectedDraftTeamId(
+                      event.target.value
                     )
                   }
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
                 >
-                  {[
-                    8,
-                    10,
-                    12,
-                    14,
-                    16,
-                    18,
-                    20,
-                  ].map((teams) => (
+                  {fantasyTeams.map((team) => (
                     <option
-                      key={teams}
-                      value={teams}
+                      key={team.id}
+                      value={team.id}
                     >
-                      {teams}
+                      {team.name}
                     </option>
                   ))}
                 </select>
               </div>
+
+              <div className="ml-auto flex items-center gap-2">
+                {lastPickPlayer && lastPick && (
+                  <div className="hidden text-right lg:block">
+                    <div className="text-[10px] uppercase text-zinc-500">
+                      Last Pick
+                    </div>
+
+                    <div className="text-xs text-zinc-300">
+                      {lastPickPlayer.name}
+                      {" → "}
+                      {getTeamName(
+                        lastPick.fantasyTeamId
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={undoLastPick}
+                  disabled={draftPicks.length === 0}
+                  className="rounded-lg border border-red-900 bg-red-950/20 px-3 py-2 text-sm text-red-300 hover:border-red-600 disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  Undo Last
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-[1900px] p-4 lg:p-6">
+        {players.length === 0 && (
+          <div className="mx-auto mt-16 max-w-xl rounded-xl border border-zinc-800 bg-zinc-900 p-8">
+            <h1 className="text-2xl font-bold">
+              Start Draft
+            </h1>
+
+            <p className="mt-2 text-sm text-zinc-400">
+              Import your projection CSV to load
+              Nevisly.
+            </p>
+
+            <div className="mt-6">
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFile}
+              />
             </div>
 
-            <div className="mb-6 rounded-xl border border-blue-900/60 bg-zinc-900 p-5">
-              <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-blue-400">
-                    Manual Draft Mode
-                  </p>
+            {error && (
+              <p className="mt-4 text-red-400">
+                {error}
+              </p>
+            )}
+          </div>
+        )}
 
-                  <h2 className="mt-1 text-xl font-bold">
-                    Draft To Team
-                  </h2>
+        {players.length > 0 && (
+          <>
+            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
+              <div className="text-sm text-zinc-400">
+                League:
+              </div>
 
-                  <p className="mt-1 text-sm text-zinc-400">
-                    Choose the fantasy team making the
-                    next pick, then click Draft beside
-                    the player.
-                  </p>
-                </div>
-
-                <div className="w-full lg:max-w-xs">
-                  <label className="mb-2 block text-sm text-zinc-400">
-                    Current Drafting Team
-                  </label>
-
-                  <select
-                    value={selectedDraftTeamId}
-                    onChange={(event) =>
-                      setSelectedDraftTeamId(
-                        event.target.value
-                      )
-                    }
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2"
+              <select
+                value={leagueTeams}
+                onChange={(event) =>
+                  handleLeagueTeamChange(
+                    Number(event.target.value)
+                  )
+                }
+                className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm"
+              >
+                {[
+                  8,
+                  10,
+                  12,
+                  14,
+                  16,
+                  18,
+                  20,
+                ].map((teams) => (
+                  <option
+                    key={teams}
+                    value={teams}
                   >
-                    {fantasyTeams.map((team) => (
-                      <option
-                        key={team.id}
-                        value={team.id}
-                      >
-                        {team.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    {teams} teams
+                  </option>
+                ))}
+              </select>
+
+              <div className="h-5 w-px bg-zinc-700" />
+
+              <div className="text-xs text-zinc-500">
+                Current:
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-                {fantasyTeams.map((team) => {
-                  const teamPlayers =
-                    leagueTeamPlayers.get(team.id) ??
-                    [];
+              <div className="font-semibold text-blue-300">
+                {currentDraftTeam?.name}
+              </div>
 
-                  return (
-                    <button
-                      key={team.id}
-                      type="button"
-                      onClick={() =>
-                        setSelectedDraftTeamId(
-                          team.id
-                        )
-                      }
-                      className={`rounded-xl border p-3 text-left transition ${
-                        selectedDraftTeamId ===
-                        team.id
-                          ? "border-blue-500 bg-blue-950/30"
-                          : "border-zinc-800 bg-zinc-950 hover:border-zinc-600"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">
-                          {team.name}
-                        </span>
-
-                        <span className="text-xs text-zinc-500">
-                          {teamPlayers.length} picks
-                        </span>
-                      </div>
-
-                      <div className="mt-2 truncate text-xs text-zinc-500">
-                        {teamPlayers.length > 0
-                          ? teamPlayers
-                              .slice(-2)
-                              .map(
-                                (player) =>
-                                  player.name
-                              )
-                              .join(", ")
-                          : "No picks yet"}
-                      </div>
-                    </button>
-                  );
-                })}
+              <div className="ml-auto text-xs text-zinc-500">
+                {draftedCount} drafted
               </div>
             </div>
 
-            <LeagueRankings
-              fantasyTeams={fantasyTeams}
-              leagueTeamPlayers={leagueTeamPlayers}
-            />
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="min-w-0">
+                <section className="mb-5 overflow-hidden rounded-xl border border-emerald-900/60 bg-zinc-900">
+                  <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+                        Live Recommendation
+                      </div>
 
-            <div className="mb-6 rounded-xl border border-emerald-900/60 bg-zinc-900 p-5">
-              <div className="mb-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
-                  Live Draft Assistant
-                </p>
+                      <h2 className="text-lg font-bold">
+                        Best Available
+                      </h2>
+                    </div>
 
-                <h2 className="mt-1 text-2xl font-bold">
-                  Best Available
-                </h2>
+                    <div className="text-xs text-zinc-500">
+                      Top 5
+                    </div>
+                  </div>
 
-                <p className="mt-1 text-sm text-zinc-400">
-                  Recommendations combine VOR, your team
-                  needs and projected league standings
-                  impact.
-                </p>
-              </div>
+                  <div className="divide-y divide-zinc-800">
+                    {bestAvailable.map(
+                      (player, index) => {
+                        const reasons =
+                          getRecommendationReasons(
+                            player
+                          );
 
-              <div className="grid gap-3 xl:grid-cols-5">
-                {bestAvailable.map(
-                  (player, index) => {
-                    const reasons =
-                      getRecommendationReasons(
-                        player
-                      );
-
-                    return (
-                      <div
-                        key={player.id}
-                        className={`rounded-xl border p-4 ${
-                          index === 0
-                            ? "border-emerald-600 bg-emerald-950/30"
-                            : "border-zinc-800 bg-zinc-950"
-                        }`}
-                      >
-                        <div className="mb-3 flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-xs font-bold text-zinc-500">
+                        return (
+                          <div
+                            key={player.id}
+                            className={`grid gap-3 px-4 py-3 ${
+                              index === 0
+                                ? "bg-emerald-950/20"
+                                : ""
+                            } lg:grid-cols-[40px_minmax(180px,1fr)_auto_auto_auto_auto_120px] lg:items-center`}
+                          >
+                            <div
+                              className={`text-lg font-black ${
+                                index === 0
+                                  ? "text-emerald-400"
+                                  : "text-zinc-500"
+                              }`}
+                            >
                               #{index + 1}
                             </div>
 
-                            <div className="mt-1 font-semibold">
-                              {player.name}
-                            </div>
-
-                            <div className="text-xs text-zinc-500">
-                              {player.positions.join("/")}
-                              {" · "}
-                              {player.team}
-                              {" · Age "}
-                              {player.age}
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <div className="text-xs text-zinc-500">
-                              Score
-                            </div>
-
-                            <div className="text-xl font-bold text-emerald-400">
-                              {player.score.toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                          <div>
-                            <span className="text-zinc-500">
-                              VOR{" "}
-                            </span>
-
-                            <span className="font-semibold">
-                              {player.vor.toFixed(2)}
-                            </span>
-                          </div>
-
-                          <div>
-                            <span className="text-zinc-500">
-                              Need{" "}
-                            </span>
-
-                            <span
-                              className={
-                                player.needBonus > 0
-                                  ? "font-semibold text-emerald-400"
-                                  : player.needBonus < 0
-                                    ? "font-semibold text-red-400"
-                                    : "font-semibold"
-                              }
-                            >
-                              {player.needBonus > 0
-                                ? "+"
-                                : ""}
-                              {player.needBonus.toFixed(2)}
-                            </span>
-                          </div>
-
-                          <div>
-                            <span className="text-zinc-500">
-                              League{" "}
-                            </span>
-
-                            <span
-                              className={
-                                player.leagueGain > 0
-                                  ? "font-semibold text-violet-400"
-                                  : "font-semibold text-zinc-400"
-                              }
-                            >
-                              {player.leagueGain > 0
-                                ? "+"
-                                : ""}
-                              {player.leagueGain.toFixed(1)}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1 text-xs text-zinc-300">
-                          {reasons.map((reason) => (
-                            <div
-                              key={reason}
-                              className="flex gap-2"
-                            >
-                              <span className="text-emerald-500">
-                                •
-                              </span>
-
-                              <span>{reason}</span>
-                            </div>
-                          ))}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            draftPlayer(
-                              player.id,
-                              MY_TEAM_ID
-                            )
-                          }
-                          className="mt-4 w-full rounded-lg border border-emerald-700 bg-emerald-950/40 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-950"
-                        >
-                          My Pick
-                        </button>
-                      </div>
-                    );
-                  }
-                )}
-              </div>
-            </div>
-
-            <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-              <div className="mb-4">
-                <h2 className="text-xl font-semibold">
-                  My Team
-                </h2>
-
-                <p className="text-sm text-zinc-400">
-                  {myTeamPlayers.length} skaters drafted
-                </p>
-              </div>
-
-              <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-                <TeamStat
-                  label="G"
-                  value={teamTotals.goals}
-                />
-
-                <TeamStat
-                  label="A"
-                  value={teamTotals.assists}
-                />
-
-                <TeamStat
-                  label="P"
-                  value={teamTotals.points}
-                />
-
-                <TeamStat
-                  label="PPP"
-                  value={teamTotals.ppp}
-                />
-
-                <TeamStat
-                  label="SOG"
-                  value={teamTotals.sog}
-                />
-
-                <TeamStat
-                  label="HIT"
-                  value={teamTotals.hits}
-                />
-
-                <TeamStat
-                  label="BLK"
-                  value={teamTotals.blocks}
-                />
-              </div>
-
-              {myTeamPlayers.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="mb-3 font-semibold">
-                    Team Needs
-                  </h3>
-
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-                    {categoryKeys.map((category) => (
-                      <TeamNeedCard
-                        key={category}
-                        label={
-                          CATEGORY_LABELS[category]
-                        }
-                        strength={
-                          teamCategoryStrength[
-                            category
-                          ]
-                        }
-                        weight={
-                          teamNeedWeights[category]
-                        }
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {assignedRoster.map((slot) => (
-                  <div
-                    key={slot.id}
-                    className="rounded-lg border border-zinc-800 bg-zinc-950 p-3"
-                  >
-                    <div className="mb-1 text-xs font-semibold text-zinc-500">
-                      {slot.id}
-                    </div>
-
-                    {slot.player ? (
-                      <>
-                        <div className="font-medium">
-                          {slot.player.name}
-                        </div>
-
-                        <div className="text-xs text-zinc-500">
-                          {slot.player.positions.join(
-                            ", "
-                          )}
-                          {" · "}
-                          {slot.player.team}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-sm text-zinc-600">
-                        Empty
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-4 flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <input
-                  type="text"
-                  placeholder="Search player or team..."
-                  value={search}
-                  onChange={(event) =>
-                    setSearch(event.target.value)
-                  }
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 outline-none placeholder:text-zinc-500 focus:border-zinc-500 md:max-w-md"
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  {positions.map((position) => {
-                    const active =
-                      positionFilter === position;
-
-                    return (
-                      <button
-                        key={position}
-                        type="button"
-                        onClick={() =>
-                          setPositionFilter(position)
-                        }
-                        className={`rounded-lg border px-4 py-2 text-sm transition ${
-                          active
-                            ? "border-white bg-white text-black"
-                            : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:border-zinc-500"
-                        }`}
-                      >
-                        {position}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={showDrafted}
-                  onChange={(event) =>
-                    setShowDrafted(
-                      event.target.checked
-                    )
-                  }
-                />
-
-                Show drafted players
-              </label>
-            </div>
-
-            <div className="mb-3 text-sm text-zinc-400">
-              Showing {filteredPlayers.length} players
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-zinc-800">
-              <table className="w-full text-sm">
-                <thead className="bg-zinc-900 text-left">
-                  <tr>
-                    <th className="p-3">Draft</th>
-
-                    <SortableHeader
-                      label="Player"
-                      onClick={() =>
-                        handleSort("name")
-                      }
-                      indicator={sortIndicator("name")}
-                    />
-
-                    <SortableHeader
-                      label="Age"
-                      onClick={() =>
-                        handleSort("age")
-                      }
-                      indicator={sortIndicator("age")}
-                    />
-
-                    <th className="p-3">Pos</th>
-
-                    <SortableHeader
-                      label="Team"
-                      onClick={() =>
-                        handleSort("team")
-                      }
-                      indicator={sortIndicator("team")}
-                    />
-
-                    <SortableHeader
-                      label="Score"
-                      onClick={() =>
-                        handleSort("score")
-                      }
-                      indicator={sortIndicator("score")}
-                    />
-
-                    <SortableHeader
-                      label="VOR"
-                      onClick={() =>
-                        handleSort("vor")
-                      }
-                      indicator={sortIndicator("vor")}
-                    />
-
-                    <SortableHeader
-                      label="Need"
-                      onClick={() =>
-                        handleSort("needBonus")
-                      }
-                      indicator={sortIndicator(
-                        "needBonus"
-                      )}
-                    />
-
-                    <SortableHeader
-                      label="League"
-                      onClick={() =>
-                        handleSort("leagueGain")
-                      }
-                      indicator={sortIndicator(
-                        "leagueGain"
-                      )}
-                    />
-
-                    <th className="p-3">VOR Pos</th>
-
-                    <SortableHeader
-                      label="GP"
-                      onClick={() =>
-                        handleSort("gp")
-                      }
-                      indicator={sortIndicator("gp")}
-                    />
-
-                    <SortableHeader
-                      label="G"
-                      onClick={() =>
-                        handleSort("goals")
-                      }
-                      indicator={sortIndicator(
-                        "goals"
-                      )}
-                    />
-
-                    <SortableHeader
-                      label="A"
-                      onClick={() =>
-                        handleSort("assists")
-                      }
-                      indicator={sortIndicator(
-                        "assists"
-                      )}
-                    />
-
-                    <SortableHeader
-                      label="P"
-                      onClick={() =>
-                        handleSort("points")
-                      }
-                      indicator={sortIndicator(
-                        "points"
-                      )}
-                    />
-
-                    <SortableHeader
-                      label="PPP"
-                      onClick={() =>
-                        handleSort("ppp")
-                      }
-                      indicator={sortIndicator("ppp")}
-                    />
-
-                    <SortableHeader
-                      label="SOG"
-                      onClick={() =>
-                        handleSort("sog")
-                      }
-                      indicator={sortIndicator("sog")}
-                    />
-
-                    <SortableHeader
-                      label="HIT"
-                      onClick={() =>
-                        handleSort("hits")
-                      }
-                      indicator={sortIndicator(
-                        "hits"
-                      )}
-                    />
-
-                    <SortableHeader
-                      label="BLK"
-                      onClick={() =>
-                        handleSort("blocks")
-                      }
-                      indicator={sortIndicator(
-                        "blocks"
-                      )}
-                    />
-
-                    <th className="p-3">
-                      PO Games
-                    </th>
-
-                    <th className="p-3">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {filteredPlayers.map((player) => {
-                    const ownerId =
-                      ownerByPlayerId.get(player.id);
-
-                    const drafted =
-                      ownerId !== undefined;
-
-                    return (
-                      <tr
-                        key={player.id}
-                        className={`border-t border-zinc-800 ${
-                          drafted
-                            ? "opacity-50"
-                            : "hover:bg-zinc-900/60"
-                        }`}
-                      >
-                        <td className="p-3">
-                          {drafted ? (
                             <div>
-                              <div className="mb-1 text-xs text-zinc-400">
-                                {getTeamName(ownerId)}
+                              <div className="font-semibold">
+                                {player.name}
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  undoDraftPlayer(
-                                    player.id
-                                  )
-                                }
-                                className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs hover:border-red-700 hover:text-red-300"
-                              >
-                                Undo
-                              </button>
+                              <div className="mt-0.5 text-xs text-zinc-500">
+                                {player.positions.join(
+                                  "/"
+                                )}
+                                {" · "}
+                                {player.team}
+                                {" · "}
+                                {reasons.join(" · ")}
+                              </div>
                             </div>
-                          ) : (
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  draftPlayer(
-                                    player.id,
-                                    selectedDraftTeamId
-                                  )
-                                }
-                                className="rounded-lg border border-blue-800 bg-blue-950/30 px-3 py-1.5 text-xs text-blue-300 hover:border-blue-500"
-                              >
-                                Draft
-                              </button>
 
-                              {selectedDraftTeamId !==
-                                MY_TEAM_ID && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    draftPlayer(
-                                      player.id,
-                                      MY_TEAM_ID
-                                    )
-                                  }
-                                  className="rounded-lg border border-emerald-800 bg-emerald-950/30 px-3 py-1.5 text-xs text-emerald-300 hover:border-emerald-500"
-                                >
-                                  My Pick
-                                </button>
+                            <MiniMetric
+                              label="Score"
+                              value={player.score.toFixed(
+                                2
                               )}
-                            </div>
+                              strong={
+                                index === 0
+                              }
+                            />
+
+                            <MiniMetric
+                              label="VOR"
+                              value={player.vor.toFixed(
+                                2
+                              )}
+                            />
+
+                            <MiniMetric
+                              label="Need"
+                              value={`${
+                                player.needBonus > 0
+                                  ? "+"
+                                  : ""
+                              }${player.needBonus.toFixed(
+                                2
+                              )}`}
+                            />
+
+                            <MiniMetric
+                              label="League"
+                              value={`${
+                                player.leagueGain > 0
+                                  ? "+"
+                                  : ""
+                              }${player.leagueGain.toFixed(
+                                1
+                              )}`}
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                draftPlayer(
+                                  player.id,
+                                  MY_TEAM_ID
+                                )
+                              }
+                              className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                                index === 0
+                                  ? "bg-emerald-500 text-black hover:bg-emerald-400"
+                                  : "border border-emerald-800 bg-emerald-950/30 text-emerald-300 hover:border-emerald-600"
+                              }`}
+                            >
+                              My Pick
+                            </button>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                </section>
+
+                <section className="sticky top-[73px] z-30 mb-3 rounded-xl border border-zinc-800 bg-zinc-900/95 p-3 backdrop-blur">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Search player or NHL team..."
+                      value={search}
+                      onChange={(event) =>
+                        setSearch(
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm outline-none placeholder:text-zinc-600 focus:border-zinc-500 lg:max-w-sm"
+                    />
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {positions.map((position) => {
+                        const active =
+                          positionFilter ===
+                          position;
+
+                        return (
+                          <button
+                            key={position}
+                            type="button"
+                            onClick={() =>
+                              setPositionFilter(
+                                position
+                              )
+                            }
+                            className={`rounded-lg px-3 py-2 text-xs font-semibold ${
+                              active
+                                ? "bg-white text-black"
+                                : "border border-zinc-700 bg-zinc-950 text-zinc-300"
+                            }`}
+                          >
+                            {position}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <label className="ml-auto flex items-center gap-2 text-xs text-zinc-400">
+                      <input
+                        type="checkbox"
+                        checked={showDrafted}
+                        onChange={(event) =>
+                          setShowDrafted(
+                            event.target.checked
+                          )
+                        }
+                      />
+
+                      Show drafted
+                    </label>
+                  </div>
+                </section>
+
+                <section className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+                  <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
+                    <h2 className="font-semibold">
+                      Player Pool
+                    </h2>
+
+                    <span className="text-xs text-zinc-500">
+                      {filteredPlayers.length} players
+                    </span>
+                  </div>
+
+                  <div className="max-h-[720px] overflow-auto">
+                    <table className="w-full min-w-[1050px] text-xs">
+                      <thead className="sticky top-0 z-20 bg-zinc-900 text-left text-zinc-400">
+                        <tr>
+                          <th className="p-2">
+                            Pick
+                          </th>
+
+                          <SortableHeader
+                            label="Player"
+                            onClick={() =>
+                              handleSort("name")
+                            }
+                            indicator={sortIndicator(
+                              "name"
+                            )}
+                          />
+
+                          <th className="p-2">
+                            Pos
+                          </th>
+
+                          <SortableHeader
+                            label="Team"
+                            onClick={() =>
+                              handleSort("team")
+                            }
+                            indicator={sortIndicator(
+                              "team"
+                            )}
+                          />
+
+                          <SortableHeader
+                            label="Score"
+                            onClick={() =>
+                              handleSort("score")
+                            }
+                            indicator={sortIndicator(
+                              "score"
+                            )}
+                          />
+
+                          <SortableHeader
+                            label="VOR"
+                            onClick={() =>
+                              handleSort("vor")
+                            }
+                            indicator={sortIndicator(
+                              "vor"
+                            )}
+                          />
+
+                          <SortableHeader
+                            label="Need"
+                            onClick={() =>
+                              handleSort(
+                                "needBonus"
+                              )
+                            }
+                            indicator={sortIndicator(
+                              "needBonus"
+                            )}
+                          />
+
+                          <SortableHeader
+                            label="League"
+                            onClick={() =>
+                              handleSort(
+                                "leagueGain"
+                              )
+                            }
+                            indicator={sortIndicator(
+                              "leagueGain"
+                            )}
+                          />
+
+                          <SortableHeader
+                            label="G"
+                            onClick={() =>
+                              handleSort("goals")
+                            }
+                            indicator={sortIndicator(
+                              "goals"
+                            )}
+                          />
+
+                          <SortableHeader
+                            label="A"
+                            onClick={() =>
+                              handleSort(
+                                "assists"
+                              )
+                            }
+                            indicator={sortIndicator(
+                              "assists"
+                            )}
+                          />
+
+                          <SortableHeader
+                            label="P"
+                            onClick={() =>
+                              handleSort(
+                                "points"
+                              )
+                            }
+                            indicator={sortIndicator(
+                              "points"
+                            )}
+                          />
+
+                          <SortableHeader
+                            label="PPP"
+                            onClick={() =>
+                              handleSort("ppp")
+                            }
+                            indicator={sortIndicator(
+                              "ppp"
+                            )}
+                          />
+
+                          <SortableHeader
+                            label="SOG"
+                            onClick={() =>
+                              handleSort("sog")
+                            }
+                            indicator={sortIndicator(
+                              "sog"
+                            )}
+                          />
+
+                          <SortableHeader
+                            label="HIT"
+                            onClick={() =>
+                              handleSort("hits")
+                            }
+                            indicator={sortIndicator(
+                              "hits"
+                            )}
+                          />
+
+                          <SortableHeader
+                            label="BLK"
+                            onClick={() =>
+                              handleSort("blocks")
+                            }
+                            indicator={sortIndicator(
+                              "blocks"
+                            )}
+                          />
+
+                          <th className="hidden p-2 xl:table-cell">
+                            Age
+                          </th>
+
+                          <th className="hidden p-2 xl:table-cell">
+                            GP
+                          </th>
+
+                          <th className="hidden p-2 2xl:table-cell">
+                            PO
+                          </th>
+
+                          <th className="hidden p-2 2xl:table-cell">
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {filteredPlayers.map(
+                          (player) => {
+                            const ownerId =
+                              ownerByPlayerId.get(
+                                player.id
+                              );
+
+                            const drafted =
+                              ownerId !==
+                              undefined;
+
+                            return (
+                              <tr
+                                key={player.id}
+                                className={`border-t border-zinc-800/80 ${
+                                  drafted
+                                    ? "opacity-40"
+                                    : "hover:bg-zinc-800/50"
+                                }`}
+                              >
+                                <td className="p-2">
+                                  {drafted ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className="max-w-[70px] truncate text-[10px] text-zinc-500">
+                                        {getTeamName(
+                                          ownerId
+                                        )}
+                                      </span>
+
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          undoDraftPlayer(
+                                            player.id
+                                          )
+                                        }
+                                        className="text-[10px] text-red-400 hover:text-red-300"
+                                      >
+                                        Undo
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          draftPlayer(
+                                            player.id,
+                                            selectedDraftTeamId
+                                          )
+                                        }
+                                        className="rounded border border-blue-800 bg-blue-950/30 px-2 py-1 text-[10px] font-semibold text-blue-300 hover:border-blue-500"
+                                      >
+                                        Draft
+                                      </button>
+
+                                      {selectedDraftTeamId !==
+                                        MY_TEAM_ID && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            draftPlayer(
+                                              player.id,
+                                              MY_TEAM_ID
+                                            )
+                                          }
+                                          className="rounded border border-emerald-800 bg-emerald-950/30 px-2 py-1 text-[10px] font-semibold text-emerald-300"
+                                        >
+                                          Mine
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </td>
+
+                                <td className="whitespace-nowrap p-2 font-semibold">
+                                  {player.name}
+                                </td>
+
+                                <td className="whitespace-nowrap p-2 text-zinc-400">
+                                  {player.positions.join(
+                                    "/"
+                                  )}
+                                </td>
+
+                                <td className="p-2 text-zinc-400">
+                                  {player.team}
+                                </td>
+
+                                <td className="p-2 font-bold">
+                                  {player.score.toFixed(
+                                    2
+                                  )}
+                                </td>
+
+                                <td className="p-2">
+                                  {player.vor.toFixed(
+                                    2
+                                  )}
+                                </td>
+
+                                <td
+                                  className={`p-2 ${
+                                    player.needBonus >
+                                    0.1
+                                      ? "text-emerald-400"
+                                      : player.needBonus <
+                                          -0.1
+                                        ? "text-red-400"
+                                        : "text-zinc-400"
+                                  }`}
+                                >
+                                  {player.needBonus >
+                                  0
+                                    ? "+"
+                                    : ""}
+                                  {player.needBonus.toFixed(
+                                    2
+                                  )}
+                                </td>
+
+                                <td className="p-2 text-violet-400">
+                                  {player.leagueGain >
+                                  0
+                                    ? "+"
+                                    : ""}
+                                  {player.leagueGain.toFixed(
+                                    1
+                                  )}
+                                </td>
+
+                                <HeatmapCell
+                                  value={player.goals}
+                                  zScore={
+                                    player.zScores
+                                      .goals
+                                  }
+                                />
+
+                                <HeatmapCell
+                                  value={
+                                    player.assists
+                                  }
+                                  zScore={
+                                    player.zScores
+                                      .assists
+                                  }
+                                />
+
+                                <HeatmapCell
+                                  value={player.points}
+                                  zScore={
+                                    player.zScores
+                                      .points
+                                  }
+                                />
+
+                                <HeatmapCell
+                                  value={player.ppp}
+                                  zScore={
+                                    player.zScores
+                                      .ppp
+                                  }
+                                />
+
+                                <HeatmapCell
+                                  value={player.sog}
+                                  zScore={
+                                    player.zScores
+                                      .sog
+                                  }
+                                />
+
+                                <HeatmapCell
+                                  value={player.hits}
+                                  zScore={
+                                    player.zScores
+                                      .hits
+                                  }
+                                />
+
+                                <HeatmapCell
+                                  value={player.blocks}
+                                  zScore={
+                                    player.zScores
+                                      .blocks
+                                  }
+                                />
+
+                                <td className="hidden p-2 text-zinc-500 xl:table-cell">
+                                  {player.age}
+                                </td>
+
+                                <td className="hidden p-2 text-zinc-500 xl:table-cell">
+                                  {player.gp}
+                                </td>
+
+                                <td className="hidden p-2 text-zinc-600 2xl:table-cell">
+                                  —
+                                </td>
+
+                                <td className="hidden p-2 text-zinc-600 2xl:table-cell">
+                                  —
+                                </td>
+                              </tr>
+                            );
+                          }
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </div>
+
+              <aside className="xl:sticky xl:top-[86px] xl:self-start">
+                <section className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-bold">
+                        My Team
+                      </h2>
+
+                      <div className="text-xs text-zinc-500">
+                        {myTeamPlayers.length} skaters
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg bg-zinc-950 px-3 py-2 text-center">
+                      <div className="text-[9px] uppercase text-zinc-500">
+                        Open
+                      </div>
+
+                      <div className="font-bold">
+                        {
+                          openStarterPositions.length
+                        }
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-7 gap-1">
+                    {categoryKeys.map(
+                      (category) => (
+                        <CompactNeed
+                          key={category}
+                          label={
+                            CATEGORY_LABELS[
+                              category
+                            ]
+                          }
+                          weight={
+                            teamNeedWeights[
+                              category
+                            ]
+                          }
+                        />
+                      )
+                    )}
+                  </div>
+
+                  <div className="mt-4 space-y-1">
+                    {assignedRoster.map(
+                      (slot) => (
+                        <div
+                          key={slot.id}
+                          className="grid grid-cols-[38px_1fr_auto] items-center gap-2 rounded-md bg-zinc-950 px-2 py-1.5 text-xs"
+                        >
+                          <span className="font-bold text-zinc-500">
+                            {slot.id}
+                          </span>
+
+                          <span
+                            className={
+                              slot.player
+                                ? "truncate font-medium"
+                                : "text-zinc-700"
+                            }
+                          >
+                            {slot.player
+                              ? slot.player.name
+                              : "Empty"}
+                          </span>
+
+                          {slot.player && (
+                            <span className="text-[10px] text-zinc-600">
+                              {slot.player.team}
+                            </span>
                           )}
-                        </td>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </section>
 
-                        <td className="p-3 font-medium">
-                          {player.name}
-                        </td>
+                <section className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="font-bold">
+                      Team Totals
+                    </h2>
 
-                        <td className="p-3">
-                          {player.age}
-                        </td>
+                    <span className="text-[10px] text-zinc-500">
+                      projected
+                    </span>
+                  </div>
 
-                        <td className="p-3">
-                          {player.positions.join(", ")}
-                        </td>
+                  <div className="grid grid-cols-4 gap-2">
+                    <TinyStat
+                      label="G"
+                      value={teamTotals.goals}
+                    />
 
-                        <td className="p-3">
-                          {player.team}
-                        </td>
+                    <TinyStat
+                      label="A"
+                      value={teamTotals.assists}
+                    />
 
-                        <td className="p-3 font-bold">
-                          {player.score.toFixed(2)}
-                        </td>
+                    <TinyStat
+                      label="P"
+                      value={teamTotals.points}
+                    />
 
-                        <td className="p-3">
-                          {player.vor.toFixed(2)}
-                        </td>
+                    <TinyStat
+                      label="PPP"
+                      value={teamTotals.ppp}
+                    />
 
-                        <td
-                          className={`p-3 font-medium ${
-                            player.needBonus > 0.1
-                              ? "text-emerald-400"
-                              : player.needBonus < -0.1
-                                ? "text-red-400"
-                                : "text-zinc-400"
+                    <TinyStat
+                      label="SOG"
+                      value={teamTotals.sog}
+                    />
+
+                    <TinyStat
+                      label="HIT"
+                      value={teamTotals.hits}
+                    />
+
+                    <TinyStat
+                      label="BLK"
+                      value={teamTotals.blocks}
+                    />
+                  </div>
+                </section>
+
+                <section className="rounded-xl border border-blue-900/50 bg-zinc-900 p-4">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-blue-400">
+                    Manual Draft
+                  </div>
+
+                  <div className="mt-1 text-sm text-zinc-400">
+                    Click a team, then use
+                    Draft in the player table.
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-1.5">
+                    {fantasyTeams.map((team) => {
+                      const count =
+                        leagueTeamPlayers.get(
+                          team.id
+                        )?.length ?? 0;
+
+                      return (
+                        <button
+                          key={team.id}
+                          type="button"
+                          onClick={() =>
+                            setSelectedDraftTeamId(
+                              team.id
+                            )
+                          }
+                          className={`rounded-md border px-2 py-2 text-left text-[10px] ${
+                            selectedDraftTeamId ===
+                            team.id
+                              ? "border-blue-500 bg-blue-950/40 text-blue-200"
+                              : "border-zinc-800 bg-zinc-950 text-zinc-400"
                           }`}
                         >
-                          {player.needBonus > 0
-                            ? "+"
-                            : ""}
-                          {player.needBonus.toFixed(2)}
-                        </td>
+                          <div className="truncate font-semibold">
+                            {team.name}
+                          </div>
 
-                        <td
-                          className={`p-3 font-medium ${
-                            player.leagueGain > 0
-                              ? "text-violet-400"
-                              : "text-zinc-400"
-                          }`}
-                        >
-                          {player.leagueGain > 0
-                            ? "+"
-                            : ""}
-                          {player.leagueGain.toFixed(1)}
-                        </td>
-
-                        <td className="p-3 text-zinc-400">
-                          {
-                            player.replacementPosition
-                          }
-                        </td>
-
-                        <td className="p-3">
-                          {player.gp}
-                        </td>
-
-                        <HeatmapCell
-                          value={player.goals}
-                          zScore={
-                            player.zScores.goals
-                          }
-                        />
-
-                        <HeatmapCell
-                          value={player.assists}
-                          zScore={
-                            player.zScores.assists
-                          }
-                        />
-
-                        <HeatmapCell
-                          value={player.points}
-                          zScore={
-                            player.zScores.points
-                          }
-                        />
-
-                        <HeatmapCell
-                          value={player.ppp}
-                          zScore={
-                            player.zScores.ppp
-                          }
-                        />
-
-                        <HeatmapCell
-                          value={player.sog}
-                          zScore={
-                            player.zScores.sog
-                          }
-                        />
-
-                        <HeatmapCell
-                          value={player.hits}
-                          zScore={
-                            player.zScores.hits
-                          }
-                        />
-
-                        <HeatmapCell
-                          value={player.blocks}
-                          zScore={
-                            player.zScores.blocks
-                          }
-                        />
-
-                        <td className="p-3 text-zinc-500">
-                          —
-                        </td>
-
-                        <td className="p-3 text-zinc-500">
-                          —
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          <div className="mt-0.5 text-zinc-600">
+                            {count} picks
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              </aside>
             </div>
+
+            <details className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900">
+              <summary className="cursor-pointer px-4 py-3 font-semibold">
+                League Rankings & Category Matrix
+              </summary>
+
+              <div className="px-4 pb-4">
+                <LeagueRankings
+                  fantasyTeams={fantasyTeams}
+                  leagueTeamPlayers={
+                    leagueTeamPlayers
+                  }
+                />
+              </div>
+            </details>
           </>
         )}
       </div>
@@ -1810,49 +1838,101 @@ export default function ProjectionUpload() {
   );
 }
 
-function TeamNeedCard({
+function TopStat({
   label,
-  strength,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5">
+      <div className="text-[9px] uppercase text-zinc-500">
+        {label}
+      </div>
+
+      <div className="text-sm font-bold">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function MiniMetric({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  return (
+    <div className="text-right">
+      <div className="text-[9px] uppercase text-zinc-600">
+        {label}
+      </div>
+
+      <div
+        className={`text-sm font-bold ${
+          strong
+            ? "text-emerald-400"
+            : ""
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function TinyStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-md bg-zinc-950 p-2">
+      <div className="text-[9px] text-zinc-600">
+        {label}
+      </div>
+
+      <div className="text-sm font-bold">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function CompactNeed({
+  label,
   weight,
 }: {
   label: string;
-  strength: number;
   weight: number;
 }) {
-  let status = "Balanced";
-
   let className =
-    "border-zinc-700 bg-zinc-950";
+    "border-zinc-700 bg-zinc-950 text-zinc-400";
 
   if (weight >= 1.1) {
-    status = "Need";
-
     className =
-      "border-red-900 bg-red-950/40";
+      "border-red-900 bg-red-950/40 text-red-300";
   } else if (weight <= 0.9) {
-    status = "Strong";
-
     className =
-      "border-emerald-900 bg-emerald-950/40";
+      "border-emerald-900 bg-emerald-950/40 text-emerald-300";
   }
 
   return (
     <div
-      className={`rounded-lg border p-3 ${className}`}
-      title={`Average Z-score: ${strength.toFixed(
+      className={`rounded-md border px-1 py-2 text-center ${className}`}
+      title={`Need weight ${weight.toFixed(
         2
-      )} · Need weight: ${weight.toFixed(2)}`}
+      )}×`}
     >
-      <div className="text-xs text-zinc-400">
+      <div className="text-[9px] font-bold">
         {label}
-      </div>
-
-      <div className="mt-1 font-semibold">
-        {status}
-      </div>
-
-      <div className="mt-1 text-xs text-zinc-500">
-        {weight.toFixed(2)}×
       </div>
     </div>
   );
@@ -1867,7 +1947,7 @@ function HeatmapCell({
 }) {
   return (
     <td
-      className="p-3 font-medium"
+      className="p-2 font-medium"
       style={getHeatmapStyle(zScore)}
       title={`Z-score: ${zScore.toFixed(2)}`}
     >
@@ -1931,46 +2011,6 @@ function getHeatmapStyle(
   };
 }
 
-function StatCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-      <div className="text-sm text-zinc-400">
-        {label}
-      </div>
-
-      <div className="mt-1 text-2xl font-bold">
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function TeamStat({
-  label,
-  value,
-}: {
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-      <div className="text-xs text-zinc-500">
-        {label}
-      </div>
-
-      <div className="mt-1 text-lg font-semibold">
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function SortableHeader({
   label,
   onClick,
@@ -1981,11 +2021,11 @@ function SortableHeader({
   indicator: string;
 }) {
   return (
-    <th className="p-3">
+    <th className="p-2">
       <button
         type="button"
         onClick={onClick}
-        className="font-semibold hover:text-zinc-300"
+        className="whitespace-nowrap font-semibold hover:text-white"
       >
         {label}
         {indicator}
