@@ -5,10 +5,14 @@ import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 import type { SkaterProjection } from "@/types/player";
 import type { DraftPick, FantasyTeam } from "@/types/draft";
 import LeagueRankings from "@/components/LeagueRankings";
+
 import { calculateH2HImpact } from "@/lib/draft/h2hImpact";
 import { calculateDraftRoomScarcity } from "@/lib/draft/draftRoomScarcity";
 
-const MY_TEAM_ID = "team-1";
+import {
+  calculateReturnRisk,
+  type ReturnRiskLevel,
+} from "@/lib/draft/returnRisk";
 
 const categoryKeys = [
   "goals",
@@ -40,12 +44,17 @@ type BaseRankedPlayer = SkaterProjection & {
 };
 
 type RankedPlayer = BaseRankedPlayer & {
-    needBonus: number;
-    h2hGain: number;
-    scarcityBonus: number;
-    scarcityReasons: string[];
-    score: number;
-  };
+  needBonus: number;
+  h2hGain: number;
+
+  scarcityBonus: number;
+  scarcityReasons: string[];
+
+  returnRisk: ReturnRiskLevel;
+  picksUntilNext: number;
+
+  score: number;
+};
 
 type SortKey =
   | "name"
@@ -91,628 +100,1274 @@ const STARTING_SLOTS = [
 
 const BENCH_COUNT = 4;
 
+function getMyTeamId(draftSlot: number) {
+  return `team-${draftSlot}`;
+}
+
+function getSnakeTeamIdForPick(
+  pickNumber: number,
+  teamCount: number
+) {
+  const roundIndex = Math.floor(
+    (pickNumber - 1) / teamCount
+  );
+
+  const positionInRound =
+    (pickNumber - 1) % teamCount;
+
+  const teamNumber =
+    roundIndex % 2 === 0
+      ? positionInRound + 1
+      : teamCount - positionInRound;
+
+  return `team-${teamNumber}`;
+}
+
 export default function ProjectionUpload() {
-  const [players, setPlayers] = useState<SkaterProjection[]>([]);
+  const [players, setPlayers] =
+    useState<SkaterProjection[]>([]);
+
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
-  const [positionFilter, setPositionFilter] = useState("ALL");
+  const [positionFilter, setPositionFilter] =
+    useState("ALL");
 
-  const [sortKey, setSortKey] = useState<SortKey>("score");
+  const [sortKey, setSortKey] =
+    useState<SortKey>("score");
+
   const [sortDirection, setSortDirection] =
     useState<SortDirection>("desc");
 
-  const [showDrafted, setShowDrafted] = useState(false);
-  const [leagueTeams, setLeagueTeams] = useState(12);
+  const [showDrafted, setShowDrafted] =
+    useState(false);
 
-  const [draftPicks, setDraftPicks] = useState<DraftPick[]>([]);
+  const [leagueTeams, setLeagueTeams] =
+    useState(12);
+
+  const [myDraftSlot, setMyDraftSlot] =
+    useState(1);
+
+  const [draftPicks, setDraftPicks] =
+    useState<DraftPick[]>([]);
 
   const [selectedDraftTeamId, setSelectedDraftTeamId] =
-    useState(MY_TEAM_ID);
+    useState("team-1");
+
+  const myTeamId =
+    getMyTeamId(myDraftSlot);
 
   const fantasyTeams = useMemo<FantasyTeam[]>(() => {
-    return Array.from({ length: leagueTeams }, (_, index) => ({
-      id: `team-${index + 1}`,
-      name: index === 0 ? "My Team" : `Team ${index + 1}`,
-      isMyTeam: index === 0,
-    }));
-  }, [leagueTeams]);
+    return Array.from(
+      { length: leagueTeams },
+      (_, index) => {
+        const teamNumber =
+          index + 1;
+
+        return {
+          id: `team-${teamNumber}`,
+
+          name:
+            teamNumber === myDraftSlot
+              ? "My Team"
+              : `Team ${teamNumber}`,
+
+          isMyTeam:
+            teamNumber === myDraftSlot,
+        };
+      }
+    );
+  }, [leagueTeams, myDraftSlot]);
 
   async function handleFile(
     event: React.ChangeEvent<HTMLInputElement>
   ) {
-    const file = event.target.files?.[0];
+    const file =
+      event.target.files?.[0];
 
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     try {
       setError("");
 
-      const parsedPlayers = await parseSkaterCsv(file);
+      const parsedPlayers =
+        await parseSkaterCsv(file);
 
       setPlayers(parsedPlayers);
+
       setDraftPicks([]);
-      setSelectedDraftTeamId(MY_TEAM_ID);
+
+      setSelectedDraftTeamId(
+        myTeamId
+      );
     } catch {
-      setError("Could not read projection file.");
+      setError(
+        "Could not read projection file."
+      );
     }
   }
 
-  function handleLeagueTeamChange(teamCount: number) {
+  function handleLeagueTeamChange(
+    teamCount: number
+  ) {
+    const nextDraftSlot =
+      Math.min(
+        myDraftSlot,
+        teamCount
+      );
+
     setLeagueTeams(teamCount);
-    setDraftPicks([]);
-    setSelectedDraftTeamId(MY_TEAM_ID);
-  }
 
-  const draftedIds = useMemo(() => {
-    return new Set(draftPicks.map((pick) => pick.playerId));
-  }, [draftPicks]);
-
-  const ownerByPlayerId = useMemo(() => {
-    const result = new Map<string, string>();
-
-    for (const pick of draftPicks) {
-      result.set(pick.playerId, pick.fantasyTeamId);
-    }
-
-    return result;
-  }, [draftPicks]);
-
-  const myTeamOrder = useMemo(() => {
-    return draftPicks
-      .filter((pick) => pick.fantasyTeamId === MY_TEAM_ID)
-      .sort((a, b) => a.pickNumber - b.pickNumber)
-      .map((pick) => pick.playerId);
-  }, [draftPicks]);
-
-  const baseRankedPlayers = useMemo<BaseRankedPlayer[]>(() => {
-    if (players.length === 0) return [];
-
-    const fantasyPool = [...players]
-      .sort((a, b) => b.points - a.points)
-      .slice(0, 250);
-
-    const stats = {} as Record<
-      CategoryKey,
-      {
-        mean: number;
-        stdDev: number;
-      }
-    >;
-
-    for (const category of categoryKeys) {
-      const values = fantasyPool.map(
-        (player) => player[category]
-      );
-
-      const mean =
-        values.reduce((sum, value) => sum + value, 0) /
-        values.length;
-
-      const variance =
-        values.reduce(
-          (sum, value) =>
-            sum + Math.pow(value - mean, 2),
-          0
-        ) / values.length;
-
-      stats[category] = {
-        mean,
-        stdDev: Math.sqrt(variance),
-      };
-    }
-
-    const basePlayers = players.map((player) => {
-      const zScores = {} as Record<CategoryKey, number>;
-
-      let rawScore = 0;
-
-      for (const category of categoryKeys) {
-        const { mean, stdDev } = stats[category];
-
-        const zScore =
-          stdDev === 0
-            ? 0
-            : (player[category] - mean) / stdDev;
-
-        zScores[category] = zScore;
-        rawScore += zScore;
-      }
-
-      return {
-        ...player,
-        rawScore,
-        zScores,
-      };
-    });
-
-    const replacementScores: Record<string, number> = {};
-
-    for (const position of ["C", "LW", "RW", "D"]) {
-      const requiredStarters =
-        leagueTeams * STARTERS_PER_TEAM[position];
-
-      const positionalPlayers = basePlayers
-        .filter((player) =>
-          player.positions.includes(position)
-        )
-        .sort((a, b) => b.rawScore - a.rawScore);
-
-      const replacementIndex = Math.max(
-        0,
-        Math.min(
-          requiredStarters - 1,
-          positionalPlayers.length - 1
-        )
-      );
-
-      replacementScores[position] =
-        positionalPlayers[replacementIndex]?.rawScore ?? 0;
-    }
-
-    return basePlayers.map((player) => {
-      const eligiblePositions = player.positions.filter(
-        (position) =>
-          replacementScores[position] !== undefined
-      );
-
-      let bestVor = Number.NEGATIVE_INFINITY;
-      let bestPosition = eligiblePositions[0] ?? "—";
-
-      for (const position of eligiblePositions) {
-        const vor =
-          player.rawScore - replacementScores[position];
-
-        if (vor > bestVor) {
-          bestVor = vor;
-          bestPosition = position;
-        }
-      }
-
-      if (!Number.isFinite(bestVor)) {
-        bestVor = player.rawScore;
-      }
-
-      return {
-        ...player,
-        vor: bestVor,
-        replacementPosition: bestPosition,
-      };
-    });
-  }, [players, leagueTeams]);
-
-  const baseMyTeamPlayers = useMemo(() => {
-    const map = new Map(
-      baseRankedPlayers.map((player) => [player.id, player])
+    setMyDraftSlot(
+      nextDraftSlot
     );
 
-    return myTeamOrder
-      .map((id) => map.get(id))
-      .filter(
-        (
-          player
-        ): player is BaseRankedPlayer =>
-          player !== undefined
+    setDraftPicks([]);
+
+    setSelectedDraftTeamId(
+      getMyTeamId(nextDraftSlot)
+    );
+  }
+
+  function handleDraftSlotChange(
+    slot: number
+  ) {
+    setMyDraftSlot(slot);
+
+    setDraftPicks([]);
+
+    setSelectedDraftTeamId(
+      getMyTeamId(slot)
+    );
+  }
+
+  const draftedIds =
+    useMemo(() => {
+      return new Set(
+        draftPicks.map(
+          (pick) => pick.playerId
+        )
       );
-  }, [baseRankedPlayers, myTeamOrder]);
+    }, [draftPicks]);
 
-  const teamCategoryStrength = useMemo(() => {
-    const result = {} as Record<CategoryKey, number>;
+  const ownerByPlayerId =
+    useMemo(() => {
+      const result =
+        new Map<string, string>();
 
-    for (const category of categoryKeys) {
-      if (baseMyTeamPlayers.length === 0) {
-        result[category] = 0;
-        continue;
-      }
-
-      result[category] =
-        baseMyTeamPlayers.reduce(
-          (sum, player) =>
-            sum + player.zScores[category],
-          0
-        ) / baseMyTeamPlayers.length;
-    }
-
-    return result;
-  }, [baseMyTeamPlayers]);
-
-  const teamNeedWeights = useMemo(() => {
-    const result = {} as Record<CategoryKey, number>;
-
-    if (baseMyTeamPlayers.length === 0) {
-      for (const category of categoryKeys) {
-        result[category] = 1;
+      for (const pick of draftPicks) {
+        result.set(
+          pick.playerId,
+          pick.fantasyTeamId
+        );
       }
 
       return result;
-    }
+    }, [draftPicks]);
 
-    const strengths = categoryKeys.map(
-      (category) => teamCategoryStrength[category]
-    );
-
-    const averageStrength =
-      strengths.reduce((sum, value) => sum + value, 0) /
-      strengths.length;
-
-    for (const category of categoryKeys) {
-      const relativeStrength =
-        teamCategoryStrength[category] -
-        averageStrength;
-
-      result[category] = Math.max(
-        0.75,
-        Math.min(
-          1.35,
-          1 - relativeStrength * 0.18
+  const myTeamOrder =
+    useMemo(() => {
+      return draftPicks
+        .filter(
+          (pick) =>
+            pick.fantasyTeamId ===
+            myTeamId
         )
-      );
-    }
+        .sort(
+          (a, b) =>
+            a.pickNumber -
+            b.pickNumber
+        )
+        .map(
+          (pick) =>
+            pick.playerId
+        );
+    }, [
+      draftPicks,
+      myTeamId,
+    ]);
 
-    return result;
-  }, [
-    baseMyTeamPlayers.length,
-    teamCategoryStrength,
-  ]);
-
-  const rankedPlayers = useMemo<RankedPlayer[]>(() => {
-    return baseRankedPlayers.map((player) => {
-      let needBonus = 0;
-
-      for (const category of categoryKeys) {
-        needBonus +=
-          player.zScores[category] *
-          (teamNeedWeights[category] - 1);
+  const baseRankedPlayers =
+    useMemo<BaseRankedPlayer[]>(() => {
+      if (
+        players.length === 0
+      ) {
+        return [];
       }
 
-      needBonus *= 0.75;
+      const fantasyPool = [
+        ...players,
+      ]
+        .sort(
+          (a, b) =>
+            b.points -
+            a.points
+        )
+        .slice(0, 250);
 
-     return {
-  ...player,
-  needBonus,
-  h2hGain: 0,
-  scarcityBonus: 0,
-  scarcityReasons: [],
-  score: player.vor + needBonus,
-};
+      const stats = {} as Record<
+        CategoryKey,
+        {
+          mean: number;
+          stdDev: number;
+        }
+      >;
 
-    });
-  }, [baseRankedPlayers, teamNeedWeights]);
+      for (
+        const category of
+        categoryKeys
+      ) {
+        const values =
+          fantasyPool.map(
+            (player) =>
+              player[category]
+          );
 
-  const playerMap = useMemo(() => {
-    return new Map(
-      rankedPlayers.map((player) => [
-        player.id,
-        player,
-      ])
-    );
-  }, [rankedPlayers]);
+        const mean =
+          values.reduce(
+            (sum, value) =>
+              sum + value,
+            0
+          ) /
+          values.length;
 
-  const myTeamPlayers = useMemo(() => {
-    return myTeamOrder
-      .map((id) => playerMap.get(id))
-      .filter(
-        (
-          player
-        ): player is RankedPlayer =>
-          player !== undefined
+        const variance =
+          values.reduce(
+            (sum, value) =>
+              sum +
+              Math.pow(
+                value - mean,
+                2
+              ),
+            0
+          ) /
+          values.length;
+
+        stats[category] = {
+          mean,
+          stdDev:
+            Math.sqrt(
+              variance
+            ),
+        };
+      }
+
+      const basePlayers =
+        players.map(
+          (player) => {
+            const zScores =
+              {} as Record<
+                CategoryKey,
+                number
+              >;
+
+            let rawScore = 0;
+
+            for (
+              const category of
+              categoryKeys
+            ) {
+              const {
+                mean,
+                stdDev,
+              } =
+                stats[category];
+
+              const zScore =
+                stdDev === 0
+                  ? 0
+                  : (player[
+                      category
+                    ] -
+                      mean) /
+                    stdDev;
+
+              zScores[
+                category
+              ] = zScore;
+
+              rawScore +=
+                zScore;
+            }
+
+            return {
+              ...player,
+              rawScore,
+              zScores,
+            };
+          }
+        );
+
+      const replacementScores: Record<
+        string,
+        number
+      > = {};
+
+      for (const position of [
+        "C",
+        "LW",
+        "RW",
+        "D",
+      ]) {
+        const requiredStarters =
+          leagueTeams *
+          STARTERS_PER_TEAM[
+            position
+          ];
+
+        const positionalPlayers =
+          basePlayers
+            .filter(
+              (player) =>
+                player.positions.includes(
+                  position
+                )
+            )
+            .sort(
+              (a, b) =>
+                b.rawScore -
+                a.rawScore
+            );
+
+        const replacementIndex =
+          Math.max(
+            0,
+            Math.min(
+              requiredStarters -
+                1,
+              positionalPlayers.length -
+                1
+            )
+          );
+
+        replacementScores[
+          position
+        ] =
+          positionalPlayers[
+            replacementIndex
+          ]?.rawScore ?? 0;
+      }
+
+      return basePlayers.map(
+        (player) => {
+          const eligiblePositions =
+            player.positions.filter(
+              (position) =>
+                replacementScores[
+                  position
+                ] !== undefined
+            );
+
+          let bestVor =
+            Number.NEGATIVE_INFINITY;
+
+          let bestPosition =
+            eligiblePositions[
+              0
+            ] ?? "—";
+
+          for (
+            const position of
+            eligiblePositions
+          ) {
+            const vor =
+              player.rawScore -
+              replacementScores[
+                position
+              ];
+
+            if (
+              vor >
+              bestVor
+            ) {
+              bestVor = vor;
+
+              bestPosition =
+                position;
+            }
+          }
+
+          if (
+            !Number.isFinite(
+              bestVor
+            )
+          ) {
+            bestVor =
+              player.rawScore;
+          }
+
+          return {
+            ...player,
+            vor: bestVor,
+            replacementPosition:
+              bestPosition,
+          };
+        }
       );
-  }, [playerMap, myTeamOrder]);
+    }, [
+      players,
+      leagueTeams,
+    ]);
 
-  const assignedRoster = useMemo<RosterSlot[]>(() => {
-    const assignments = new Map<
-      string,
-      RankedPlayer
-    >();
+  const baseMyTeamPlayers =
+    useMemo(() => {
+      const map =
+        new Map(
+          baseRankedPlayers.map(
+            (player) => [
+              player.id,
+              player,
+            ]
+          )
+        );
 
-    function tryAssign(
-      player: RankedPlayer,
-      visited: Set<string>
-    ): boolean {
-      for (const slot of STARTING_SLOTS) {
+      return myTeamOrder
+        .map(
+          (id) =>
+            map.get(id)
+        )
+        .filter(
+          (
+            player
+          ): player is BaseRankedPlayer =>
+            player !==
+            undefined
+        );
+    }, [
+      baseRankedPlayers,
+      myTeamOrder,
+    ]);
+
+  const teamCategoryStrength =
+    useMemo(() => {
+      const result =
+        {} as Record<
+          CategoryKey,
+          number
+        >;
+
+      for (
+        const category of
+        categoryKeys
+      ) {
         if (
-          !player.positions.includes(slot.position) ||
-          visited.has(slot.id)
+          baseMyTeamPlayers.length ===
+          0
         ) {
+          result[
+            category
+          ] = 0;
+
           continue;
         }
 
-        visited.add(slot.id);
-
-        const existing = assignments.get(slot.id);
-
-        if (
-          !existing ||
-          tryAssign(existing, visited)
-        ) {
-          assignments.set(slot.id, player);
-          return true;
-        }
+        result[category] =
+          baseMyTeamPlayers.reduce(
+            (
+              sum,
+              player
+            ) =>
+              sum +
+              player.zScores[
+                category
+              ],
+            0
+          ) /
+          baseMyTeamPlayers.length;
       }
 
-      return false;
-    }
+      return result;
+    }, [baseMyTeamPlayers]);
 
-    const assignmentOrder = [...myTeamPlayers].sort(
-      (a, b) =>
-        a.positions.length - b.positions.length
-    );
+  const teamNeedWeights =
+    useMemo(() => {
+      const result =
+        {} as Record<
+          CategoryKey,
+          number
+        >;
 
-    for (const player of assignmentOrder) {
-      tryAssign(player, new Set());
-    }
-
-    const starters: RosterSlot[] =
-      STARTING_SLOTS.map((slot) => ({
-        id: slot.id,
-        position: slot.position,
-        player: assignments.get(slot.id),
-      }));
-
-    const starterIds = new Set(
-      [...assignments.values()].map(
-        (player) => player.id
-      )
-    );
-
-    const benchPlayers = myTeamPlayers.filter(
-      (player) => !starterIds.has(player.id)
-    );
-
-    const bench: RosterSlot[] = Array.from(
-      { length: BENCH_COUNT },
-      (_, index) => ({
-        id: `BN${index + 1}`,
-        position: "BN" as const,
-        player: benchPlayers[index],
-      })
-    );
-
-    return [...starters, ...bench];
-  }, [myTeamPlayers]);
-
-  const openStarterPositions = useMemo(() => {
-    return assignedRoster
-      .filter(
-        (slot) =>
-          slot.position !== "BN" &&
-          !slot.player
-      )
-      .map((slot) => slot.position);
-  }, [assignedRoster]);
-
-  const teamTotals = useMemo(() => {
-    return {
-      goals: myTeamPlayers.reduce(
-        (sum, p) => sum + p.goals,
+      if (
+        baseMyTeamPlayers.length ===
         0
-      ),
-      assists: myTeamPlayers.reduce(
-        (sum, p) => sum + p.assists,
-        0
-      ),
-      points: myTeamPlayers.reduce(
-        (sum, p) => sum + p.points,
-        0
-      ),
-      ppp: myTeamPlayers.reduce(
-        (sum, p) => sum + p.ppp,
-        0
-      ),
-      sog: myTeamPlayers.reduce(
-        (sum, p) => sum + p.sog,
-        0
-      ),
-      hits: myTeamPlayers.reduce(
-        (sum, p) => sum + p.hits,
-        0
-      ),
-      blocks: myTeamPlayers.reduce(
-        (sum, p) => sum + p.blocks,
-        0
-      ),
-    };
-  }, [myTeamPlayers]);
+      ) {
+        for (
+          const category of
+          categoryKeys
+        ) {
+          result[
+            category
+          ] = 1;
+        }
 
-  const leagueTeamPlayers = useMemo(() => {
-    const result = new Map<
-      string,
+        return result;
+      }
+
+      const strengths =
+        categoryKeys.map(
+          (category) =>
+            teamCategoryStrength[
+              category
+            ]
+        );
+
+      const averageStrength =
+        strengths.reduce(
+          (sum, value) =>
+            sum + value,
+          0
+        ) /
+        strengths.length;
+
+      for (
+        const category of
+        categoryKeys
+      ) {
+        const relativeStrength =
+          teamCategoryStrength[
+            category
+          ] -
+          averageStrength;
+
+        result[
+          category
+        ] =
+          Math.max(
+            0.75,
+            Math.min(
+              1.35,
+              1 -
+                relativeStrength *
+                  0.18
+            )
+          );
+      }
+
+      return result;
+    }, [
+      baseMyTeamPlayers.length,
+      teamCategoryStrength,
+    ]);
+
+  const rankedPlayers =
+    useMemo<
       RankedPlayer[]
-    >();
+    >(() => {
+      return baseRankedPlayers.map(
+        (player) => {
+          let needBonus = 0;
 
-    for (const team of fantasyTeams) {
-      result.set(team.id, []);
-    }
+          for (
+            const category of
+            categoryKeys
+          ) {
+            needBonus +=
+              player.zScores[
+                category
+              ] *
+              (teamNeedWeights[
+                category
+              ] -
+                1);
+          }
 
-    for (const pick of [...draftPicks].sort(
-      (a, b) => a.pickNumber - b.pickNumber
-    )) {
-      const player = playerMap.get(pick.playerId);
+          needBonus *=
+            0.75;
 
-      if (!player) continue;
+          return {
+            ...player,
 
-      result.get(pick.fantasyTeamId)?.push(player);
-    }
+            needBonus,
 
-    return result;
-  }, [
-    fantasyTeams,
-    draftPicks,
-    playerMap,
-  ]);
+            h2hGain: 0,
 
-  const finalRankedPlayers = useMemo<RankedPlayer[]>(() => {
-    return rankedPlayers.map((player) => {
-      if (draftedIds.has(player.id)) {
-        return {
-          ...player,
-          h2hGain: 0,
-          scarcityBonus: 0,
-          scarcityReasons: [],
-        };
-      }
-  
-      const h2h =
-        calculateH2HImpact({
-          player,
-          fantasyTeams,
-          leagueTeamPlayers,
-        });
-  
-      const scarcity =
-        calculateDraftRoomScarcity({
-          player,
-          allPlayers: rankedPlayers,
-          draftPicks,
-          fantasyTeams,
-        });
-  
-      return {
-        ...player,
-  
-        h2hGain:
-          h2h.matchupGain,
-  
-        scarcityBonus:
-          scarcity.scarcityBonus,
-  
-        scarcityReasons:
-          scarcity.reasons,
-  
-        score:
-          player.vor +
-          player.needBonus +
-          h2h.matchupGain * 1.25 +
-          scarcity.scarcityBonus,
-      };
-    });
-  }, [
-    rankedPlayers,
-    draftedIds,
-    fantasyTeams,
-    leagueTeamPlayers,
-    draftPicks,
-  ]);
+            scarcityBonus: 0,
 
-  const bestAvailable = useMemo(() => {
-    return [...finalRankedPlayers]
-      .filter(
-        (player) => !draftedIds.has(player.id)
-      )
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-  }, [
-    finalRankedPlayers,
-    draftedIds,
-  ]);
+            scarcityReasons:
+              [],
 
-  const filteredPlayers = useMemo(() => {
-    const query =
-      search.trim().toLowerCase();
+            returnRisk:
+              "SAFE",
 
-    return [...finalRankedPlayers]
-      .filter((player) => {
-        if (showDrafted) return true;
-        return !draftedIds.has(player.id);
-      })
+            picksUntilNext:
+              0,
 
-      .filter((player) => {
-        if (!query) return true;
+            score:
+              player.vor +
+              needBonus,
+          };
+        }
+      );
+    }, [
+      baseRankedPlayers,
+      teamNeedWeights,
+    ]);
 
-        return (
-          player.name
-            .toLowerCase()
-            .includes(query) ||
-          player.team
-            .toLowerCase()
-            .includes(query)
+  const playerMap =
+    useMemo(() => {
+      return new Map(
+        rankedPlayers.map(
+          (player) => [
+            player.id,
+            player,
+          ]
+        )
+      );
+    }, [rankedPlayers]);
+
+  const myTeamPlayers =
+    useMemo(() => {
+      return myTeamOrder
+        .map(
+          (id) =>
+            playerMap.get(id)
+        )
+        .filter(
+          (
+            player
+          ): player is RankedPlayer =>
+            player !==
+            undefined
         );
-      })
+    }, [
+      playerMap,
+      myTeamOrder,
+    ]);
 
-      .filter((player) => {
-        if (positionFilter === "ALL") {
-          return true;
+  const assignedRoster =
+    useMemo<
+      RosterSlot[]
+    >(() => {
+      const assignments =
+        new Map<
+          string,
+          RankedPlayer
+        >();
+
+      function tryAssign(
+        player: RankedPlayer,
+        visited: Set<string>
+      ): boolean {
+        for (
+          const slot of
+          STARTING_SLOTS
+        ) {
+          if (
+            !player.positions.includes(
+              slot.position
+            ) ||
+            visited.has(
+              slot.id
+            )
+          ) {
+            continue;
+          }
+
+          visited.add(
+            slot.id
+          );
+
+          const existing =
+            assignments.get(
+              slot.id
+            );
+
+          if (
+            !existing ||
+            tryAssign(
+              existing,
+              visited
+            )
+          ) {
+            assignments.set(
+              slot.id,
+              player
+            );
+
+            return true;
+          }
         }
 
-        return player.positions.includes(
-          positionFilter
-        );
-      })
+        return false;
+      }
 
-      .sort((a, b) => {
-        const aValue = a[sortKey];
-        const bValue = b[sortKey];
+      const assignmentOrder =
+        [
+          ...myTeamPlayers,
+        ].sort(
+          (a, b) =>
+            a.positions
+              .length -
+            b.positions
+              .length
+        );
+
+      for (
+        const player of
+        assignmentOrder
+      ) {
+        tryAssign(
+          player,
+          new Set()
+        );
+      }
+
+      const starters: RosterSlot[] =
+        STARTING_SLOTS.map(
+          (slot) => ({
+            id: slot.id,
+
+            position:
+              slot.position,
+
+            player:
+              assignments.get(
+                slot.id
+              ),
+          })
+        );
+
+      const starterIds =
+        new Set(
+          [
+            ...assignments.values(),
+          ].map(
+            (player) =>
+              player.id
+          )
+        );
+
+      const benchPlayers =
+        myTeamPlayers.filter(
+          (player) =>
+            !starterIds.has(
+              player.id
+            )
+        );
+
+      const bench: RosterSlot[] =
+        Array.from(
+          {
+            length:
+              BENCH_COUNT,
+          },
+          (_, index) => ({
+            id: `BN${
+              index + 1
+            }`,
+
+            position:
+              "BN" as const,
+
+            player:
+              benchPlayers[
+                index
+              ],
+          })
+        );
+
+      return [
+        ...starters,
+        ...bench,
+      ];
+    }, [myTeamPlayers]);
+
+  const openStarterPositions =
+    useMemo(() => {
+      return assignedRoster
+        .filter(
+          (slot) =>
+            slot.position !==
+              "BN" &&
+            !slot.player
+        )
+        .map(
+          (slot) =>
+            slot.position
+        );
+    }, [assignedRoster]);
+
+  const teamTotals =
+    useMemo(() => {
+      return {
+        goals:
+          myTeamPlayers.reduce(
+            (sum, p) =>
+              sum +
+              p.goals,
+            0
+          ),
+
+        assists:
+          myTeamPlayers.reduce(
+            (sum, p) =>
+              sum +
+              p.assists,
+            0
+          ),
+
+        points:
+          myTeamPlayers.reduce(
+            (sum, p) =>
+              sum +
+              p.points,
+            0
+          ),
+
+        ppp:
+          myTeamPlayers.reduce(
+            (sum, p) =>
+              sum +
+              p.ppp,
+            0
+          ),
+
+        sog:
+          myTeamPlayers.reduce(
+            (sum, p) =>
+              sum +
+              p.sog,
+            0
+          ),
+
+        hits:
+          myTeamPlayers.reduce(
+            (sum, p) =>
+              sum +
+              p.hits,
+            0
+          ),
+
+        blocks:
+          myTeamPlayers.reduce(
+            (sum, p) =>
+              sum +
+              p.blocks,
+            0
+          ),
+      };
+    }, [myTeamPlayers]);
+
+  const leagueTeamPlayers =
+    useMemo(() => {
+      const result =
+        new Map<
+          string,
+          RankedPlayer[]
+        >();
+
+      for (
+        const team of
+        fantasyTeams
+      ) {
+        result.set(
+          team.id,
+          []
+        );
+      }
+
+      const orderedPicks =
+        [
+          ...draftPicks,
+        ].sort(
+          (a, b) =>
+            a.pickNumber -
+            b.pickNumber
+        );
+
+      for (
+        const pick of
+        orderedPicks
+      ) {
+        const player =
+          playerMap.get(
+            pick.playerId
+          );
+
+        if (!player) {
+          continue;
+        }
+
+        const teamPlayers =
+          result.get(
+            pick.fantasyTeamId
+          );
 
         if (
-          typeof aValue === "string" &&
-          typeof bValue === "string"
+          teamPlayers
         ) {
-          const result =
-            aValue.localeCompare(bValue);
-
-          return sortDirection === "asc"
-            ? result
-            : -result;
+          teamPlayers.push(
+            player
+          );
         }
+      }
 
-        const result =
-          Number(aValue) - Number(bValue);
+      return result;
+    }, [
+      fantasyTeams,
+      draftPicks,
+      playerMap,
+    ]);
 
-        return sortDirection === "asc"
-          ? result
-          : -result;
-      });
-  }, [
-    finalRankedPlayers,
-    search,
-    positionFilter,
-    sortKey,
-    sortDirection,
-    draftedIds,
-    showDrafted,
-  ]);
+  const finalRankedPlayers =
+    useMemo<
+      RankedPlayer[]
+    >(() => {
+      return rankedPlayers.map(
+        (player) => {
+          if (
+            draftedIds.has(
+              player.id
+            )
+          ) {
+            return {
+              ...player,
+
+              h2hGain: 0,
+
+              scarcityBonus:
+                0,
+
+              scarcityReasons:
+                [],
+
+              returnRisk:
+                "SAFE",
+
+              picksUntilNext:
+                0,
+            };
+          }
+
+          const h2h =
+            calculateH2HImpact({
+              player,
+
+              fantasyTeams,
+
+              leagueTeamPlayers,
+            });
+
+          const scarcity =
+            calculateDraftRoomScarcity({
+              player,
+
+              allPlayers:
+                rankedPlayers,
+
+              draftPicks,
+
+              fantasyTeams,
+            });
+
+          const returnRisk =
+            calculateReturnRisk({
+              player,
+
+              allPlayers:
+                rankedPlayers,
+
+              draftPicks,
+
+              leagueTeams,
+
+              myDraftSlot,
+            });
+
+          return {
+            ...player,
+
+            h2hGain:
+              h2h.matchupGain,
+
+            scarcityBonus:
+              scarcity.scarcityBonus,
+
+            scarcityReasons:
+              scarcity.reasons,
+
+            returnRisk:
+              returnRisk.level,
+
+            picksUntilNext:
+              returnRisk.picksUntilNext,
+
+            score:
+              player.vor +
+              player.needBonus +
+              h2h.matchupGain *
+                1.25 +
+              scarcity.scarcityBonus,
+          };
+        }
+      );
+    }, [
+      rankedPlayers,
+      draftedIds,
+      fantasyTeams,
+      leagueTeamPlayers,
+      draftPicks,
+      leagueTeams,
+      myDraftSlot,
+    ]);
+
+  const bestAvailable =
+    useMemo(() => {
+      return [
+        ...finalRankedPlayers,
+      ]
+        .filter(
+          (player) =>
+            !draftedIds.has(
+              player.id
+            )
+        )
+        .sort(
+          (a, b) =>
+            b.score -
+            a.score
+        )
+        .slice(0, 5);
+    }, [
+      finalRankedPlayers,
+      draftedIds,
+    ]);
+
+  const filteredPlayers =
+    useMemo(() => {
+      const query =
+        search
+          .trim()
+          .toLowerCase();
+
+      return [
+        ...finalRankedPlayers,
+      ]
+        .filter(
+          (player) => {
+            if (
+              showDrafted
+            ) {
+              return true;
+            }
+
+            return !draftedIds.has(
+              player.id
+            );
+          }
+        )
+
+        .filter(
+          (player) => {
+            if (!query) {
+              return true;
+            }
+
+            return (
+              player.name
+                .toLowerCase()
+                .includes(
+                  query
+                ) ||
+              player.team
+                .toLowerCase()
+                .includes(
+                  query
+                )
+            );
+          }
+        )
+
+        .filter(
+          (player) => {
+            if (
+              positionFilter ===
+              "ALL"
+            ) {
+              return true;
+            }
+
+            return player.positions.includes(
+              positionFilter
+            );
+          }
+        )
+
+        .sort(
+          (a, b) => {
+            const aValue =
+              a[sortKey];
+
+            const bValue =
+              b[sortKey];
+
+            if (
+              typeof aValue ===
+                "string" &&
+              typeof bValue ===
+                "string"
+            ) {
+              const result =
+                aValue.localeCompare(
+                  bValue
+                );
+
+              return sortDirection ===
+                "asc"
+                ? result
+                : -result;
+            }
+
+            const result =
+              Number(
+                aValue
+              ) -
+              Number(
+                bValue
+              );
+
+            return sortDirection ===
+              "asc"
+              ? result
+              : -result;
+          }
+        );
+    }, [
+      finalRankedPlayers,
+      search,
+      positionFilter,
+      sortKey,
+      sortDirection,
+      draftedIds,
+      showDrafted,
+    ]);
 
   function draftPlayer(
     playerId: string,
     fantasyTeamId: string
   ) {
-    if (draftedIds.has(playerId)) return;
+    if (
+      draftedIds.has(
+        playerId
+      )
+    ) {
+      return;
+    }
 
-    setDraftPicks((current) => [
-      ...current,
-      {
-        playerId,
-        fantasyTeamId,
-        pickNumber: current.length + 1,
-      },
-    ]);
+    setDraftPicks(
+      (current) => {
+        const nextPicks: DraftPick[] =
+          [
+            ...current,
+            {
+              playerId,
+
+              fantasyTeamId,
+
+              pickNumber:
+                current.length +
+                1,
+            },
+          ];
+
+        const nextPickNumber =
+          nextPicks.length +
+          1;
+
+        const nextTeamId =
+          getSnakeTeamIdForPick(
+            nextPickNumber,
+            leagueTeams
+          );
+
+        setSelectedDraftTeamId(
+          nextTeamId
+        );
+
+        return nextPicks;
+      }
+    );
   }
 
-  function undoDraftPlayer(playerId: string) {
-    setDraftPicks((current) =>
-      current
-        .filter(
-          (pick) => pick.playerId !== playerId
-        )
-        .map((pick, index) => ({
-          ...pick,
-          pickNumber: index + 1,
-        }))
+  function undoDraftPlayer(
+    playerId: string
+  ) {
+    setDraftPicks(
+      (current) => {
+        const next =
+          current
+            .filter(
+              (pick) =>
+                pick.playerId !==
+                playerId
+            )
+            .map(
+              (
+                pick,
+                index
+              ) => ({
+                ...pick,
+
+                pickNumber:
+                  index + 1,
+              })
+            );
+
+        const nextTeamId =
+          getSnakeTeamIdForPick(
+            next.length +
+              1,
+            leagueTeams
+          );
+
+        setSelectedDraftTeamId(
+          nextTeamId
+        );
+
+        return next;
+      }
     );
   }
 
   function undoLastPick() {
-    setDraftPicks((current) =>
-      current.slice(0, -1)
+    setDraftPicks(
+      (current) => {
+        const next =
+          current.slice(
+            0,
+            -1
+          );
+
+        const nextTeamId =
+          getSnakeTeamIdForPick(
+            next.length +
+              1,
+            leagueTeams
+          );
+
+        setSelectedDraftTeamId(
+          nextTeamId
+        );
+
+        return next;
+      }
     );
   }
 
-  function handleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDirection((current) =>
-        current === "asc"
-          ? "desc"
-          : "asc"
+  function handleSort(
+    key: SortKey
+  ) {
+    if (
+      sortKey === key
+    ) {
+      setSortDirection(
+        (current) =>
+          current ===
+          "asc"
+            ? "desc"
+            : "asc"
       );
 
       return;
@@ -728,120 +1383,188 @@ export default function ProjectionUpload() {
     );
   }
 
-  function sortIndicator(key: SortKey) {
-    if (sortKey !== key) return "";
+  function sortIndicator(
+    key: SortKey
+  ) {
+    if (
+      sortKey !== key
+    ) {
+      return "";
+    }
 
-    return sortDirection === "asc"
+    return sortDirection ===
+      "asc"
       ? " ↑"
       : " ↓";
   }
 
-  function getTeamName(teamId: string) {
+  function getTeamName(
+    teamId: string
+  ) {
     return (
       fantasyTeams.find(
-        (team) => team.id === teamId
-      )?.name ?? teamId
+        (team) =>
+          team.id ===
+          teamId
+      )?.name ??
+      teamId
     );
   }
 
   function getRecommendationReasons(
     player: RankedPlayer
   ) {
-    const reasons: string[] = [];
+    const reasons: string[] =
+      [];
 
-    const strengths = categoryKeys
-      .map((category) => ({
-        category,
-        z: player.zScores[category],
-        need: teamNeedWeights[category],
-      }))
-      .sort(
-        (a, b) =>
-          b.z * b.need -
-          a.z * a.need
-      );
+    const strengths =
+      categoryKeys
+        .map(
+          (category) => ({
+            category,
 
-    const strong = strengths
-      .filter((item) => item.z >= 1)
-      .slice(0, 2)
-      .map(
-        (item) =>
-          CATEGORY_LABELS[item.category]
-      );
+            z:
+              player.zScores[
+                category
+              ],
 
-    if (strong.length > 0) {
+            need:
+              teamNeedWeights[
+                category
+              ],
+          })
+        )
+        .sort(
+          (a, b) =>
+            b.z * b.need -
+            a.z * a.need
+        );
+
+    const strong =
+      strengths
+        .filter(
+          (item) =>
+            item.z >= 1
+        )
+        .slice(0, 2)
+        .map(
+          (item) =>
+            CATEGORY_LABELS[
+              item.category
+            ]
+        );
+
+    if (
+      strong.length > 0
+    ) {
       reasons.push(
-        `Strong ${strong.join(" + ")}`
+        `Strong ${strong.join(
+          " + "
+        )}`
       );
     }
 
-    const needed = strengths
-      .filter(
-        (item) =>
-          item.need >= 1.08 &&
-          item.z > 0.35
-      )
-      .slice(0, 2)
-      .map(
-        (item) =>
-          CATEGORY_LABELS[item.category]
-      );
-      
-      if (
-        player.scarcityReasons.length > 0
-      ) {
-        reasons.push(
-          player.scarcityReasons[0]
+    const needed =
+      strengths
+        .filter(
+          (item) =>
+            item.need >=
+              1.08 &&
+            item.z >
+              0.35
+        )
+        .slice(0, 2)
+        .map(
+          (item) =>
+            CATEGORY_LABELS[
+              item.category
+            ]
         );
-      }
 
-    if (needed.length > 0) {
+    if (
+      needed.length > 0
+    ) {
       reasons.push(
-        `Helps ${needed.join(" + ")}`
+        `Helps ${needed.join(
+          " + "
+        )}`
       );
     }
 
     const openPosition =
-      player.positions.find((position) =>
-        openStarterPositions.includes(
-          position as
-            | "C"
-            | "LW"
-            | "RW"
-            | "D"
-        )
+      player.positions.find(
+        (position) =>
+          openStarterPositions.includes(
+            position as
+              | "C"
+              | "LW"
+              | "RW"
+              | "D"
+          )
       );
 
-    if (openPosition) {
+    if (
+      openPosition
+    ) {
       reasons.push(
         `Fills ${openPosition}`
       );
     }
 
     if (
-      player.replacementPosition === "D" &&
+      player.replacementPosition ===
+        "D" &&
       player.vor > 0
     ) {
-      reasons.push("Scarce D value");
-    }
-
-    if (player.positions.length > 1) {
       reasons.push(
-        `${player.positions.join("/")} flexibility`
+        "Scarce D value"
       );
     }
 
-    if (player.h2hGain >= 0.15) {
-        reasons.push(
-          `Improves H2H matchup strength`
-        );
-      }
-
-    if (reasons.length === 0) {
-      reasons.push("Best overall value");
+    if (
+      player.positions.length >
+      1
+    ) {
+      reasons.push(
+        `${player.positions.join(
+          "/"
+        )} flexibility`
+      );
     }
 
-    return reasons.slice(0, 2);
+    if (
+      player.h2hGain >=
+      0.15
+    ) {
+      reasons.push(
+        "Improves H2H matchup strength"
+      );
+    }
+
+    if (
+      player.scarcityReasons
+        .length > 0
+    ) {
+      reasons.push(
+        player
+          .scarcityReasons[
+          0
+        ]
+      );
+    }
+
+    if (
+      reasons.length === 0
+    ) {
+      reasons.push(
+        "Best overall value"
+      );
+    }
+
+    return reasons.slice(
+      0,
+      2
+    );
   }
 
   const positions = [
@@ -853,15 +1576,30 @@ export default function ProjectionUpload() {
   ];
 
   const availableCount =
-    players.length - draftPicks.length;
+    players.length -
+    draftPicks.length;
 
   const lastPick =
-    draftPicks.at(-1);
+    draftPicks.length >
+    0
+      ? draftPicks[
+          draftPicks.length -
+            1
+        ]
+      : undefined;
 
   const lastPickPlayer =
     lastPick
-      ? playerMap.get(lastPick.playerId)
+      ? playerMap.get(
+          lastPick.playerId
+        )
       : undefined;
+
+  const currentRound =
+    Math.floor(
+      draftPicks.length /
+        leagueTeams
+    ) + 1;
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -877,11 +1615,20 @@ export default function ProjectionUpload() {
             </div>
           </div>
 
-          {players.length > 0 && (
+          {players.length >
+            0 && (
             <>
               <TopStat
                 label="Pick"
-                value={`${draftPicks.length + 1}`}
+                value={`${
+                  draftPicks.length +
+                  1
+                }`}
+              />
+
+              <TopStat
+                label="Round"
+                value={`${currentRound}`}
               />
 
               <TopStat
@@ -895,45 +1642,68 @@ export default function ProjectionUpload() {
                 </div>
 
                 <select
-                  value={selectedDraftTeamId}
-                  onChange={(event) =>
+                  value={
+                    selectedDraftTeamId
+                  }
+                  onChange={(
+                    event
+                  ) =>
                     setSelectedDraftTeamId(
-                      event.target.value
+                      event
+                        .target
+                        .value
                     )
                   }
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
                 >
-                  {fantasyTeams.map((team) => (
-                    <option
-                      key={team.id}
-                      value={team.id}
-                    >
-                      {team.name}
-                    </option>
-                  ))}
+                  {fantasyTeams.map(
+                    (team) => (
+                      <option
+                        key={
+                          team.id
+                        }
+                        value={
+                          team.id
+                        }
+                      >
+                        {
+                          team.name
+                        }
+                      </option>
+                    )
+                  )}
                 </select>
               </div>
 
               <div className="ml-auto flex items-center gap-3">
-                {lastPick && lastPickPlayer && (
-                  <div className="hidden text-right lg:block">
-                    <div className="text-[9px] uppercase text-zinc-500">
-                      Last pick
-                    </div>
+                {lastPick &&
+                  lastPickPlayer && (
+                    <div className="hidden text-right lg:block">
+                      <div className="text-[9px] uppercase text-zinc-500">
+                        Last pick
+                      </div>
 
-                    <div className="text-xs">
-                      {lastPickPlayer.name}
-                      {" → "}
-                      {getTeamName(
-                        lastPick.fantasyTeamId
-                      )}
+                      <div className="text-xs">
+                        {
+                          lastPickPlayer.name
+                        }
+                        {" → "}
+                        {getTeamName(
+                          lastPick.fantasyTeamId
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 <button
-                  onClick={undoLastPick}
-                  disabled={draftPicks.length === 0}
+                  type="button"
+                  onClick={
+                    undoLastPick
+                  }
+                  disabled={
+                    draftPicks.length ===
+                    0
+                  }
                   className="rounded-lg border border-red-900 px-3 py-2 text-xs font-semibold text-red-300 disabled:opacity-30"
                 >
                   Undo Last
@@ -945,21 +1715,25 @@ export default function ProjectionUpload() {
       </div>
 
       <div className="mx-auto max-w-[1900px] p-4 lg:p-6">
-        {players.length === 0 ? (
+        {players.length ===
+        0 ? (
           <div className="mx-auto mt-16 max-w-xl rounded-xl border border-zinc-800 bg-zinc-900 p-8">
             <h1 className="text-2xl font-bold">
               Start Nevisly
             </h1>
 
             <p className="mt-2 text-sm text-zinc-400">
-              Import your projection CSV.
+              Import your projection
+              CSV.
             </p>
 
             <input
               className="mt-6"
               type="file"
               accept=".csv"
-              onChange={handleFile}
+              onChange={
+                handleFile
+              }
             />
 
             {error && (
@@ -970,34 +1744,104 @@ export default function ProjectionUpload() {
           </div>
         ) : (
           <>
-            <div className="mb-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2">
-              <span className="text-xs text-zinc-500">
-                League
-              </span>
+            <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500">
+                  League
+                </span>
 
-              <select
-                value={leagueTeams}
-                onChange={(event) =>
-                  handleLeagueTeamChange(
-                    Number(event.target.value)
-                  )
-                }
-                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs"
-              >
-                {[8, 10, 12, 14, 16].map(
-                  (teams) => (
-                    <option
-                      key={teams}
-                      value={teams}
-                    >
-                      {teams} teams
-                    </option>
-                  )
-                )}
-              </select>
+                <select
+                  value={
+                    leagueTeams
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    handleLeagueTeamChange(
+                      Number(
+                        event
+                          .target
+                          .value
+                      )
+                    )
+                  }
+                  className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs"
+                >
+                  {[
+                    8,
+                    10,
+                    12,
+                    14,
+                    16,
+                  ].map(
+                    (teams) => (
+                      <option
+                        key={
+                          teams
+                        }
+                        value={
+                          teams
+                        }
+                      >
+                        {
+                          teams
+                        }{" "}
+                        teams
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500">
+                  My Draft Slot
+                </span>
+
+                <select
+                  value={
+                    myDraftSlot
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    handleDraftSlotChange(
+                      Number(
+                        event
+                          .target
+                          .value
+                      )
+                    )
+                  }
+                  className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs"
+                >
+                  {Array.from(
+                    {
+                      length:
+                        leagueTeams,
+                    },
+                    (_, index) =>
+                      index + 1
+                  ).map(
+                    (slot) => (
+                      <option
+                        key={
+                          slot
+                        }
+                        value={
+                          slot
+                        }
+                      >
+                        #{slot}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
 
               <span className="ml-auto text-xs text-zinc-500">
-                H2H Categories · 90 sec pick
+                H2H Categories ·
+                90 sec pick
               </span>
             </div>
 
@@ -1006,7 +1850,8 @@ export default function ProjectionUpload() {
                 <section className="mb-5 overflow-hidden rounded-xl border border-emerald-800/60 bg-zinc-900">
                   <div className="border-b border-zinc-800 px-4 py-3">
                     <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                      Who should I take?
+                      Who should I
+                      take?
                     </div>
 
                     <h2 className="text-lg font-bold">
@@ -1016,7 +1861,10 @@ export default function ProjectionUpload() {
 
                   <div className="divide-y divide-zinc-800">
                     {bestAvailable.map(
-                      (player, index) => {
+                      (
+                        player,
+                        index
+                      ) => {
                         const reasons =
                           getRecommendationReasons(
                             player
@@ -1024,32 +1872,41 @@ export default function ProjectionUpload() {
 
                         return (
                           <div
-                            key={player.id}
+                            key={
+                              player.id
+                            }
                             className={`grid gap-3 px-4 py-3 lg:grid-cols-[42px_minmax(200px,1fr)_110px_125px] lg:items-center ${
-                              index === 0
+                              index ===
+                              0
                                 ? "bg-emerald-950/25"
                                 : ""
                             }`}
                           >
                             <div
                               className={`text-xl font-black ${
-                                index === 0
+                                index ===
+                                0
                                   ? "text-emerald-400"
                                   : "text-zinc-600"
                               }`}
                             >
-                              #{index + 1}
+                              #
+                              {index +
+                                1}
                             </div>
 
                             <div>
                               <div
                                 className={
-                                  index === 0
+                                  index ===
+                                  0
                                     ? "text-lg font-bold"
                                     : "font-semibold"
                                 }
                               >
-                                {player.name}
+                                {
+                                  player.name
+                                }
                               </div>
 
                               <div className="mt-0.5 text-xs text-zinc-500">
@@ -1057,12 +1914,25 @@ export default function ProjectionUpload() {
                                   "/"
                                 )}
                                 {" · "}
-                                {player.team}
+                                {
+                                  player.team
+                                }
                               </div>
 
                               <div className="mt-1 text-xs text-zinc-300">
-                                {reasons.join(" · ")}
+                                {reasons.join(
+                                  " · "
+                                )}
                               </div>
+
+                              <ReturnRiskDisplay
+                                level={
+                                  player.returnRisk
+                                }
+                                picksUntilNext={
+                                  player.picksUntilNext
+                                }
+                              />
                             </div>
 
                             <div className="lg:text-right">
@@ -1072,12 +1942,15 @@ export default function ProjectionUpload() {
 
                               <div
                                 className={`font-black ${
-                                  index === 0
+                                  index ===
+                                  0
                                     ? "text-2xl text-emerald-400"
                                     : "text-lg"
                                 }`}
                               >
-                                {player.score.toFixed(2)}
+                                {player.score.toFixed(
+                                  2
+                                )}
                               </div>
                             </div>
 
@@ -1086,11 +1959,12 @@ export default function ProjectionUpload() {
                               onClick={() =>
                                 draftPlayer(
                                   player.id,
-                                  MY_TEAM_ID
+                                  myTeamId
                                 )
                               }
                               className={`rounded-lg px-4 py-2 font-bold ${
-                                index === 0
+                                index ===
+                                0
                                   ? "bg-emerald-500 text-black hover:bg-emerald-400"
                                   : "border border-emerald-800 text-emerald-300"
                               }`}
@@ -1108,10 +1982,16 @@ export default function ProjectionUpload() {
                   <div className="flex flex-col gap-2 lg:flex-row">
                     <input
                       autoFocus
-                      value={search}
-                      onChange={(event) =>
+                      value={
+                        search
+                      }
+                      onChange={(
+                        event
+                      ) =>
                         setSearch(
-                          event.target.value
+                          event
+                            .target
+                            .value
                         )
                       }
                       placeholder="Search player..."
@@ -1119,33 +1999,48 @@ export default function ProjectionUpload() {
                     />
 
                     <div className="flex gap-1.5">
-                      {positions.map((position) => (
-                        <button
-                          key={position}
-                          type="button"
-                          onClick={() =>
-                            setPositionFilter(
+                      {positions.map(
+                        (
+                          position
+                        ) => (
+                          <button
+                            key={
                               position
-                            )
-                          }
-                          className={`rounded-lg px-3 py-2 text-xs font-bold ${
-                            positionFilter === position
-                              ? "bg-white text-black"
-                              : "border border-zinc-700 bg-zinc-950"
-                          }`}
-                        >
-                          {position}
-                        </button>
-                      ))}
+                            }
+                            type="button"
+                            onClick={() =>
+                              setPositionFilter(
+                                position
+                              )
+                            }
+                            className={`rounded-lg px-3 py-2 text-xs font-bold ${
+                              positionFilter ===
+                              position
+                                ? "bg-white text-black"
+                                : "border border-zinc-700 bg-zinc-950"
+                            }`}
+                          >
+                            {
+                              position
+                            }
+                          </button>
+                        )
+                      )}
                     </div>
 
                     <label className="ml-auto flex items-center gap-2 text-xs text-zinc-500">
                       <input
                         type="checkbox"
-                        checked={showDrafted}
-                        onChange={(event) =>
+                        checked={
+                          showDrafted
+                        }
+                        onChange={(
+                          event
+                        ) =>
                           setShowDrafted(
-                            event.target.checked
+                            event
+                              .target
+                              .checked
                           )
                         }
                       />
@@ -1162,12 +2057,14 @@ export default function ProjectionUpload() {
                     </h2>
 
                     <span className="text-xs text-zinc-500">
-                      {filteredPlayers.length}
+                      {
+                        filteredPlayers.length
+                      }
                     </span>
                   </div>
 
                   <div className="max-h-[720px] overflow-auto">
-                    <table className="w-full min-w-[880px] text-xs">
+                    <table className="w-full min-w-[900px] text-xs">
                       <thead className="sticky top-0 z-20 bg-zinc-900 text-left text-zinc-400">
                         <tr>
                           <th className="p-2">
@@ -1177,7 +2074,9 @@ export default function ProjectionUpload() {
                           <SortableHeader
                             label="Player"
                             onClick={() =>
-                              handleSort("name")
+                              handleSort(
+                                "name"
+                              )
                             }
                             indicator={sortIndicator(
                               "name"
@@ -1191,7 +2090,9 @@ export default function ProjectionUpload() {
                           <SortableHeader
                             label="Team"
                             onClick={() =>
-                              handleSort("team")
+                              handleSort(
+                                "team"
+                              )
                             }
                             indicator={sortIndicator(
                               "team"
@@ -1201,17 +2102,25 @@ export default function ProjectionUpload() {
                           <SortableHeader
                             label="Nevisly"
                             onClick={() =>
-                              handleSort("score")
+                              handleSort(
+                                "score"
+                              )
                             }
                             indicator={sortIndicator(
                               "score"
                             )}
                           />
 
+                          <th className="p-2">
+                            Return
+                          </th>
+
                           <SortableHeader
                             label="G"
                             onClick={() =>
-                              handleSort("goals")
+                              handleSort(
+                                "goals"
+                              )
                             }
                             indicator={sortIndicator(
                               "goals"
@@ -1245,7 +2154,9 @@ export default function ProjectionUpload() {
                           <SortableHeader
                             label="PPP"
                             onClick={() =>
-                              handleSort("ppp")
+                              handleSort(
+                                "ppp"
+                              )
                             }
                             indicator={sortIndicator(
                               "ppp"
@@ -1255,7 +2166,9 @@ export default function ProjectionUpload() {
                           <SortableHeader
                             label="SOG"
                             onClick={() =>
-                              handleSort("sog")
+                              handleSort(
+                                "sog"
+                              )
                             }
                             indicator={sortIndicator(
                               "sog"
@@ -1265,7 +2178,9 @@ export default function ProjectionUpload() {
                           <SortableHeader
                             label="HIT"
                             onClick={() =>
-                              handleSort("hits")
+                              handleSort(
+                                "hits"
+                              )
                             }
                             indicator={sortIndicator(
                               "hits"
@@ -1275,7 +2190,9 @@ export default function ProjectionUpload() {
                           <SortableHeader
                             label="BLK"
                             onClick={() =>
-                              handleSort("blocks")
+                              handleSort(
+                                "blocks"
+                              )
                             }
                             indicator={sortIndicator(
                               "blocks"
@@ -1298,7 +2215,9 @@ export default function ProjectionUpload() {
 
                       <tbody>
                         {filteredPlayers.map(
-                          (player) => {
+                          (
+                            player
+                          ) => {
                             const ownerId =
                               ownerByPlayerId.get(
                                 player.id
@@ -1310,7 +2229,9 @@ export default function ProjectionUpload() {
 
                             return (
                               <tr
-                                key={player.id}
+                                key={
+                                  player.id
+                                }
                                 className={`border-t border-zinc-800 ${
                                   drafted
                                     ? "opacity-40"
@@ -1320,6 +2241,7 @@ export default function ProjectionUpload() {
                                 <td className="p-2">
                                   {drafted ? (
                                     <button
+                                      type="button"
                                       onClick={() =>
                                         undoDraftPlayer(
                                           player.id
@@ -1330,11 +2252,13 @@ export default function ProjectionUpload() {
                                       {getTeamName(
                                         ownerId
                                       )}{" "}
-                                      · Undo
+                                      ·
+                                      Undo
                                     </button>
                                   ) : (
                                     <div className="flex gap-1">
                                       <button
+                                        type="button"
                                         onClick={() =>
                                           draftPlayer(
                                             player.id,
@@ -1347,12 +2271,13 @@ export default function ProjectionUpload() {
                                       </button>
 
                                       {selectedDraftTeamId !==
-                                        MY_TEAM_ID && (
+                                        myTeamId && (
                                         <button
+                                          type="button"
                                           onClick={() =>
                                             draftPlayer(
                                               player.id,
-                                              MY_TEAM_ID
+                                              myTeamId
                                             )
                                           }
                                           className="rounded border border-emerald-800 px-2 py-1 text-[10px] text-emerald-300"
@@ -1365,7 +2290,9 @@ export default function ProjectionUpload() {
                                 </td>
 
                                 <td className="whitespace-nowrap p-2 font-semibold">
-                                  {player.name}
+                                  {
+                                    player.name
+                                  }
                                 </td>
 
                                 <td className="p-2 text-zinc-400">
@@ -1375,7 +2302,9 @@ export default function ProjectionUpload() {
                                 </td>
 
                                 <td className="p-2 text-zinc-400">
-                                  {player.team}
+                                  {
+                                    player.team
+                                  }
                                 </td>
 
                                 <td className="p-2 font-black text-emerald-400">
@@ -1384,10 +2313,21 @@ export default function ProjectionUpload() {
                                   )}
                                 </td>
 
+                                <td className="p-2">
+                                  <ReturnRiskBadge
+                                    level={
+                                      player.returnRisk
+                                    }
+                                  />
+                                </td>
+
                                 <HeatmapCell
-                                  value={player.goals}
+                                  value={
+                                    player.goals
+                                  }
                                   zScore={
-                                    player.zScores
+                                    player
+                                      .zScores
                                       .goals
                                   }
                                 />
@@ -1397,53 +2337,71 @@ export default function ProjectionUpload() {
                                     player.assists
                                   }
                                   zScore={
-                                    player.zScores
+                                    player
+                                      .zScores
                                       .assists
                                   }
                                 />
 
                                 <HeatmapCell
-                                  value={player.points}
+                                  value={
+                                    player.points
+                                  }
                                   zScore={
-                                    player.zScores
+                                    player
+                                      .zScores
                                       .points
                                   }
                                 />
 
                                 <HeatmapCell
-                                  value={player.ppp}
+                                  value={
+                                    player.ppp
+                                  }
                                   zScore={
-                                    player.zScores
+                                    player
+                                      .zScores
                                       .ppp
                                   }
                                 />
 
                                 <HeatmapCell
-                                  value={player.sog}
+                                  value={
+                                    player.sog
+                                  }
                                   zScore={
-                                    player.zScores
+                                    player
+                                      .zScores
                                       .sog
                                   }
                                 />
 
                                 <HeatmapCell
-                                  value={player.hits}
+                                  value={
+                                    player.hits
+                                  }
                                   zScore={
-                                    player.zScores
+                                    player
+                                      .zScores
                                       .hits
                                   }
                                 />
 
                                 <HeatmapCell
-                                  value={player.blocks}
+                                  value={
+                                    player.blocks
+                                  }
                                   zScore={
-                                    player.zScores
+                                    player
+                                      .zScores
                                       .blocks
                                   }
                                 />
 
                                 <td className="p-2 text-zinc-500">
-                                  {player.age}
+                                  {
+                                    player.age
+                                  }
                                 </td>
 
                                 <td className="p-2 text-zinc-600">
@@ -1472,7 +2430,10 @@ export default function ProjectionUpload() {
                       </h2>
 
                       <span className="text-xs text-zinc-500">
-                        {myTeamPlayers.length} skaters
+                        {
+                          myTeamPlayers.length
+                        }{" "}
+                        skaters
                       </span>
                     </div>
 
@@ -1491,9 +2452,13 @@ export default function ProjectionUpload() {
 
                   <div className="mt-4 grid grid-cols-7 gap-1">
                     {categoryKeys.map(
-                      (category) => (
+                      (
+                        category
+                      ) => (
                         <CompactNeed
-                          key={category}
+                          key={
+                            category
+                          }
                           label={
                             CATEGORY_LABELS[
                               category
@@ -1511,13 +2476,19 @@ export default function ProjectionUpload() {
 
                   <div className="mt-4 space-y-1">
                     {assignedRoster.map(
-                      (slot) => (
+                      (
+                        slot
+                      ) => (
                         <div
-                          key={slot.id}
+                          key={
+                            slot.id
+                          }
                           className="grid grid-cols-[38px_1fr_auto] gap-2 rounded-md bg-zinc-950 px-2 py-1.5 text-xs"
                         >
                           <span className="font-bold text-zinc-500">
-                            {slot.id}
+                            {
+                              slot.id
+                            }
                           </span>
 
                           <span
@@ -1527,12 +2498,18 @@ export default function ProjectionUpload() {
                                 : "text-zinc-700"
                             }
                           >
-                            {slot.player?.name ??
+                            {slot
+                              .player
+                              ?.name ??
                               "Empty"}
                           </span>
 
                           <span className="text-[10px] text-zinc-600">
-                            {slot.player?.team}
+                            {
+                              slot
+                                .player
+                                ?.team
+                            }
                           </span>
                         </div>
                       )
@@ -1548,69 +2525,106 @@ export default function ProjectionUpload() {
                   <div className="grid grid-cols-4 gap-2">
                     <TinyStat
                       label="G"
-                      value={teamTotals.goals}
+                      value={
+                        teamTotals.goals
+                      }
                     />
+
                     <TinyStat
                       label="A"
-                      value={teamTotals.assists}
+                      value={
+                        teamTotals.assists
+                      }
                     />
+
                     <TinyStat
                       label="P"
-                      value={teamTotals.points}
+                      value={
+                        teamTotals.points
+                      }
                     />
+
                     <TinyStat
                       label="PPP"
-                      value={teamTotals.ppp}
+                      value={
+                        teamTotals.ppp
+                      }
                     />
+
                     <TinyStat
                       label="SOG"
-                      value={teamTotals.sog}
+                      value={
+                        teamTotals.sog
+                      }
                     />
+
                     <TinyStat
                       label="HIT"
-                      value={teamTotals.hits}
+                      value={
+                        teamTotals.hits
+                      }
                     />
+
                     <TinyStat
                       label="BLK"
-                      value={teamTotals.blocks}
+                      value={
+                        teamTotals.blocks
+                      }
                     />
                   </div>
                 </section>
 
                 <section className="rounded-xl border border-blue-900/50 bg-zinc-900 p-4">
                   <div className="text-[10px] font-bold uppercase text-blue-400">
-                    Manual Draft
+                    Draft Room
+                  </div>
+
+                  <div className="mt-1 text-xs text-zinc-500">
+                    Snake order
+                    automatically
+                    advances after each
+                    pick.
                   </div>
 
                   <div className="mt-3 grid grid-cols-3 gap-1.5">
-                    {fantasyTeams.map((team) => (
-                      <button
-                        key={team.id}
-                        type="button"
-                        onClick={() =>
-                          setSelectedDraftTeamId(
+                    {fantasyTeams.map(
+                      (
+                        team
+                      ) => (
+                        <button
+                          key={
                             team.id
-                          )
-                        }
-                        className={`rounded-md border px-2 py-2 text-left text-[10px] ${
-                          selectedDraftTeamId ===
-                          team.id
-                            ? "border-blue-500 bg-blue-950/40"
-                            : "border-zinc-800 bg-zinc-950 text-zinc-400"
-                        }`}
-                      >
-                        <div className="truncate font-bold">
-                          {team.name}
-                        </div>
+                          }
+                          type="button"
+                          onClick={() =>
+                            setSelectedDraftTeamId(
+                              team.id
+                            )
+                          }
+                          className={`rounded-md border px-2 py-2 text-left text-[10px] ${
+                            selectedDraftTeamId ===
+                            team.id
+                              ? "border-blue-500 bg-blue-950/40"
+                              : "border-zinc-800 bg-zinc-950 text-zinc-400"
+                          }`}
+                        >
+                          <div className="truncate font-bold">
+                            {
+                              team.name
+                            }
+                          </div>
 
-                        <div className="text-zinc-600">
-                          {leagueTeamPlayers.get(
-                            team.id
-                          )?.length ?? 0}{" "}
-                          picks
-                        </div>
-                      </button>
-                    ))}
+                          <div className="text-zinc-600">
+                            {leagueTeamPlayers.get(
+                              team.id
+                            )
+                              ?.length ??
+                              0}{" "}
+                            picks
+                          </div>
+                        </button>
+                      )
+                    )}
                   </div>
                 </section>
               </aside>
@@ -1618,12 +2632,15 @@ export default function ProjectionUpload() {
 
             <details className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900">
               <summary className="cursor-pointer px-4 py-3 font-semibold">
-                League Rankings & Category Matrix
+                League Rankings &
+                Category Matrix
               </summary>
 
               <div className="px-4 pb-4">
                 <LeagueRankings
-                  fantasyTeams={fantasyTeams}
+                  fantasyTeams={
+                    fantasyTeams
+                  }
                   leagueTeamPlayers={
                     leagueTeamPlayers
                   }
@@ -1634,6 +2651,92 @@ export default function ProjectionUpload() {
         )}
       </div>
     </main>
+  );
+}
+
+function ReturnRiskDisplay({
+  level,
+  picksUntilNext,
+}: {
+  level: ReturnRiskLevel;
+  picksUntilNext: number;
+}) {
+  let className =
+    "text-zinc-500";
+
+  if (
+    level ===
+    "TAKE NOW"
+  ) {
+    className =
+      "text-red-400";
+  } else if (
+    level ===
+    "RISKY"
+  ) {
+    className =
+      "text-orange-400";
+  } else if (
+    level ===
+    "POSSIBLE"
+  ) {
+    className =
+      "text-yellow-400";
+  }
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2">
+      <span
+        className={`text-[10px] font-bold ${className}`}
+      >
+        RETURN: {level}
+      </span>
+
+      {picksUntilNext >
+        0 && (
+        <span className="text-[10px] text-zinc-600">
+          {picksUntilNext} picks
+          until your next turn
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ReturnRiskBadge({
+  level,
+}: {
+  level: ReturnRiskLevel;
+}) {
+  let className =
+    "text-zinc-500";
+
+  if (
+    level ===
+    "TAKE NOW"
+  ) {
+    className =
+      "text-red-400";
+  } else if (
+    level ===
+    "RISKY"
+  ) {
+    className =
+      "text-orange-400";
+  } else if (
+    level ===
+    "POSSIBLE"
+  ) {
+    className =
+      "text-yellow-400";
+  }
+
+  return (
+    <span
+      className={`whitespace-nowrap text-[9px] font-bold ${className}`}
+    >
+      {level}
+    </span>
   );
 }
 
@@ -1687,10 +2790,14 @@ function CompactNeed({
   let className =
     "border-zinc-700 bg-zinc-950 text-zinc-400";
 
-  if (weight >= 1.1) {
+  if (
+    weight >= 1.1
+  ) {
     className =
       "border-red-900 bg-red-950/40 text-red-300";
-  } else if (weight <= 0.9) {
+  } else if (
+    weight <= 0.9
+  ) {
     className =
       "border-emerald-900 bg-emerald-950/40 text-emerald-300";
   }
@@ -1698,7 +2805,9 @@ function CompactNeed({
   return (
     <div
       className={`rounded-md border px-1 py-2 text-center ${className}`}
-      title={`Need weight ${weight.toFixed(2)}×`}
+      title={`Need weight ${weight.toFixed(
+        2
+      )}×`}
     >
       <div className="text-[9px] font-bold">
         {label}
@@ -1717,8 +2826,12 @@ function HeatmapCell({
   return (
     <td
       className="p-2 font-medium"
-      style={getHeatmapStyle(zScore)}
-      title={`Z-score: ${zScore.toFixed(2)}`}
+      style={getHeatmapStyle(
+        zScore
+      )}
+      title={`Z-score: ${zScore.toFixed(
+        2
+      )}`}
     >
       {value}
     </td>
@@ -1728,7 +2841,9 @@ function HeatmapCell({
 function getHeatmapStyle(
   zScore: number
 ): React.CSSProperties {
-  if (zScore >= 2) {
+  if (
+    zScore >= 2
+  ) {
     return {
       backgroundColor:
         "rgba(22, 163, 74, 0.70)",
@@ -1736,35 +2851,45 @@ function getHeatmapStyle(
     };
   }
 
-  if (zScore >= 1) {
+  if (
+    zScore >= 1
+  ) {
     return {
       backgroundColor:
         "rgba(22, 163, 74, 0.42)",
     };
   }
 
-  if (zScore >= 0.35) {
+  if (
+    zScore >= 0.35
+  ) {
     return {
       backgroundColor:
         "rgba(22, 163, 74, 0.20)",
     };
   }
 
-  if (zScore > -0.35) {
+  if (
+    zScore > -0.35
+  ) {
     return {
       backgroundColor:
         "rgba(113,113,122,0.10)",
     };
   }
 
-  if (zScore > -1) {
+  if (
+    zScore > -1
+  ) {
     return {
       backgroundColor:
         "rgba(220,38,38,0.18)",
     };
   }
 
-  if (zScore > -2) {
+  if (
+    zScore > -2
+  ) {
     return {
       backgroundColor:
         "rgba(220,38,38,0.38)",
