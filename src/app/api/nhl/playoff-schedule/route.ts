@@ -3,52 +3,46 @@ import { NextResponse } from "next/server";
 const NHL_API =
   "https://api-web.nhle.com/v1/schedule";
 
-const DEFAULT_START =
-  "2027-03-15";
+/*
+ * Yahoo 2026-27 fantasy season.
+ *
+ * Our league does NOT use Week 27.
+ *
+ * Usable fantasy season:
+ * Sep 29, 2026 → Apr 4, 2027
+ *
+ * Playoffs:
+ * Week 24: Mar 15-21
+ * Week 25: Mar 22-28
+ * Week 26: Mar 29-Apr 4
+ */
+const SEASON_START =
+  "2026-09-29";
 
-const DEFAULT_END =
+const SEASON_END =
   "2027-04-04";
 
-type NHLTeam = {
-  abbrev?: string;
-};
+const PLAYOFF_WEEKS = [
+  {
+    key: "24",
+    start: "2027-03-15",
+    end: "2027-03-21",
+  },
+  {
+    key: "25",
+    start: "2027-03-22",
+    end: "2027-03-28",
+  },
+  {
+    key: "26",
+    start: "2027-03-29",
+    end: "2027-04-04",
+  },
+] as const;
 
-type NHLGame = {
-  id: number;
-  gameType?: number;
-  gameDate?: string;
-
-  awayTeam?: NHLTeam;
-  homeTeam?: NHLTeam;
-};
-
-type NHLGameDay = {
-  date: string;
-  games?: NHLGame[];
-};
-
-type NHLScheduleResponse = {
-  gameWeek?: NHLGameDay[];
-};
-
-type TeamSchedule = {
-  team: string;
-
-  games: number;
-
-  offNightGames: number;
-
-  backToBacks: number;
-
-  byWeek: Record<
-    string,
-    {
-      games: number;
-      offNightGames: number;
-    }
-  >;
-};
-
+/*
+ * Daily-lineup off nights.
+ */
 const OFF_NIGHT_DAYS =
   new Set([
     0, // Sunday
@@ -57,73 +51,98 @@ const OFF_NIGHT_DAYS =
     5, // Friday
   ]);
 
-export async function GET(
-  request: Request
-) {
+type NHLTeam = {
+  abbrev?: string;
+};
+
+type NHLGame = {
+  id: number;
+
+  gameType?: number;
+
+  gameDate?: string;
+
+  awayTeam?: NHLTeam;
+
+  homeTeam?: NHLTeam;
+};
+
+type NHLGameDay = {
+  date: string;
+
+  games?: NHLGame[];
+};
+
+type NHLScheduleResponse = {
+  gameWeek?: NHLGameDay[];
+};
+
+type WeekSchedule = {
+  games: number;
+  offNightGames: number;
+};
+
+type TeamSchedule = {
+  team: string;
+
+  seasonGames: number;
+  seasonOffNightGames: number;
+
+  playoffGames: number;
+  playoffOffNightGames: number;
+
+  playoffByWeek: Record<
+    string,
+    WeekSchedule
+  >;
+};
+
+export async function GET() {
   try {
-    const url =
-      new URL(request.url);
-
-    const start =
-      url.searchParams.get(
-        "start"
-      ) ??
-      DEFAULT_START;
-
-    const end =
-      url.searchParams.get(
-        "end"
-      ) ??
-      DEFAULT_END;
-
-    const startDate =
-      parseDate(start);
-
-    const endDate =
-      parseDate(end);
-
-    if (
-      !startDate ||
-      !endDate ||
-      startDate >
-        endDate
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Invalid playoff date range.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const schedule =
+    const schedules =
       new Map<
         string,
         TeamSchedule
       >();
 
-    /*
-     * NHL /schedule/{date}
-     * returns a gameWeek.
-     *
-     * We step one week at
-     * a time, while de-duping
-     * games by game ID.
-     */
-    const gameIds =
+    const seenGames =
       new Set<number>();
 
+    const seasonStart =
+      parseDate(
+        SEASON_START
+      );
+
+    const seasonEnd =
+      parseDate(
+        SEASON_END
+      );
+
+    if (
+      !seasonStart ||
+      !seasonEnd
+    ) {
+      throw new Error(
+        "Invalid configured season dates."
+      );
+    }
+
+    /*
+     * NHL's schedule endpoint returns
+     * a block of dates around the date
+     * requested.
+     *
+     * Step through the season weekly
+     * and dedupe games by NHL game ID.
+     */
     let cursor =
       new Date(
-        startDate
+        seasonStart
       );
 
     while (
       cursor <=
-      endDate
+      seasonEnd
     ) {
       const dateString =
         formatDate(
@@ -136,7 +155,9 @@ export async function GET(
           {
             next: {
               revalidate:
-                60 * 60 * 24,
+                60 *
+                60 *
+                24,
             },
           }
         );
@@ -157,17 +178,17 @@ export async function GET(
         data.gameWeek ??
         []
       ) {
-        const gameDate =
+        const dayDate =
           parseDate(
             day.date
           );
 
         if (
-          !gameDate ||
-          gameDate <
-            startDate ||
-          gameDate >
-            endDate
+          !dayDate ||
+          dayDate <
+            seasonStart ||
+          dayDate >
+            seasonEnd
         ) {
           continue;
         }
@@ -178,7 +199,7 @@ export async function GET(
           []
         ) {
           /*
-           * gameType 2 =
+           * NHL gameType 2 =
            * regular season.
            */
           if (
@@ -191,149 +212,41 @@ export async function GET(
           }
 
           if (
-            gameIds.has(
+            seenGames.has(
               game.id
             )
           ) {
             continue;
           }
 
-          gameIds.add(
+          seenGames.add(
             game.id
           );
 
-          const away =
+          const gameDate =
+            game.gameDate
+              ? parseDate(
+                  game.gameDate
+                )
+              : dayDate;
+
+          if (
+            !gameDate
+          ) {
+            continue;
+          }
+
+          const teams = [
             game.awayTeam
-              ?.abbrev;
+              ?.abbrev,
 
-          const home =
             game.homeTeam
-              ?.abbrev;
-
-          if (
-            away
-          ) {
-            addGame({
-              schedule,
-              team: away,
-              date:
-                gameDate,
-            });
-          }
-
-          if (
-            home
-          ) {
-            addGame({
-              schedule,
-              team: home,
-              date:
-                gameDate,
-            });
-          }
-        }
-      }
-
-      cursor =
-        addDays(
-          cursor,
-          7
-        );
-    }
-
-    /*
-     * Calculate B2B sets after
-     * all games are collected.
-     */
-    const teamGameDates =
-      new Map<
-        string,
-        Date[]
-      >();
-
-    gameIds.clear();
-
-    cursor =
-      new Date(
-        startDate
-      );
-
-    while (
-      cursor <=
-      endDate
-    ) {
-      const dateString =
-        formatDate(
-          cursor
-        );
-
-      const response =
-        await fetch(
-          `${NHL_API}/${dateString}`,
-          {
-            next: {
-              revalidate:
-                60 * 60 * 24,
-            },
-          }
-        );
-
-      const data =
-        (await response.json()) as NHLScheduleResponse;
-
-      for (
-        const day of
-        data.gameWeek ??
-        []
-      ) {
-        const gameDate =
-          parseDate(
-            day.date
-          );
-
-        if (
-          !gameDate ||
-          gameDate <
-            startDate ||
-          gameDate >
-            endDate
-        ) {
-          continue;
-        }
-
-        for (
-          const game of
-          day.games ??
-          []
-        ) {
-          if (
-            game.gameType !==
-              undefined &&
-            game.gameType !==
-              2
-          ) {
-            continue;
-          }
-
-          if (
-            gameIds.has(
-              game.id
-            )
-          ) {
-            continue;
-          }
-
-          gameIds.add(
-            game.id
-          );
+              ?.abbrev,
+          ];
 
           for (
-            const team of [
-              game.awayTeam
-                ?.abbrev,
-              game.homeTeam
-                ?.abbrev,
-            ]
+            const team of
+            teams
           ) {
             if (
               !team
@@ -341,19 +254,12 @@ export async function GET(
               continue;
             }
 
-            const dates =
-              teamGameDates.get(
-                team
-              ) ?? [];
-
-            dates.push(
-              gameDate
-            );
-
-            teamGameDates.set(
+            addGame({
+              schedules,
               team,
-              dates
-            );
+              date:
+                gameDate,
+            });
           }
         }
       }
@@ -365,67 +271,21 @@ export async function GET(
         );
     }
 
-    for (
-      const [
-        team,
-        dates,
-      ] of
-      teamGameDates
-    ) {
-      dates.sort(
-        (a, b) =>
-          a.getTime() -
-          b.getTime()
-      );
-
-      let backToBacks =
-        0;
-
-      for (
-        let index = 1;
-        index <
-        dates.length;
-        index++
-      ) {
-        const difference =
-          daysBetween(
-            dates[
-              index - 1
-            ],
-            dates[
-              index
-            ]
-          );
-
-        if (
-          difference ===
-          1
-        ) {
-          backToBacks +=
-            1;
-        }
-      }
-
-      const record =
-        schedule.get(
-          team
-        );
-
-      if (
-        record
-      ) {
-        record.backToBacks =
-          backToBacks;
-      }
-    }
-
     return NextResponse.json({
-      start,
-      end,
+      seasonStart:
+        SEASON_START,
+
+      seasonEnd:
+        SEASON_END,
+
+      playoffWeeks:
+        PLAYOFF_WEEKS,
 
       teams:
         Object.fromEntries(
-          [...schedule].sort(
+          [
+            ...schedules.entries(),
+          ].sort(
             ([a], [b]) =>
               a.localeCompare(
                 b
@@ -441,7 +301,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Could not load NHL playoff schedule.",
+          "Could not load NHL schedule.",
       },
       {
         status: 500,
@@ -451,11 +311,11 @@ export async function GET(
 }
 
 function addGame({
-  schedule,
+  schedules,
   team,
   date,
 }: {
-  schedule: Map<
+  schedules: Map<
     string,
     TeamSchedule
   >;
@@ -464,92 +324,131 @@ function addGame({
 
   date: Date;
 }) {
-  const week =
-    getWeekKey(
-      date
-    );
-
   const current =
-    schedule.get(
+    schedules.get(
       team
     ) ?? {
       team,
-      games: 0,
-      offNightGames: 0,
-      backToBacks: 0,
-      byWeek: {},
+
+      seasonGames:
+        0,
+
+      seasonOffNightGames:
+        0,
+
+      playoffGames:
+        0,
+
+      playoffOffNightGames:
+        0,
+
+      playoffByWeek: {
+        "24": {
+          games: 0,
+          offNightGames: 0,
+        },
+
+        "25": {
+          games: 0,
+          offNightGames: 0,
+        },
+
+        "26": {
+          games: 0,
+          offNightGames: 0,
+        },
+      },
     };
 
-  current.games +=
+  const isOffNight =
+    OFF_NIGHT_DAYS.has(
+      date.getUTCDay()
+    );
+
+  /*
+   * Season totals.
+   *
+   * This intentionally ends
+   * Apr 4, so Week 27 is excluded.
+   */
+  current.seasonGames +=
     1;
 
   if (
-    OFF_NIGHT_DAYS.has(
-      date.getUTCDay()
-    )
+    isOffNight
   ) {
-    current.offNightGames +=
+    current.seasonOffNightGames +=
       1;
   }
 
-  if (
-    !current.byWeek[
-      week
-    ]
-  ) {
-    current.byWeek[
-      week
-    ] = {
-      games: 0,
-      offNightGames: 0,
-    };
-  }
-
-  current.byWeek[
-    week
-  ].games += 1;
+  /*
+   * Exact Yahoo playoff week.
+   */
+  const playoffWeek =
+    getPlayoffWeek(
+      date
+    );
 
   if (
-    OFF_NIGHT_DAYS.has(
-      date.getUTCDay()
-    )
+    playoffWeek
   ) {
-    current.byWeek[
-      week
-    ].offNightGames +=
+    current.playoffGames +=
       1;
+
+    current
+      .playoffByWeek[
+        playoffWeek
+      ].games +=
+      1;
+
+    if (
+      isOffNight
+    ) {
+      current.playoffOffNightGames +=
+        1;
+
+      current
+        .playoffByWeek[
+          playoffWeek
+        ].offNightGames +=
+        1;
+    }
   }
 
-  schedule.set(
+  schedules.set(
     team,
     current
   );
 }
 
-function getWeekKey(
+function getPlayoffWeek(
   date: Date
 ) {
-  const monday =
-    new Date(
-      date
-    );
+  for (
+    const week of
+    PLAYOFF_WEEKS
+  ) {
+    const start =
+      parseDate(
+        week.start
+      );
 
-  const day =
-    monday.getUTCDay();
+    const end =
+      parseDate(
+        week.end
+      );
 
-  const offset =
-    day === 0
-      ? -6
-      : 1 - day;
+    if (
+      start &&
+      end &&
+      date >= start &&
+      date <= end
+    ) {
+      return week.key;
+    }
+  }
 
-  monday.setUTCDate(
-    monday.getUTCDate() +
-      offset
-  );
-
-  return formatDate(
-    monday
-  );
+  return null;
 }
 
 function parseDate(
@@ -594,15 +493,4 @@ function addDays(
   );
 
   return next;
-}
-
-function daysBetween(
-  first: Date,
-  second: Date
-) {
-  return Math.round(
-    (second.getTime() -
-      first.getTime()) /
-      86_400_000
-  );
 }

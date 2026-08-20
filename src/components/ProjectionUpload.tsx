@@ -19,9 +19,9 @@ import { calculateH2HImpact } from "@/lib/draft/h2hImpact";
 import { calculateDraftRoomScarcity } from "@/lib/draft/draftRoomScarcity";
 
 import {
-  calculatePlayoffScheduleBonus,
-  type PlayoffScheduleMap,
-} from "@/lib/draft/playoffSchedule";
+    calculateScheduleBonus,
+    type PlayoffScheduleMap,
+  } from "@/lib/draft/playoffSchedule";
 
 import {
   calculateReturnRisk,
@@ -70,8 +70,24 @@ type RankedPlayer = BaseRankedPlayer & {
   returnReason: string;
   picksUntilNext: number;
 
-  playoffGames: number;
-  playoffBonus: number;
+seasonOffNightGames: number;
+
+playoffGames: number;
+playoffOffNightGames: number;
+
+playoffWeekGames: [
+  number,
+  number,
+  number
+];
+
+playoffWeekOffNights: [
+  number,
+  number,
+  number
+];
+
+scheduleBonus: number;
 
   score: number;
 };
@@ -838,10 +854,22 @@ export default function ProjectionUpload() {
             picksUntilNext:
               0,
 
+              seasonOffNightGames:
+              0,
+            
             playoffGames:
               0,
-
-            playoffBonus:
+            
+            playoffOffNightGames:
+              0,
+            
+            playoffWeekGames:
+              [0, 0, 0],
+            
+            playoffWeekOffNights:
+              [0, 0, 0],
+            
+            scheduleBonus:
               0,
 
             score:
@@ -1195,6 +1223,55 @@ export default function ProjectionUpload() {
       playerMap,
     ]);
 
+    const scheduleAverages =
+  useMemo(() => {
+    const schedules =
+      Object.values(
+        playoffSchedule
+      );
+
+    if (
+      schedules.length ===
+      0
+    ) {
+      return {
+        seasonOffNightGames:
+          0,
+
+        playoffOffNightGames:
+          0,
+      };
+    }
+
+    return {
+      seasonOffNightGames:
+        schedules.reduce(
+          (
+            sum,
+            schedule
+          ) =>
+            sum +
+            schedule.seasonOffNightGames,
+          0
+        ) /
+        schedules.length,
+
+      playoffOffNightGames:
+        schedules.reduce(
+          (
+            sum,
+            schedule
+          ) =>
+            sum +
+            schedule.playoffOffNightGames,
+          0
+        ) /
+        schedules.length,
+    };
+  }, [
+    playoffSchedule,
+  ]);
+
   /*
    * --------------------------------------------------------
    * FINAL NEVISLY SCORE
@@ -1215,19 +1292,76 @@ export default function ProjectionUpload() {
     useMemo<RankedPlayer[]>(() => {
       return rankedPlayers.map(
         (player) => {
-          const teamSchedule =
-            playoffSchedule[
-              player.team
-            ];
+const teamSchedule =
+  playoffSchedule[
+    player.team
+  ];
 
-          const playoffGames =
-            teamSchedule?.games ??
-            0;
+const seasonOffNightGames =
+  teamSchedule
+    ?.seasonOffNightGames ??
+  0;
 
-          const playoffBonus =
-            calculatePlayoffScheduleBonus(
-              teamSchedule
-            );
+const playoffGames =
+  teamSchedule
+    ?.playoffGames ??
+  0;
+
+const playoffOffNightGames =
+  teamSchedule
+    ?.playoffOffNightGames ??
+  0;
+
+const playoffWeekGames: [
+  number,
+  number,
+  number
+] = [
+  teamSchedule
+    ?.playoffByWeek[
+      "24"
+    ]?.games ?? 0,
+
+  teamSchedule
+    ?.playoffByWeek[
+      "25"
+    ]?.games ?? 0,
+
+  teamSchedule
+    ?.playoffByWeek[
+      "26"
+    ]?.games ?? 0,
+];
+
+const playoffWeekOffNights: [
+  number,
+  number,
+  number
+] = [
+  teamSchedule
+    ?.playoffByWeek[
+      "24"
+    ]?.offNightGames ??
+    0,
+
+  teamSchedule
+    ?.playoffByWeek[
+      "25"
+    ]?.offNightGames ??
+    0,
+
+  teamSchedule
+    ?.playoffByWeek[
+      "26"
+    ]?.offNightGames ??
+    0,
+];
+
+const scheduleBonus =
+  calculateScheduleBonus(
+    teamSchedule,
+    scheduleAverages
+  );
 
           /*
            * Keep schedule fields populated
@@ -1384,9 +1518,9 @@ export default function ProjectionUpload() {
               player.needBonus +
               h2h.matchupGain *
                 1.25 +
-              scarcity.scarcityBonus +
-              flexibilityBonus +
-              playoffBonus,
+                scarcity.scarcityBonus +
+                flexibilityBonus +
+                scheduleBonus
           };
         }
       );
@@ -1425,6 +1559,7 @@ export default function ProjectionUpload() {
     }, [
       finalRankedPlayers,
       draftedIds,
+      scheduleAverages,
     ]);
 
   const filteredPlayers =
@@ -2833,29 +2968,32 @@ export default function ProjectionUpload() {
                                 </td>
 
                                 <td
-                                  className={`p-2 font-semibold ${
-                                    player.playoffGames >=
-                                    11
-                                      ? "text-emerald-400"
-                                      : player.playoffGames >
-                                          0 &&
-                                        player.playoffGames <=
-                                          8
-                                        ? "text-red-400"
-                                        : "text-zinc-300"
-                                  }`}
-                                  title={`Playoff schedule bonus: ${
-                                    player.playoffBonus >=
-                                    0
-                                      ? "+"
-                                      : ""
-                                  }${player.playoffBonus.toFixed(
-                                    2
-                                  )}`}
-                                >
-                                  {player.playoffGames ||
-                                    "—"}
-                                </td>
+  className="p-2 font-semibold text-zinc-300"
+  title={`Playoffs: ${
+    player.playoffGames
+  } games · ${
+    player.playoffOffNightGames
+  } off nights · W24 ${
+    player.playoffWeekGames[0]
+  }/${
+    player.playoffWeekOffNights[0]
+  } off · W25 ${
+    player.playoffWeekGames[1]
+  }/${
+    player.playoffWeekOffNights[1]
+  } off · W26 ${
+    player.playoffWeekGames[2]
+  }/${
+    player.playoffWeekOffNights[2]
+  } off`}
+>
+  {player.playoffGames >
+  0
+    ? player.playoffWeekGames.join(
+        "/"
+      )
+    : "—"}
+</td>
 
                                 <td className="p-2 text-zinc-600">
                                   —
