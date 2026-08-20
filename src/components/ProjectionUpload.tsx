@@ -28,6 +28,30 @@ import {
   type ReturnRiskLevel,
 } from "@/lib/draft/returnRisk";
 
+export default function ProjectionUpload() {
+
+    function calculateAgeRiskBonus(
+        age: number
+      ) {
+        if (age <= 31) {
+          return 0;
+        }
+      
+        if (age <= 34) {
+          return -0.03;
+        }
+      
+        if (age <= 36) {
+          return -0.07;
+        }
+      
+        if (age <= 38) {
+          return -0.12;
+        }
+      
+        return -0.18;
+      }
+
 const categoryKeys = [
   "goals",
   "assists",
@@ -1353,6 +1377,11 @@ const scheduleBonus =
     teamSchedule,
     scheduleAverages
   );
+
+  const ageRiskBonus =
+  calculateAgeRiskBonus(
+    player.age
+  );
           /*
            * Keep schedule fields populated
            * even when Show Drafted is enabled.
@@ -1504,13 +1533,13 @@ const scheduleBonus =
             scheduleBonus,
 
             score:
-              player.vor +
-              player.needBonus +
-              h2h.matchupGain *
-                1.25 +
-                scarcity.scarcityBonus +
-                flexibilityBonus +
-                scheduleBonus
+            player.vor +
+            player.needBonus +
+            h2h.matchupGain * 1.25 +
+            scarcity.scarcityBonus +
+            flexibilityBonus +
+            scheduleBonus +
+            ageRiskBonus,
           };
         }
       );
