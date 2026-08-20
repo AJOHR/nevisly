@@ -1292,77 +1292,62 @@ export default function ProjectionUpload() {
     useMemo<RankedPlayer[]>(() => {
       return rankedPlayers.map(
         (player) => {
-const teamSchedule =
-  playoffSchedule[
-    player.team
-  ];
-
-const seasonOffNightGames =
-  teamSchedule
-    ?.seasonOffNightGames ??
-  0;
-
-const playoffGames =
-  teamSchedule
-    ?.playoffGames ??
-  0;
-
-const playoffOffNightGames =
-  teamSchedule
-    ?.playoffOffNightGames ??
-  0;
-
-const playoffWeekGames: [
-  number,
-  number,
-  number
-] = [
-  teamSchedule
-    ?.playoffByWeek[
-      "24"
-    ]?.games ?? 0,
-
-  teamSchedule
-    ?.playoffByWeek[
-      "25"
-    ]?.games ?? 0,
-
-  teamSchedule
-    ?.playoffByWeek[
-      "26"
-    ]?.games ?? 0,
-];
-
-const playoffWeekOffNights: [
-  number,
-  number,
-  number
-] = [
-  teamSchedule
-    ?.playoffByWeek[
-      "24"
-    ]?.offNightGames ??
-    0,
-
-  teamSchedule
-    ?.playoffByWeek[
-      "25"
-    ]?.offNightGames ??
-    0,
-
-  teamSchedule
-    ?.playoffByWeek[
-      "26"
-    ]?.offNightGames ??
-    0,
-];
-
-const scheduleBonus =
-  calculateScheduleBonus(
-    teamSchedule,
-    scheduleAverages
-  );
-
+            const seasonOffNightGames =
+            teamSchedule
+              ?.seasonOffNightGames ??
+            0;
+          
+          const playoffGames =
+            teamSchedule
+              ?.playoffGames ??
+            0;
+          
+          const playoffOffNightGames =
+            teamSchedule
+              ?.playoffOffNightGames ??
+            0;
+          
+          const playoffWeekGames: [
+            number,
+            number,
+            number
+          ] = [
+            teamSchedule
+              ?.playoffByWeek?.["24"]
+              ?.games ?? 0,
+          
+            teamSchedule
+              ?.playoffByWeek?.["25"]
+              ?.games ?? 0,
+          
+            teamSchedule
+              ?.playoffByWeek?.["26"]
+              ?.games ?? 0,
+          ];
+          
+          const playoffWeekOffNights: [
+            number,
+            number,
+            number
+          ] = [
+            teamSchedule
+              ?.playoffByWeek?.["24"]
+              ?.offNightGames ?? 0,
+          
+            teamSchedule
+              ?.playoffByWeek?.["25"]
+              ?.offNightGames ?? 0,
+          
+            teamSchedule
+              ?.playoffByWeek?.["26"]
+              ?.offNightGames ?? 0,
+          ];
+          
+          const scheduleBonus =
+            calculateScheduleBonus(
+              teamSchedule,
+              scheduleAverages
+            );
           /*
            * Keep schedule fields populated
            * even when Show Drafted is enabled.
