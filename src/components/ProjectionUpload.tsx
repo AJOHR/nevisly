@@ -1549,96 +1549,120 @@ score:
   function getRecommendationReasons(
     player: RankedPlayer
   ) {
-    const reasons: string[] =
-      [];
-
-    const strengths =
+    const reasons: string[] = [];
+  
+    const availablePlayers =
+      finalRankedPlayers.filter(
+        (candidate) =>
+          !draftedIds.has(candidate.id)
+      );
+  
+    const categoryRanks =
       categoryKeys
-        .map(
-          (
-            category
-          ) => ({
+        .map((category) => {
+          const sorted =
+            [...availablePlayers].sort(
+              (a, b) =>
+                b[category] -
+                a[category]
+            );
+  
+          const rank =
+            sorted.findIndex(
+              (candidate) =>
+                candidate.id ===
+                player.id
+            ) + 1;
+  
+          return {
             category,
-
+            rank,
             z:
               player.zScores[
                 category
               ],
-
             need:
               teamNeedWeights[
                 category
               ],
-          })
+          };
+        })
+        .sort(
+          (a, b) =>
+            a.rank - b.rank
+        );
+  
+    /*
+     * First: truly elite league-wide
+     * category strengths.
+     */
+    const numberOneCategories =
+      categoryRanks.filter(
+        (item) =>
+          item.rank === 1
+      );
+  
+    for (
+      const item of
+      numberOneCategories
+    ) {
+      reasons.push(
+        `#1 ${CATEGORY_LABELS[item.category]}`
+      );
+    }
+  
+    const eliteCategories =
+      categoryRanks
+        .filter(
+          (item) =>
+            item.rank > 1 &&
+            item.rank <= 5 &&
+            item.z >= 1
+        )
+        .slice(0, 2);
+  
+    for (
+      const item of
+      eliteCategories
+    ) {
+      reasons.push(
+        `Elite ${CATEGORY_LABELS[item.category]}`
+      );
+    }
+  
+    /*
+     * Then: categories that specifically
+     * help My Team.
+     */
+    const neededCategories =
+      categoryRanks
+        .filter(
+          (item) =>
+            item.need >= 1.08 &&
+            item.z > 0.35
         )
         .sort(
           (a, b) =>
-            b.z *
-              b.need -
-            a.z *
-              a.need
-        );
-
-    const strong =
-      strengths
-        .filter(
-          (item) =>
-            item.z >=
-            1
+            b.z * b.need -
+            a.z * a.need
         )
-        .slice(
-          0,
-          2
-        )
-        .map(
-          (item) =>
-            CATEGORY_LABELS[
-              item.category
-            ]
-        );
-
+        .slice(0, 2);
+  
     if (
-      strong.length >
-      0
+      neededCategories.length > 0
     ) {
       reasons.push(
-        `Strong ${strong.join(
-          " + "
-        )}`
+        `Helps ${neededCategories
+          .map(
+            (item) =>
+              CATEGORY_LABELS[
+                item.category
+              ]
+          )
+          .join(" + ")}`
       );
     }
-
-    const needed =
-      strengths
-        .filter(
-          (item) =>
-            item.need >=
-              1.08 &&
-            item.z >
-              0.35
-        )
-        .slice(
-          0,
-          2
-        )
-        .map(
-          (item) =>
-            CATEGORY_LABELS[
-              item.category
-            ]
-        );
-
-    if (
-      needed.length >
-      0
-    ) {
-      reasons.push(
-        `Helps ${needed.join(
-          " + "
-        )}`
-      );
-    }
-
+  
     const openPosition =
       player.positions.find(
         (position) =>
@@ -1650,70 +1674,55 @@ score:
               | "D"
           )
       );
-
-    if (
-      openPosition
-    ) {
+  
+    if (openPosition) {
       reasons.push(
         `Fills ${openPosition}`
       );
     }
-
+  
     if (
-      player.replacementPosition ===
-        "D" &&
-      player.vor >
-        0
+      player.replacementPosition === "D" &&
+      player.vor > 0
     ) {
       reasons.push(
         "Scarce D value"
       );
     }
-
+  
     if (
-      player.positions.length >
-      1
+      player.positions.length > 1
     ) {
       reasons.push(
-        `${player.positions.join(
-          "/"
-        )} flexibility`
+        `${player.positions.join("/")} flexibility`
       );
     }
-
+  
     if (
-      player.h2hGain >=
-      0.15
+      player.h2hGain >= 0.15
     ) {
       reasons.push(
         "Improves H2H matchup strength"
       );
     }
-
+  
     if (
-      player.scarcityReasons.length >
-      0
+      player.scarcityReasons.length > 0
     ) {
       reasons.push(
-        player.scarcityReasons[
-          0
-        ]
+        player.scarcityReasons[0]
       );
     }
-
+  
     if (
-      reasons.length ===
-      0
+      reasons.length === 0
     ) {
       reasons.push(
         "Best overall value"
       );
     }
-
-    return reasons.slice(
-      0,
-      2
-    );
+  
+    return reasons.slice(0, 3);
   }
 
   const positions = [
