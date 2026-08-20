@@ -205,8 +205,6 @@ function getSnakeTeamIdForPick(
   
     return -0.18;
   }
-  
-  export default function ProjectionUpload() {
 
 export default function ProjectionUpload() {
   const [players, setPlayers] =
