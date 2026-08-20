@@ -6,6 +6,7 @@ import type { SkaterProjection } from "@/types/player";
 import type { DraftPick, FantasyTeam } from "@/types/draft";
 import LeagueRankings from "@/components/LeagueRankings";
 import { calculateH2HImpact } from "@/lib/draft/h2hImpact";
+import { calculateDraftRoomScarcity } from "@/lib/draft/draftRoomScarcity";
 
 const MY_TEAM_ID = "team-1";
 
@@ -39,10 +40,12 @@ type BaseRankedPlayer = SkaterProjection & {
 };
 
 type RankedPlayer = BaseRankedPlayer & {
-  needBonus: number;
-  h2hGain: number;
-  score: number;
-};
+    needBonus: number;
+    h2hGain: number;
+    scarcityBonus: number;
+    scarcityReasons: string[];
+    score: number;
+  };
 
 type SortKey =
   | "name"
@@ -364,12 +367,15 @@ export default function ProjectionUpload() {
 
       needBonus *= 0.75;
 
-      return {
-        ...player,
-        needBonus,
-        h2hGain: 0,
-        score: player.vor + needBonus,
-      };
+     return {
+  ...player,
+  needBonus,
+  h2hGain: 0,
+  scarcityBonus: 0,
+  scarcityReasons: [],
+  score: player.vor + needBonus,
+};
+
     });
   }, [baseRankedPlayers, teamNeedWeights]);
 
@@ -541,6 +547,8 @@ export default function ProjectionUpload() {
         return {
           ...player,
           h2hGain: 0,
+          scarcityBonus: 0,
+          scarcityReasons: [],
         };
       }
   
@@ -551,16 +559,31 @@ export default function ProjectionUpload() {
           leagueTeamPlayers,
         });
   
+      const scarcity =
+        calculateDraftRoomScarcity({
+          player,
+          allPlayers: rankedPlayers,
+          draftPicks,
+          fantasyTeams,
+        });
+  
       return {
         ...player,
   
         h2hGain:
           h2h.matchupGain,
   
+        scarcityBonus:
+          scarcity.scarcityBonus,
+  
+        scarcityReasons:
+          scarcity.reasons,
+  
         score:
           player.vor +
           player.needBonus +
-          h2h.matchupGain * 1.25,
+          h2h.matchupGain * 1.25 +
+          scarcity.scarcityBonus,
       };
     });
   }, [
@@ -568,6 +591,7 @@ export default function ProjectionUpload() {
     draftedIds,
     fantasyTeams,
     leagueTeamPlayers,
+    draftPicks,
   ]);
 
   const bestAvailable = useMemo(() => {
@@ -762,6 +786,14 @@ export default function ProjectionUpload() {
         (item) =>
           CATEGORY_LABELS[item.category]
       );
+      
+      if (
+        player.scarcityReasons.length > 0
+      ) {
+        reasons.push(
+          player.scarcityReasons[0]
+        );
+      }
 
     if (needed.length > 0) {
       reasons.push(
