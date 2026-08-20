@@ -279,14 +279,22 @@ export function calculateReturnRisk({
     probability += 0.04;
   }
 
+  if (
+    playerRank >= 0 &&
+    picksUntilNext > 0 &&
+    playerRank < Math.max(3, picksUntilNext * 0.25)
+  ) {
+    probability = 1;
+  }
+  
   probability =
-    Math.max(
-      0,
-      Math.min(
-        0.97,
-        probability
-      )
-    );
+  Math.max(
+    0,
+    Math.min(
+      1,
+      probability
+    )
+  );
 
   const percentage =
     probability * 100;
