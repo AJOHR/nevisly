@@ -1398,7 +1398,7 @@ const scheduleBonus =
 
               playoffGames,
 
-              playoffBonus,
+              scheduleBonus,
             };
           }
 
@@ -1511,7 +1511,7 @@ const scheduleBonus =
 
             playoffGames,
 
-            playoffBonus,
+            scheduleBonus,
 
             score:
               player.vor +
