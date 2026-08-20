@@ -19,38 +19,14 @@ import { calculateH2HImpact } from "@/lib/draft/h2hImpact";
 import { calculateDraftRoomScarcity } from "@/lib/draft/draftRoomScarcity";
 
 import {
-    calculateScheduleBonus,
-    type PlayoffScheduleMap,
-  } from "@/lib/draft/playoffSchedule";
+  calculateScheduleBonus,
+  type PlayoffScheduleMap,
+} from "@/lib/draft/playoffSchedule";
 
 import {
   calculateReturnRisk,
   type ReturnRiskLevel,
 } from "@/lib/draft/returnRisk";
-
-export default function ProjectionUpload() {
-
-    function calculateAgeRiskBonus(
-        age: number
-      ) {
-        if (age <= 31) {
-          return 0;
-        }
-      
-        if (age <= 34) {
-          return -0.03;
-        }
-      
-        if (age <= 36) {
-          return -0.07;
-        }
-      
-        if (age <= 38) {
-          return -0.12;
-        }
-      
-        return -0.18;
-      }
 
 const categoryKeys = [
   "goals",
@@ -94,24 +70,24 @@ type RankedPlayer = BaseRankedPlayer & {
   returnReason: string;
   picksUntilNext: number;
 
-seasonOffNightGames: number;
+  seasonOffNightGames: number;
 
-playoffGames: number;
-playoffOffNightGames: number;
+  playoffGames: number;
+  playoffOffNightGames: number;
 
-playoffWeekGames: [
-  number,
-  number,
-  number
-];
+  playoffWeekGames: [
+    number,
+    number,
+    number
+  ];
 
-playoffWeekOffNights: [
-  number,
-  number,
-  number
-];
+  playoffWeekOffNights: [
+    number,
+    number,
+    number
+  ];
 
-scheduleBonus: number;
+  scheduleBonus: number;
 
   score: number;
 };
@@ -131,15 +107,27 @@ type SortKey =
   | "hits"
   | "blocks";
 
-type SortDirection = "asc" | "desc";
+type SortDirection =
+  | "asc"
+  | "desc";
 
 type RosterSlot = {
   id: string;
-  position: "C" | "LW" | "RW" | "D" | "BN";
+
+  position:
+    | "C"
+    | "LW"
+    | "RW"
+    | "D"
+    | "BN";
+
   player?: RankedPlayer;
 };
 
-const STARTERS_PER_TEAM: Record<string, number> = {
+const STARTERS_PER_TEAM: Record<
+  string,
+  number
+> = {
   C: 2,
   LW: 2,
   RW: 2,
@@ -147,126 +135,291 @@ const STARTERS_PER_TEAM: Record<string, number> = {
 };
 
 const STARTING_SLOTS = [
-  { id: "C1", position: "C" },
-  { id: "C2", position: "C" },
-  { id: "LW1", position: "LW" },
-  { id: "LW2", position: "LW" },
-  { id: "RW1", position: "RW" },
-  { id: "RW2", position: "RW" },
-  { id: "D1", position: "D" },
-  { id: "D2", position: "D" },
-  { id: "D3", position: "D" },
-  { id: "D4", position: "D" },
+  {
+    id: "C1",
+    position: "C",
+  },
+  {
+    id: "C2",
+    position: "C",
+  },
+  {
+    id: "LW1",
+    position: "LW",
+  },
+  {
+    id: "LW2",
+    position: "LW",
+  },
+  {
+    id: "RW1",
+    position: "RW",
+  },
+  {
+    id: "RW2",
+    position: "RW",
+  },
+  {
+    id: "D1",
+    position: "D",
+  },
+  {
+    id: "D2",
+    position: "D",
+  },
+  {
+    id: "D3",
+    position: "D",
+  },
+  {
+    id: "D4",
+    position: "D",
+  },
 ] as const;
 
-const BENCH_COUNT = 4;
+const BENCH_COUNT =
+  4;
 
-function getMyTeamId(draftSlot: number) {
+/*
+ * Some projection providers use slightly
+ * different NHL abbreviations than the NHL API.
+ */
+const SCHEDULE_TEAM_ALIASES: Record<
+  string,
+  string
+> = {
+  TB: "TBL",
+  LA: "LAK",
+  NJ: "NJD",
+  SJ: "SJS",
+  WAS: "WSH",
+  CLB: "CBJ",
+  MON: "MTL",
+};
+
+function getMyTeamId(
+  draftSlot: number
+) {
   return `team-${draftSlot}`;
 }
 
 function getSnakeTeamIdForPick(
-    pickNumber: number,
-    teamCount: number
-  ) {
-    const roundIndex = Math.floor(
-      (pickNumber - 1) / teamCount
+  pickNumber: number,
+  teamCount: number
+) {
+  const roundIndex =
+    Math.floor(
+      (pickNumber - 1) /
+        teamCount
     );
-  
-    const positionInRound =
-      (pickNumber - 1) % teamCount;
-  
-    const teamNumber =
-      roundIndex % 2 === 0
-        ? positionInRound + 1
-        : teamCount - positionInRound;
-  
-    return `team-${teamNumber}`;
-  }
-  
-  function calculateAgeRiskBonus(
-    age: number
+
+  const positionInRound =
+    (pickNumber - 1) %
+    teamCount;
+
+  const teamNumber =
+    roundIndex % 2 ===
+    0
+      ? positionInRound +
+        1
+      : teamCount -
+        positionInRound;
+
+  return `team-${teamNumber}`;
+}
+
+/*
+ * Age is deliberately a very small
+ * risk modifier.
+ *
+ * We do not reward youth.
+ * We only apply a modest durability /
+ * decline-risk penalty to older players.
+ */
+function calculateAgeRiskBonus(
+  age: number
+) {
+  if (
+    age <=
+    31
   ) {
-    if (age <= 31) {
-      return 0;
-    }
-  
-    if (age <= 34) {
-      return -0.03;
-    }
-  
-    if (age <= 36) {
-      return -0.07;
-    }
-  
-    if (age <= 38) {
-      return -0.12;
-    }
-  
-    return -0.18;
+    return 0;
   }
+
+  if (
+    age <=
+    34
+  ) {
+    return -0.03;
+  }
+
+  if (
+    age <=
+    36
+  ) {
+    return -0.07;
+  }
+
+  if (
+    age <=
+    38
+  ) {
+    return -0.12;
+  }
+
+  return -0.18;
+}
+
+function getTeamSchedule(
+  schedule:
+    PlayoffScheduleMap,
+  team: string
+) {
+  const normalized =
+    team
+      .trim()
+      .toUpperCase();
+
+  const direct =
+    schedule[
+      normalized
+    ];
+
+  if (
+    direct
+  ) {
+    return direct;
+  }
+
+  const alias =
+    SCHEDULE_TEAM_ALIASES[
+      normalized
+    ];
+
+  if (
+    alias
+  ) {
+    return schedule[
+      alias
+    ];
+  }
+
+  return undefined;
+}
 
 export default function ProjectionUpload() {
-  const [players, setPlayers] =
-    useState<SkaterProjection[]>([]);
+  const [
+    players,
+    setPlayers,
+  ] =
+    useState<
+      SkaterProjection[]
+    >([]);
 
-  const [error, setError] =
+  const [
+    error,
+    setError,
+  ] =
     useState("");
 
-  const [search, setSearch] =
+  const [
+    search,
+    setSearch,
+  ] =
     useState("");
 
-  const [positionFilter, setPositionFilter] =
+  const [
+    positionFilter,
+    setPositionFilter,
+  ] =
     useState("ALL");
 
-  const [sortKey, setSortKey] =
-    useState<SortKey>("score");
+  const [
+    sortKey,
+    setSortKey,
+  ] =
+    useState<SortKey>(
+      "score"
+    );
 
-  const [sortDirection, setSortDirection] =
-    useState<SortDirection>("desc");
+  const [
+    sortDirection,
+    setSortDirection,
+  ] =
+    useState<SortDirection>(
+      "desc"
+    );
 
-  const [showDrafted, setShowDrafted] =
+  const [
+    showDrafted,
+    setShowDrafted,
+  ] =
     useState(false);
 
-  const [leagueTeams, setLeagueTeams] =
+  const [
+    leagueTeams,
+    setLeagueTeams,
+  ] =
     useState(12);
 
-  const [myDraftSlot, setMyDraftSlot] =
+  const [
+    myDraftSlot,
+    setMyDraftSlot,
+  ] =
     useState(1);
 
-  const [draftPicks, setDraftPicks] =
-    useState<DraftPick[]>([]);
+  const [
+    draftPicks,
+    setDraftPicks,
+  ] =
+    useState<
+      DraftPick[]
+    >([]);
 
   const [
     selectedDraftTeamId,
     setSelectedDraftTeamId,
-  ] = useState("team-1");
+  ] =
+    useState(
+      "team-1"
+    );
 
   const [
     playoffSchedule,
     setPlayoffSchedule,
-  ] = useState<PlayoffScheduleMap>({});
+  ] =
+    useState<
+      PlayoffScheduleMap
+    >({});
 
   const myTeamId =
-    getMyTeamId(myDraftSlot);
+    getMyTeamId(
+      myDraftSlot
+    );
 
   /*
-   * Load NHL playoff schedule.
+   * Load NHL schedule data.
    *
-   * The API route owns the playoff date range.
-   * Once we confirm the exact Yahoo playoff weeks,
-   * we can update that route without rewriting
-   * this component.
+   * The API includes:
+   *
+   * - season off-night games
+   * - playoff games
+   * - playoff off-night games
+   *
+   * Yahoo Week 27 is excluded by
+   * the API route.
    */
   useEffect(() => {
-    async function loadPlayoffSchedule() {
+    async function loadSchedule() {
       try {
         const response =
           await fetch(
             "/api/nhl/playoff-schedule"
           );
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           return;
         }
 
@@ -274,38 +427,53 @@ export default function ProjectionUpload() {
           await response.json();
 
         setPlayoffSchedule(
-          data.teams ?? {}
+          data.teams ??
+            {}
         );
       } catch {
         /*
-         * Schedule data is optional.
-         * Nevisly should continue functioning
-         * even if the NHL endpoint is unavailable.
+         * Schedule is supplemental.
+         *
+         * Nevisly should continue
+         * functioning if the NHL API
+         * temporarily fails.
          */
       }
     }
 
-    loadPlayoffSchedule();
+    loadSchedule();
   }, []);
 
   const fantasyTeams =
-    useMemo<FantasyTeam[]>(() => {
+    useMemo<
+      FantasyTeam[]
+    >(() => {
       return Array.from(
-        { length: leagueTeams },
-        (_, index) => {
+        {
+          length:
+            leagueTeams,
+        },
+        (
+          _,
+          index
+        ) => {
           const teamNumber =
-            index + 1;
+            index +
+            1;
 
           return {
-            id: `team-${teamNumber}`,
+            id:
+              `team-${teamNumber}`,
 
             name:
-              teamNumber === myDraftSlot
+              teamNumber ===
+              myDraftSlot
                 ? "My Team"
                 : `Team ${teamNumber}`,
 
             isMyTeam:
-              teamNumber === myDraftSlot,
+              teamNumber ===
+              myDraftSlot,
           };
         }
       );
@@ -315,12 +483,16 @@ export default function ProjectionUpload() {
     ]);
 
   async function handleFile(
-    event: ChangeEvent<HTMLInputElement>
+    event:
+      ChangeEvent<HTMLInputElement>
   ) {
     const file =
-      event.target.files?.[0];
+      event.target
+        .files?.[0];
 
-    if (!file) {
+    if (
+      !file
+    ) {
       return;
     }
 
@@ -328,11 +500,17 @@ export default function ProjectionUpload() {
       setError("");
 
       const parsedPlayers =
-        await parseSkaterCsv(file);
+        await parseSkaterCsv(
+          file
+        );
 
-      setPlayers(parsedPlayers);
+      setPlayers(
+        parsedPlayers
+      );
 
-      setDraftPicks([]);
+      setDraftPicks(
+        []
+      );
 
       setSelectedDraftTeamId(
         myTeamId
@@ -353,13 +531,17 @@ export default function ProjectionUpload() {
         teamCount
       );
 
-    setLeagueTeams(teamCount);
+    setLeagueTeams(
+      teamCount
+    );
 
     setMyDraftSlot(
       nextDraftSlot
     );
 
-    setDraftPicks([]);
+    setDraftPicks(
+      []
+    );
 
     setSelectedDraftTeamId(
       getMyTeamId(
@@ -371,12 +553,18 @@ export default function ProjectionUpload() {
   function handleDraftSlotChange(
     slot: number
   ) {
-    setMyDraftSlot(slot);
+    setMyDraftSlot(
+      slot
+    );
 
-    setDraftPicks([]);
+    setDraftPicks(
+      []
+    );
 
     setSelectedDraftTeamId(
-      getMyTeamId(slot)
+      getMyTeamId(
+        slot
+      )
     );
   }
 
@@ -384,7 +572,9 @@ export default function ProjectionUpload() {
     useMemo(() => {
       return new Set(
         draftPicks.map(
-          (pick) =>
+          (
+            pick
+          ) =>
             pick.playerId
         )
       );
@@ -395,7 +585,10 @@ export default function ProjectionUpload() {
   const ownerByPlayerId =
     useMemo(() => {
       const result =
-        new Map<string, string>();
+        new Map<
+          string,
+          string
+        >();
 
       for (
         const pick of
@@ -416,17 +609,24 @@ export default function ProjectionUpload() {
     useMemo(() => {
       return draftPicks
         .filter(
-          (pick) =>
+          (
+            pick
+          ) =>
             pick.fantasyTeamId ===
             myTeamId
         )
         .sort(
-          (a, b) =>
+          (
+            a,
+            b
+          ) =>
             a.pickNumber -
             b.pickNumber
         )
         .map(
-          (pick) =>
+          (
+            pick
+          ) =>
             pick.playerId
         );
     }, [
@@ -438,25 +638,34 @@ export default function ProjectionUpload() {
    * --------------------------------------------------------
    * BASE PLAYER VALUE
    * --------------------------------------------------------
-   *
-   * Seven-category Z-scores + positional replacement value.
    */
   const baseRankedPlayers =
-    useMemo<BaseRankedPlayer[]>(() => {
+    useMemo<
+      BaseRankedPlayer[]
+    >(() => {
       if (
-        players.length === 0
+        players.length ===
+        0
       ) {
         return [];
       }
 
       const fantasyPool =
-        [...players]
+        [
+          ...players,
+        ]
           .sort(
-            (a, b) =>
+            (
+              a,
+              b
+            ) =>
               b.points -
               a.points
           )
-          .slice(0, 250);
+          .slice(
+            0,
+            250
+          );
 
       const stats =
         {} as Record<
@@ -473,7 +682,9 @@ export default function ProjectionUpload() {
       ) {
         const values =
           fantasyPool.map(
-            (player) =>
+            (
+              player
+            ) =>
               player[
                 category
               ]
@@ -511,6 +722,7 @@ export default function ProjectionUpload() {
           category
         ] = {
           mean,
+
           stdDev:
             Math.sqrt(
               variance
@@ -520,7 +732,9 @@ export default function ProjectionUpload() {
 
       const basePlayers =
         players.map(
-          (player) => {
+          (
+            player
+          ) => {
             const zScores =
               {} as Record<
                 CategoryKey,
@@ -543,7 +757,8 @@ export default function ProjectionUpload() {
                 ];
 
               const zScore =
-                stdDev === 0
+                stdDev ===
+                0
                   ? 0
                   : (
                       player[
@@ -564,7 +779,9 @@ export default function ProjectionUpload() {
 
             return {
               ...player,
+
               rawScore,
+
               zScores,
             };
           }
@@ -576,7 +793,8 @@ export default function ProjectionUpload() {
       > = {};
 
       for (
-        const position of [
+        const position of
+        [
           "C",
           "LW",
           "RW",
@@ -592,13 +810,18 @@ export default function ProjectionUpload() {
         const positionalPlayers =
           basePlayers
             .filter(
-              (player) =>
+              (
+                player
+              ) =>
                 player.positions.includes(
                   position
                 )
             )
             .sort(
-              (a, b) =>
+              (
+                a,
+                b
+              ) =>
                 b.rawScore -
                 a.rawScore
             );
@@ -624,10 +847,14 @@ export default function ProjectionUpload() {
       }
 
       return basePlayers.map(
-        (player) => {
+        (
+          player
+        ) => {
           const eligiblePositions =
             player.positions.filter(
-              (position) =>
+              (
+                position
+              ) =>
                 replacementScores[
                   position
                 ] !==
@@ -640,7 +867,8 @@ export default function ProjectionUpload() {
           let bestPosition =
             eligiblePositions[
               0
-            ] ?? "—";
+            ] ??
+            "—";
 
           for (
             const position of
@@ -694,7 +922,9 @@ export default function ProjectionUpload() {
       const map =
         new Map(
           baseRankedPlayers.map(
-            (player) => [
+            (
+              player
+            ) => [
               player.id,
               player,
             ]
@@ -703,8 +933,12 @@ export default function ProjectionUpload() {
 
       return myTeamOrder
         .map(
-          (id) =>
-            map.get(id)
+          (
+            id
+          ) =>
+            map.get(
+              id
+            )
         )
         .filter(
           (
@@ -741,7 +975,8 @@ export default function ProjectionUpload() {
         ) {
           result[
             category
-          ] = 0;
+          ] =
+            0;
 
           continue;
         }
@@ -795,7 +1030,9 @@ export default function ProjectionUpload() {
 
       const strengths =
         categoryKeys.map(
-          (category) =>
+          (
+            category
+          ) =>
             teamCategoryStrength[
               category
             ]
@@ -844,14 +1081,18 @@ export default function ProjectionUpload() {
     ]);
 
   /*
-   * First-pass ranking.
-   *
-   * Dynamic draft-room values are added later.
+   * --------------------------------------------------------
+   * FIRST-PASS PLAYER RANKING
+   * --------------------------------------------------------
    */
   const rankedPlayers =
-    useMemo<RankedPlayer[]>(() => {
+    useMemo<
+      RankedPlayer[]
+    >(() => {
       return baseRankedPlayers.map(
-        (player) => {
+        (
+          player
+        ) => {
           let needBonus =
             0;
 
@@ -900,21 +1141,37 @@ export default function ProjectionUpload() {
             picksUntilNext:
               0,
 
-              seasonOffNightGames:
+            seasonOffNightGames:
               0,
-            
+
             playoffGames:
               0,
-            
+
             playoffOffNightGames:
               0,
-            
+
             playoffWeekGames:
-              [0, 0, 0],
-            
+              [
+                0,
+                0,
+                0,
+              ] as [
+                number,
+                number,
+                number
+              ],
+
             playoffWeekOffNights:
-              [0, 0, 0],
-            
+              [
+                0,
+                0,
+                0,
+              ] as [
+                number,
+                number,
+                number
+              ],
+
             scheduleBonus:
               0,
 
@@ -933,7 +1190,9 @@ export default function ProjectionUpload() {
     useMemo(() => {
       return new Map(
         rankedPlayers.map(
-          (player) => [
+          (
+            player
+          ) => [
             player.id,
             player,
           ]
@@ -947,8 +1206,12 @@ export default function ProjectionUpload() {
     useMemo(() => {
       return myTeamOrder
         .map(
-          (id) =>
-            playerMap.get(id)
+          (
+            id
+          ) =>
+            playerMap.get(
+              id
+            )
         )
         .filter(
           (
@@ -968,7 +1231,9 @@ export default function ProjectionUpload() {
    * --------------------------------------------------------
    */
   const assignedRoster =
-    useMemo<RosterSlot[]>(() => {
+    useMemo<
+      RosterSlot[]
+    >(() => {
       const assignments =
         new Map<
           string,
@@ -976,8 +1241,10 @@ export default function ProjectionUpload() {
         >();
 
       function tryAssign(
-        player: RankedPlayer,
-        visited: Set<string>
+        player:
+          RankedPlayer,
+        visited:
+          Set<string>
       ): boolean {
         for (
           const slot of
@@ -1023,8 +1290,13 @@ export default function ProjectionUpload() {
       }
 
       const assignmentOrder =
-        [...myTeamPlayers].sort(
-          (a, b) =>
+        [
+          ...myTeamPlayers,
+        ].sort(
+          (
+            a,
+            b
+          ) =>
             a.positions.length -
             b.positions.length
         );
@@ -1039,9 +1311,12 @@ export default function ProjectionUpload() {
         );
       }
 
-      const starters: RosterSlot[] =
+      const starters:
+        RosterSlot[] =
         STARTING_SLOTS.map(
-          (slot) => ({
+          (
+            slot
+          ) => ({
             id:
               slot.id,
 
@@ -1060,20 +1335,25 @@ export default function ProjectionUpload() {
           [
             ...assignments.values(),
           ].map(
-            (player) =>
+            (
+              player
+            ) =>
               player.id
           )
         );
 
       const benchPlayers =
         myTeamPlayers.filter(
-          (player) =>
+          (
+            player
+          ) =>
             !starterIds.has(
               player.id
             )
         );
 
-      const bench: RosterSlot[] =
+      const bench:
+        RosterSlot[] =
         Array.from(
           {
             length:
@@ -1084,7 +1364,10 @@ export default function ProjectionUpload() {
             index
           ) => ({
             id:
-              `BN${index + 1}`,
+              `BN${
+                index +
+                1
+              }`,
 
             position:
               "BN" as const,
@@ -1108,13 +1391,17 @@ export default function ProjectionUpload() {
     useMemo(() => {
       return assignedRoster
         .filter(
-          (slot) =>
+          (
+            slot
+          ) =>
             slot.position !==
               "BN" &&
             !slot.player
         )
         .map(
-          (slot) =>
+          (
+            slot
+          ) =>
             slot.position
         );
     }, [
@@ -1229,8 +1516,13 @@ export default function ProjectionUpload() {
       }
 
       const orderedPicks =
-        [...draftPicks].sort(
-          (a, b) =>
+        [
+          ...draftPicks,
+        ].sort(
+          (
+            a,
+            b
+          ) =>
             a.pickNumber -
             b.pickNumber
         );
@@ -1244,7 +1536,9 @@ export default function ProjectionUpload() {
             pick.playerId
           );
 
-        if (!player) {
+        if (
+          !player
+        ) {
           continue;
         }
 
@@ -1269,144 +1563,172 @@ export default function ProjectionUpload() {
       playerMap,
     ]);
 
-    const scheduleAverages =
-  useMemo(() => {
-    const schedules =
-      Object.values(
-        playoffSchedule
-      );
+  /*
+   * NHL-wide schedule averages.
+   *
+   * Season off-night value and playoff
+   * off-night value are measured relative
+   * to the league average.
+   */
+  const scheduleAverages =
+    useMemo(() => {
+      const schedules =
+        Object.values(
+          playoffSchedule
+        );
 
-    if (
-      schedules.length ===
-      0
-    ) {
+      if (
+        schedules.length ===
+        0
+      ) {
+        return {
+          seasonOffNightGames:
+            0,
+
+          playoffOffNightGames:
+            0,
+        };
+      }
+
       return {
         seasonOffNightGames:
-          0,
+          schedules.reduce(
+            (
+              sum,
+              schedule
+            ) =>
+              sum +
+              schedule.seasonOffNightGames,
+            0
+          ) /
+          schedules.length,
 
         playoffOffNightGames:
-          0,
+          schedules.reduce(
+            (
+              sum,
+              schedule
+            ) =>
+              sum +
+              schedule.playoffOffNightGames,
+            0
+          ) /
+          schedules.length,
       };
-    }
-
-    return {
-      seasonOffNightGames:
-        schedules.reduce(
-          (
-            sum,
-            schedule
-          ) =>
-            sum +
-            schedule.seasonOffNightGames,
-          0
-        ) /
-        schedules.length,
-
-      playoffOffNightGames:
-        schedules.reduce(
-          (
-            sum,
-            schedule
-          ) =>
-            sum +
-            schedule.playoffOffNightGames,
-          0
-        ) /
-        schedules.length,
-    };
-  }, [
-    playoffSchedule,
-  ]);
+    }, [
+      playoffSchedule,
+    ]);
 
   /*
    * --------------------------------------------------------
    * FINAL NEVISLY SCORE
    * --------------------------------------------------------
    *
-   * Current components:
-   *
    * VOR
-   * + team need
-   * + H2H matchup impact
+   * + team category needs
+   * + H2H impact
    * + draft-room scarcity
    * + positional flexibility
-   * + playoff schedule
+   * + season schedule / off-night value
+   * + playoff schedule value
+   * + small age risk modifier
    *
-   * Gone Risk remains informational for now.
+   * Gone Risk remains informational.
    */
   const finalRankedPlayers =
-    useMemo<RankedPlayer[]>(() => {
+    useMemo<
+      RankedPlayer[]
+    >(() => {
       return rankedPlayers.map(
-        (player) => {
-            const teamSchedule =
-  playoffSchedule[
-    player.team
-  ];
+        (
+          player
+        ) => {
+          const teamSchedule =
+            getTeamSchedule(
+              playoffSchedule,
+              player.team
+            );
 
-const seasonOffNightGames =
-  teamSchedule
-    ?.seasonOffNightGames ??
-  0;
+          const seasonOffNightGames =
+            teamSchedule
+              ?.seasonOffNightGames ??
+            0;
 
-const playoffGames =
-  teamSchedule
-    ?.playoffGames ??
-  0;
+          const playoffGames =
+            teamSchedule
+              ?.playoffGames ??
+            0;
 
-const playoffOffNightGames =
-  teamSchedule
-    ?.playoffOffNightGames ??
-  0;
+          const playoffOffNightGames =
+            teamSchedule
+              ?.playoffOffNightGames ??
+            0;
 
-const playoffWeekGames: [
-  number,
-  number,
-  number
-] = [
-  teamSchedule
-    ?.playoffByWeek?.["24"]
-    ?.games ?? 0,
+          const playoffWeekGames: [
+            number,
+            number,
+            number
+          ] = [
+            teamSchedule
+              ?.playoffByWeek?.[
+              "24"
+            ]?.games ??
+              0,
 
-  teamSchedule
-    ?.playoffByWeek?.["25"]
-    ?.games ?? 0,
+            teamSchedule
+              ?.playoffByWeek?.[
+              "25"
+            ]?.games ??
+              0,
 
-  teamSchedule
-    ?.playoffByWeek?.["26"]
-    ?.games ?? 0,
-];
+            teamSchedule
+              ?.playoffByWeek?.[
+              "26"
+            ]?.games ??
+              0,
+          ];
 
-const playoffWeekOffNights: [
-  number,
-  number,
-  number
-] = [
-  teamSchedule
-    ?.playoffByWeek?.["24"]
-    ?.offNightGames ?? 0,
+          const playoffWeekOffNights: [
+            number,
+            number,
+            number
+          ] = [
+            teamSchedule
+              ?.playoffByWeek?.[
+              "24"
+            ]
+              ?.offNightGames ??
+              0,
 
-  teamSchedule
-    ?.playoffByWeek?.["25"]
-    ?.offNightGames ?? 0,
+            teamSchedule
+              ?.playoffByWeek?.[
+              "25"
+            ]
+              ?.offNightGames ??
+              0,
 
-  teamSchedule
-    ?.playoffByWeek?.["26"]
-    ?.offNightGames ?? 0,
-];
+            teamSchedule
+              ?.playoffByWeek?.[
+              "26"
+            ]
+              ?.offNightGames ??
+              0,
+          ];
 
-const scheduleBonus =
-  calculateScheduleBonus(
-    teamSchedule,
-    scheduleAverages
-  );
+          const scheduleBonus =
+            calculateScheduleBonus(
+              teamSchedule,
+              scheduleAverages
+            );
 
-  const ageRiskBonus =
-  calculateAgeRiskBonus(
-    player.age
-  );
+          const ageRiskBonus =
+            calculateAgeRiskBonus(
+              player.age
+            );
+
           /*
-           * Keep schedule fields populated
-           * even when Show Drafted is enabled.
+           * Drafted players retain their schedule
+           * data when "Drafted" is shown.
            */
           if (
             draftedIds.has(
@@ -1437,16 +1759,32 @@ const scheduleBonus =
               picksUntilNext:
                 0,
 
+              seasonOffNightGames,
+
               playoffGames,
 
+              playoffOffNightGames,
+
+              playoffWeekGames,
+
+              playoffWeekOffNights,
+
               scheduleBonus,
+
+              score:
+                player.vor +
+                player.needBonus +
+                scheduleBonus +
+                ageRiskBonus,
             };
           }
 
           const h2h =
             calculateH2HImpact({
               player,
+
               fantasyTeams,
+
               leagueTeamPlayers,
             });
 
@@ -1463,8 +1801,9 @@ const scheduleBonus =
             });
 
           /*
-           * Positional flexibility is a
-           * tiebreaker, not a dominant input.
+           * Multi-position flexibility.
+           *
+           * Small tiebreaker only.
            */
           let flexibilityBonus =
             0;
@@ -1485,7 +1824,9 @@ const scheduleBonus =
 
           const coversOpenPosition =
             player.positions.some(
-              (position) =>
+              (
+                position
+              ) =>
                 openStarterPositions.includes(
                   position as
                     | "C"
@@ -1550,18 +1891,27 @@ const scheduleBonus =
             picksUntilNext:
               returnRisk.picksUntilNext,
 
+            seasonOffNightGames,
+
             playoffGames,
+
+            playoffOffNightGames,
+
+            playoffWeekGames,
+
+            playoffWeekOffNights,
 
             scheduleBonus,
 
             score:
-            player.vor +
-            player.needBonus +
-            h2h.matchupGain * 1.25 +
-            scarcity.scarcityBonus +
-            flexibilityBonus +
-            scheduleBonus +
-            ageRiskBonus,
+              player.vor +
+              player.needBonus +
+              h2h.matchupGain *
+                1.25 +
+              scarcity.scarcityBonus +
+              flexibilityBonus +
+              scheduleBonus +
+              ageRiskBonus,
           };
         }
       );
@@ -1575,6 +1925,7 @@ const scheduleBonus =
       myDraftSlot,
       openStarterPositions,
       playoffSchedule,
+      scheduleAverages,
     ]);
 
   const bestAvailable =
@@ -1583,13 +1934,18 @@ const scheduleBonus =
         ...finalRankedPlayers,
       ]
         .filter(
-          (player) =>
+          (
+            player
+          ) =>
             !draftedIds.has(
               player.id
             )
         )
         .sort(
-          (a, b) =>
+          (
+            a,
+            b
+          ) =>
             b.score -
             a.score
         )
@@ -1600,7 +1956,6 @@ const scheduleBonus =
     }, [
       finalRankedPlayers,
       draftedIds,
-      scheduleAverages,
     ]);
 
   const filteredPlayers =
@@ -1614,7 +1969,9 @@ const scheduleBonus =
         ...finalRankedPlayers,
       ]
         .filter(
-          (player) => {
+          (
+            player
+          ) => {
             if (
               showDrafted
             ) {
@@ -1626,10 +1983,13 @@ const scheduleBonus =
             );
           }
         )
-
         .filter(
-          (player) => {
-            if (!query) {
+          (
+            player
+          ) => {
+            if (
+              !query
+            ) {
               return true;
             }
 
@@ -1647,9 +2007,10 @@ const scheduleBonus =
             );
           }
         )
-
         .filter(
-          (player) => {
+          (
+            player
+          ) => {
             if (
               positionFilter ===
               "ALL"
@@ -1662,9 +2023,11 @@ const scheduleBonus =
             );
           }
         )
-
         .sort(
-          (a, b) => {
+          (
+            a,
+            b
+          ) => {
             const aValue =
               a[
                 sortKey
@@ -1729,10 +2092,14 @@ const scheduleBonus =
     }
 
     setDraftPicks(
-      (current) => {
-        const nextPicks: DraftPick[] =
+      (
+        current
+      ) => {
+        const nextPicks:
+          DraftPick[] =
           [
             ...current,
+
             {
               playerId,
 
@@ -1767,11 +2134,15 @@ const scheduleBonus =
     playerId: string
   ) {
     setDraftPicks(
-      (current) => {
+      (
+        current
+      ) => {
         const next =
           current
             .filter(
-              (pick) =>
+              (
+                pick
+              ) =>
                 pick.playerId !==
                 playerId
             )
@@ -1806,7 +2177,9 @@ const scheduleBonus =
 
   function undoLastPick() {
     setDraftPicks(
-      (current) => {
+      (
+        current
+      ) => {
         const next =
           current.slice(
             0,
@@ -1837,7 +2210,9 @@ const scheduleBonus =
       key
     ) {
       setSortDirection(
-        (current) =>
+        (
+          current
+        ) =>
           current ===
           "asc"
             ? "desc"
@@ -1882,7 +2257,9 @@ const scheduleBonus =
   ) {
     return (
       fantasyTeams.find(
-        (team) =>
+        (
+          team
+        ) =>
           team.id ===
           teamId
       )?.name ??
@@ -1891,23 +2268,23 @@ const scheduleBonus =
   }
 
   /*
-   * Recommendation explanation:
-   *
-   * 1. True league-wide elite traits
-   * 2. Team-specific category needs
-   * 3. Roster / scarcity / flexibility
-   * 4. H2H impact
-   * 5. Exceptional playoff schedule
+   * --------------------------------------------------------
+   * RECOMMENDATION EXPLANATIONS
+   * --------------------------------------------------------
    */
   function getRecommendationReasons(
-    player: RankedPlayer
+    player:
+      RankedPlayer
   ) {
-    const reasons: string[] =
+    const reasons:
+      string[] =
       [];
 
     const availablePlayers =
       finalRankedPlayers.filter(
-        (candidate) =>
+        (
+          candidate
+        ) =>
           !draftedIds.has(
             candidate.id
           )
@@ -1916,12 +2293,17 @@ const scheduleBonus =
     const categoryRanks =
       categoryKeys
         .map(
-          (category) => {
+          (
+            category
+          ) => {
             const sorted =
               [
                 ...availablePlayers,
               ].sort(
-                (a, b) =>
+                (
+                  a,
+                  b
+                ) =>
                   b[
                     category
                   ] -
@@ -1958,14 +2340,19 @@ const scheduleBonus =
           }
         )
         .sort(
-          (a, b) =>
+          (
+            a,
+            b
+          ) =>
             a.rank -
             b.rank
         );
 
     const numberOneCategories =
       categoryRanks.filter(
-        (item) =>
+        (
+          item
+        ) =>
           item.rank ===
           1
       );
@@ -1986,7 +2373,9 @@ const scheduleBonus =
     const eliteCategories =
       categoryRanks
         .filter(
-          (item) =>
+          (
+            item
+          ) =>
             item.rank >
               1 &&
             item.rank <=
@@ -2015,14 +2404,19 @@ const scheduleBonus =
     const neededCategories =
       categoryRanks
         .filter(
-          (item) =>
+          (
+            item
+          ) =>
             item.need >=
               1.08 &&
             item.z >
               0.35
         )
         .sort(
-          (a, b) =>
+          (
+            a,
+            b
+          ) =>
             b.z *
               b.need -
             a.z *
@@ -2040,7 +2434,9 @@ const scheduleBonus =
       reasons.push(
         `Helps ${neededCategories
           .map(
-            (item) =>
+            (
+              item
+            ) =>
               CATEGORY_LABELS[
                 item.category
               ]
@@ -2053,7 +2449,9 @@ const scheduleBonus =
 
     const openPosition =
       player.positions.find(
-        (position) =>
+        (
+          position
+        ) =>
           openStarterPositions.includes(
             position as
               | "C"
@@ -2114,10 +2512,6 @@ const scheduleBonus =
       );
     }
 
-    /*
-     * Only advertise playoff schedule when
-     * it is meaningfully above the baseline.
-     */
     if (
       player.playoffGames >=
       11
@@ -2233,7 +2627,9 @@ const scheduleBonus =
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
                 >
                   {fantasyTeams.map(
-                    (team) => (
+                    (
+                      team
+                    ) => (
                       <option
                         key={
                           team.id
@@ -2349,7 +2745,9 @@ const scheduleBonus =
                     14,
                     16,
                   ].map(
-                    (teams) => (
+                    (
+                      teams
+                    ) => (
                       <option
                         key={
                           teams
@@ -2402,7 +2800,9 @@ const scheduleBonus =
                       index +
                       1
                   ).map(
-                    (slot) => (
+                    (
+                      slot
+                    ) => (
                       <option
                         key={
                           slot
@@ -3002,25 +3402,36 @@ const scheduleBonus =
                                   }
                                 />
 
-                                <td className="p-2 text-zinc-500">
+                                <td
+                                  className="p-2 text-zinc-500"
+                                  title={`Age risk modifier: ${calculateAgeRiskBonus(
+                                    player.age
+                                  ).toFixed(
+                                    2
+                                  )}`}
+                                >
                                   {
                                     player.age
                                   }
                                 </td>
 
                                 <td
-  className={`p-2 font-semibold ${
-    player.playoffGames >= 11
-      ? "text-emerald-400"
-      : player.playoffGames > 0 &&
-          player.playoffGames <= 8
-        ? "text-red-400"
-        : "text-zinc-300"
-  }`}
-  title={`Weeks 24-26 only · ${player.playoffOffNightGames} playoff off-night games`}
->
-  {player.playoffGames || "—"}
-</td>
+                                  className={`p-2 font-semibold ${
+                                    player.playoffGames >=
+                                    11
+                                      ? "text-emerald-400"
+                                      : player.playoffGames >
+                                            0 &&
+                                          player.playoffGames <=
+                                            8
+                                        ? "text-red-400"
+                                        : "text-zinc-300"
+                                  }`}
+                                  title={`Yahoo Weeks 24-26 only · ${player.playoffOffNightGames} playoff off-night games · ${player.seasonOffNightGames} season off-night games`}
+                                >
+                                  {player.playoffGames ||
+                                    "—"}
+                                </td>
 
                                 <td className="p-2 text-zinc-600">
                                   —
@@ -3489,6 +3900,7 @@ function getHeatmapStyle(
     return {
       backgroundColor:
         "rgba(22, 163, 74, 0.70)",
+
       color:
         "#fff",
     };
@@ -3547,6 +3959,7 @@ function getHeatmapStyle(
   return {
     backgroundColor:
       "rgba(220,38,38,0.65)",
+
     color:
       "#fff",
   };
