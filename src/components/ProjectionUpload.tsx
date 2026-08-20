@@ -2958,31 +2958,17 @@ const scheduleBonus =
                                 </td>
 
                                 <td
-  className="p-2 font-semibold text-zinc-300"
-  title={`Playoffs: ${
-    player.playoffGames
-  } games · ${
-    player.playoffOffNightGames
-  } off nights · W24 ${
-    player.playoffWeekGames[0]
-  }/${
-    player.playoffWeekOffNights[0]
-  } off · W25 ${
-    player.playoffWeekGames[1]
-  }/${
-    player.playoffWeekOffNights[1]
-  } off · W26 ${
-    player.playoffWeekGames[2]
-  }/${
-    player.playoffWeekOffNights[2]
-  } off`}
+  className={`p-2 font-semibold ${
+    player.playoffGames >= 11
+      ? "text-emerald-400"
+      : player.playoffGames > 0 &&
+          player.playoffGames <= 8
+        ? "text-red-400"
+        : "text-zinc-300"
+  }`}
+  title={`Weeks 24-26 only · ${player.playoffOffNightGames} playoff off-night games`}
 >
-  {player.playoffGames >
-  0
-    ? player.playoffWeekGames.join(
-        "/"
-      )
-    : "—"}
+  {player.playoffGames || "—"}
 </td>
 
                                 <td className="p-2 text-zinc-600">
