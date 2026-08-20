@@ -166,23 +166,47 @@ function getMyTeamId(draftSlot: number) {
 }
 
 function getSnakeTeamIdForPick(
-  pickNumber: number,
-  teamCount: number
-) {
-  const roundIndex = Math.floor(
-    (pickNumber - 1) / teamCount
-  );
-
-  const positionInRound =
-    (pickNumber - 1) % teamCount;
-
-  const teamNumber =
-    roundIndex % 2 === 0
-      ? positionInRound + 1
-      : teamCount - positionInRound;
-
-  return `team-${teamNumber}`;
-}
+    pickNumber: number,
+    teamCount: number
+  ) {
+    const roundIndex = Math.floor(
+      (pickNumber - 1) / teamCount
+    );
+  
+    const positionInRound =
+      (pickNumber - 1) % teamCount;
+  
+    const teamNumber =
+      roundIndex % 2 === 0
+        ? positionInRound + 1
+        : teamCount - positionInRound;
+  
+    return `team-${teamNumber}`;
+  }
+  
+  function calculateAgeRiskBonus(
+    age: number
+  ) {
+    if (age <= 31) {
+      return 0;
+    }
+  
+    if (age <= 34) {
+      return -0.03;
+    }
+  
+    if (age <= 36) {
+      return -0.07;
+    }
+  
+    if (age <= 38) {
+      return -0.12;
+    }
+  
+    return -0.18;
+  }
+  
+  export default function ProjectionUpload() {
 
 export default function ProjectionUpload() {
   const [players, setPlayers] =
