@@ -51,6 +51,8 @@ type RankedPlayer = BaseRankedPlayer & {
   scarcityReasons: string[];
 
   returnRisk: ReturnRiskLevel;
+  returnProbability: number;
+  returnReason: string;
   picksUntilNext: number;
 
   score: number;
@@ -688,8 +690,10 @@ export default function ProjectionUpload() {
             scarcityReasons:
               [],
 
-            returnRisk:
-              "SAFE",
+              returnRisk: "SAFE",
+              returnProbability: 0,
+              returnReason: "",
+              picksUntilNext: 0,
 
             picksUntilNext:
               0,
@@ -1033,11 +1037,10 @@ export default function ProjectionUpload() {
               scarcityReasons:
                 [],
 
-              returnRisk:
-                "SAFE",
-
-              picksUntilNext:
-                0,
+                returnRisk: "SAFE",
+                returnProbability: 0,
+                returnReason: "",
+                picksUntilNext: 0,
             };
           }
 
@@ -1062,17 +1065,13 @@ export default function ProjectionUpload() {
               fantasyTeams,
             });
 
-          const returnRisk =
+            const returnRisk =
             calculateReturnRisk({
               player,
-
-              allPlayers:
-                rankedPlayers,
-
+              allPlayers: rankedPlayers,
               draftPicks,
-
+              fantasyTeams,
               leagueTeams,
-
               myDraftSlot,
             });
 
@@ -1088,9 +1087,15 @@ export default function ProjectionUpload() {
             scarcityReasons:
               scarcity.reasons,
 
-            returnRisk:
+              returnRisk:
               returnRisk.level,
-
+            
+            returnProbability:
+              returnRisk.probability,
+            
+            returnReason:
+              returnRisk.reason,
+            
             picksUntilNext:
               returnRisk.picksUntilNext,
 
@@ -1926,13 +1931,19 @@ export default function ProjectionUpload() {
                               </div>
 
                               <ReturnRiskDisplay
-                                level={
-                                  player.returnRisk
-                                }
-                                picksUntilNext={
-                                  player.picksUntilNext
-                                }
-                              />
+  level={
+    player.returnRisk
+  }
+  probability={
+    player.returnProbability
+  }
+  reason={
+    player.returnReason
+  }
+  picksUntilNext={
+    player.picksUntilNext
+  }
+/>
                             </div>
 
                             <div className="lg:text-right">
@@ -2655,53 +2666,68 @@ export default function ProjectionUpload() {
 }
 
 function ReturnRiskDisplay({
-  level,
-  picksUntilNext,
-}: {
-  level: ReturnRiskLevel;
-  picksUntilNext: number;
-}) {
-  let className =
-    "text-zinc-500";
-
-  if (
-    level ===
-    "TAKE NOW"
-  ) {
-    className =
-      "text-red-400";
-  } else if (
-    level ===
-    "RISKY"
-  ) {
-    className =
-      "text-orange-400";
-  } else if (
-    level ===
-    "POSSIBLE"
-  ) {
-    className =
-      "text-yellow-400";
+    level,
+    probability,
+    reason,
+    picksUntilNext,
+  }: {
+    level: ReturnRiskLevel;
+    probability: number;
+    reason: string;
+    picksUntilNext: number;
+  }) {
+    let className =
+      "text-zinc-500";
+  
+    if (level === "TAKE NOW") {
+      className =
+        "text-red-400";
+    } else if (
+      level === "RISKY"
+    ) {
+      className =
+        "text-orange-400";
+    } else if (
+      level === "POSSIBLE"
+    ) {
+      className =
+        "text-yellow-400";
+    }
+  
+    const percentage =
+      Math.round(
+        probability * 100
+      );
+  
+    return (
+      <div className="mt-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`text-[10px] font-bold ${className}`}
+          >
+            GONE RISK: {percentage}%
+          </span>
+  
+          <span className="text-[10px] text-zinc-600">
+            {level}
+          </span>
+  
+          {picksUntilNext > 0 && (
+            <span className="text-[10px] text-zinc-600">
+              {picksUntilNext} picks
+              until yours
+            </span>
+          )}
+        </div>
+  
+        {reason && (
+          <div className="mt-0.5 text-[10px] text-zinc-600">
+            {reason}
+          </div>
+        )}
+      </div>
+    );
   }
-
-  return (
-    <div className="mt-1 flex flex-wrap items-center gap-2">
-      <span
-        className={`text-[10px] font-bold ${className}`}
-      >
-        RETURN: {level}
-      </span>
-
-      {picksUntilNext >
-        0 && (
-        <span className="text-[10px] text-zinc-600">
-          {picksUntilNext} picks
-          until your next turn
-        </span>
-      )}
-    </div>
-  );
-}
 
 function ReturnRiskBadge({
   level,
