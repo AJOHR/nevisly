@@ -4108,6 +4108,13 @@ export default function ProjectionUpload() {
               </div>
 
               <aside className="xl:sticky xl:top-[84px] xl:self-start">
+              {selectedPlayer && (
+  <section className="mb-4">
+    <PlayerExplanationCard
+      player={selectedPlayer}
+    />
+  </section>
+)}
                 <section className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
                   <div className="flex justify-between">
                     <div>
