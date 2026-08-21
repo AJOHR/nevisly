@@ -73,6 +73,10 @@ export type BaseRankedPlayer = SkaterProjection & {
   vor: number;
   replacementPosition: string;
   zScores: Record<CategoryKey, number>;
+
+  projectionCount?: number;
+  projectionConfidence?: "HIGH" | "MEDIUM" | "LOW";
+  projectionVariance?: number;
 };
 
 export type RankedPlayer = BaseRankedPlayer & {
@@ -920,14 +924,58 @@ export default function ProjectionUpload() {
    * --------------------------------------------------------
    */
   const baseRankedPlayers =
-    useMemo<
-      BaseRankedPlayer[]
-    >(() => {
-      if (
-        players.length ===
-        0
-      ) {
-        return [];
+  useMemo<BaseRankedPlayer[]>(() => {
+    if (
+      players.length === 0
+    ) {
+      return [];
+    }
+
+    // ... your existing stats calculation above ...
+
+    const basePlayers =
+      players.map(
+        (
+          player
+        ) => {
+          const zScores =
+            {} as Record<CategoryKey, number>;
+
+          let rawScore = 0;
+
+          for (
+            const category of categoryKeys
+          ) {
+            const {
+              mean,
+              stdDev,
+            } = stats[category];
+
+            const zScore =
+              stdDev === 0
+                ? 0
+                : (
+                    player[category] -
+                    mean
+                  ) / stdDev;
+
+            zScores[category] = zScore;
+
+            rawScore += zScore;
+          }
+
+          return {
+            ...player,
+
+            rawScore,
+
+            zScores,
+          };
+        }
+      );
+
+    // rest of your VOR logic continues here...
+        ];
       }
 
       const fantasyPool =
