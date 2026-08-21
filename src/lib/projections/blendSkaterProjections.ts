@@ -14,26 +14,18 @@ export type ProjectionSource = {
 export type ProjectionSourceDiagnostic = {
   sourceId: string;
   sourceName: string;
-
   playerCount: number;
-
   matchedPlayers: number;
   uniquePlayers: number;
-
   matchPercentage: number;
-
   uniquePlayerNames: string[];
 };
 
 export type ProjectionDiagnostics = {
   activeSourceCount: number;
-
   totalUniquePlayers: number;
-
   matchedAcrossAllSources: number;
-
   matchedAcrossMultipleSources: number;
-
   sources: ProjectionSourceDiagnostic[];
 };
 
@@ -56,68 +48,53 @@ type PlayerEntry = {
   player: SkaterProjection;
 };
 
-function normalizeTeam(team: string) {
-    const map: Record<string, string> = {
-        "ANAHEIM": "ANA",
-        "ARIZONA": "ARI",
-        "BOSTON": "BOS",
-        "BUFFALO": "BUF",
-        "CALGARY": "CGY",
-        "CAROLINA": "CAR",
-        "CHICAGO": "CHI",
-        "COLORADO": "COL",
-        "COLUMBUS": "CBJ",
-        "DALLAS": "DAL",
-        "DETROIT": "DET",
-        "EDMONTON": "EDM",
-        "FLORIDA": "FLA",
-        "LOS ANGELES": "LAK",
-        "MINNESOTA": "MIN",
-        "MONTREAL": "MTL",
-        "NASHVILLE": "NSH",
-        "NEW JERSEY": "NJD",
-        "NEW YORK ISLANDERS": "NYI",
-        "NEW YORK RANGERS": "NYR",
-        "OTTAWA": "OTT",
-        "PHILADELPHIA": "PHI",
-        "PITTSBURGH": "PIT",
-        "SEATTLE": "SEA",
-        "SAN JOSE": "SJS",
-        "ST. LOUIS": "STL",
-        "TAMPA BAY": "TBL",
-        "TORONTO": "TOR",
-        "UTAH": "UTA",
-        "VANCOUVER": "VAN",
-        "VEGAS": "VGK",
-        "WASHINGTON": "WSH",
-        "WINNIPEG": "WPG",
-      };
-  
-    const normalized =
-      team.trim().toUpperCase();
-  
-    return map[normalized] ?? normalized;
-  }
 
-function getProjectionConfidence(
-    sourceCount: number
-  ):
-    | "HIGH"
-    | "MEDIUM"
-    | "LOW" {
-    if (sourceCount >= 2) {
-      return "HIGH";
-    }
-  
-    if (sourceCount === 1) {
-      return "MEDIUM";
-    }
-  
-    return "LOW";
-  }
+function normalizeTeam(team: string) {
+  const map: Record<string,string> = {
+    "ANAHEIM": "ANA",
+    "ARIZONA": "ARI",
+    "BOSTON": "BOS",
+    "BUFFALO": "BUF",
+    "CALGARY": "CGY",
+    "CAROLINA": "CAR",
+    "CHICAGO": "CHI",
+    "COLORADO": "COL",
+    "COLUMBUS": "CBJ",
+    "DALLAS": "DAL",
+    "DETROIT": "DET",
+    "EDMONTON": "EDM",
+    "FLORIDA": "FLA",
+    "LOS ANGELES": "LAK",
+    "MINNESOTA": "MIN",
+    "MONTREAL": "MTL",
+    "NASHVILLE": "NSH",
+    "NEW JERSEY": "NJD",
+    "NEW YORK ISLANDERS": "NYI",
+    "NEW YORK RANGERS": "NYR",
+    "OTTAWA": "OTT",
+    "PHILADELPHIA": "PHI",
+    "PITTSBURGH": "PIT",
+    "SEATTLE": "SEA",
+    "SAN JOSE": "SJS",
+    "ST. LOUIS": "STL",
+    "TAMPA BAY": "TBL",
+    "TORONTO": "TOR",
+    "UTAH": "UTA",
+    "VANCOUVER": "VAN",
+    "VEGAS": "VGK",
+    "WASHINGTON": "WSH",
+    "WINNIPEG": "WPG",
+  };
+
+  const normalized =
+    team.trim().toUpperCase();
+
+  return map[normalized] ?? normalized;
+}
+
 
 function round(
-  value: number,
+  value:number,
   decimals = 2
 ) {
   const factor =
@@ -125,557 +102,452 @@ function round(
 
   return (
     Math.round(
-      value *
-        factor
-    ) /
-    factor
+      value * factor
+    ) / factor
   );
 }
 
-function getWeightedValue(
-  entries: PlayerEntry[],
-  field: WeightedField
+
+function getProjectionConfidence(
+  sourceCount:number
+):
+"HIGH"|"MEDIUM"|"LOW" {
+
+  if(sourceCount >= 2) {
+    return "HIGH";
+  }
+
+  if(sourceCount === 1) {
+    return "MEDIUM";
+  }
+
+  return "LOW";
+}
+
+
+function calculateProjectionVariance(
+  entries:PlayerEntry[]
 ) {
-  const validEntries =
-    entries.filter(
-      (
-        entry
-      ) =>
-        entry.source
-          .weight >
-        0
-    );
 
-  const totalWeight =
-    validEntries.reduce(
-      (
-        total,
-        entry
-      ) =>
-        total +
-        entry.source
-          .weight,
-      0
-    );
-
-  if (
-    totalWeight <=
-    0
-  ) {
+  if(entries.length <= 1) {
     return 0;
   }
 
-  const weightedTotal =
-    validEntries.reduce(
-      (
-        total,
-        entry
-      ) =>
-        total +
-        entry.player[
-          field
-        ] *
-          entry.source
-            .weight,
-      0
+  const points =
+    entries.map(
+      entry =>
+        entry.player.points
     );
 
+  const mean =
+    points.reduce(
+      (sum,value)=>
+        sum + value,
+      0
+    ) / points.length;
+
+
+  const variance =
+    points.reduce(
+      (sum,value)=>
+        sum +
+        Math.pow(
+          value - mean,
+          2
+        ),
+      0
+    ) / points.length;
+
+
   return round(
-    weightedTotal /
-      totalWeight
+    Math.sqrt(variance),
+    1
   );
 }
 
-function getPrimaryEntry(
-  entries: PlayerEntry[]
+
+function getWeightedValue(
+  entries:PlayerEntry[],
+  field:WeightedField
 ) {
+
+  const valid =
+    entries.filter(
+      entry =>
+        entry.source.weight > 0
+    );
+
+
+  const totalWeight =
+    valid.reduce(
+      (sum,entry)=>
+        sum + entry.source.weight,
+      0
+    );
+
+
+  if(totalWeight <= 0) {
+    return 0;
+  }
+
+
+  const total =
+    valid.reduce(
+      (sum,entry)=>
+        sum +
+        entry.player[field] *
+        entry.source.weight,
+      0
+    );
+
+
+  return round(
+    total / totalWeight
+  );
+}
+
+
+
+function getWeightedAge(
+  entries:PlayerEntry[]
+) {
+
+  const weight =
+    entries.reduce(
+      (sum,entry)=>
+        sum + entry.source.weight,
+      0
+    );
+
+
+  if(weight <= 0) {
+    return entries[0]?.player.age ?? 0;
+  }
+
+
+  return round(
+    entries.reduce(
+      (sum,entry)=>
+        sum +
+        entry.player.age *
+        entry.source.weight,
+      0
+    ) / weight,
+    1
+  );
+}
+
+
+
+function getPrimaryEntry(
+  entries:PlayerEntry[]
+) {
+
   return [
     ...entries,
   ].sort(
-    (
-      a,
-      b
-    ) =>
-      b.source
-        .weight -
-      a.source
-        .weight
+    (a,b)=>
+      b.source.weight -
+      a.source.weight
   )[0];
 }
 
+
+
 function getCombinedPositions(
-  entries: PlayerEntry[]
+  entries:PlayerEntry[]
 ) {
-  const positions =
+
+  const set =
     new Set<string>();
 
-  for (
-    const entry of
-    entries
-  ) {
-    for (
-      const position of
-      entry.player
-        .positions
-    ) {
-      positions.add(
-        position
-      );
+  for(const entry of entries) {
+    for(const pos of entry.player.positions) {
+      set.add(pos);
     }
   }
 
-  return [
-    ...positions,
-  ];
+  return [...set];
 }
 
-function buildPlayerMap(
-  sources: ProjectionSource[]
-) {
-  const playerMap =
-    new Map<
-      string,
-      PlayerEntry[]
-    >();
 
-  for (
-    const source of
-    sources
-  ) {
-    for (
-      const player of
-      source.players
-    ) {
+
+function buildPlayerMap(
+  sources:ProjectionSource[]
+) {
+
+  const map =
+    new Map<string,PlayerEntry[]>();
+
+
+  for(const source of sources) {
+
+    for(const player of source.players) {
+
       const key =
-        getProjectionPlayerKey(
-          player
-        );
+        getProjectionPlayerKey(player);
+
 
       const current =
-        playerMap.get(
-          key
-        ) ?? [];
+        map.get(key) ?? [];
+
 
       current.push({
         source,
         player,
       });
 
-      playerMap.set(
+
+      map.set(
         key,
         current
       );
     }
   }
 
-  return playerMap;
+
+  return map;
 }
 
+
+
 /*
- * --------------------------------------------------------
- * PROJECTION MATCH DIAGNOSTICS
- * --------------------------------------------------------
- *
- * This does not change any player projections.
- *
- * It tells Nevisly how well the uploaded
- * projection sources are matching one another.
- */
+ DIAGNOSTICS
+*/
+
 export function getProjectionDiagnostics(
-  sources: ProjectionSource[]
-): ProjectionDiagnostics {
-  const activeSources =
+  sources:ProjectionSource[]
+):ProjectionDiagnostics {
+
+
+  const active =
     sources.filter(
-      (
-        source
-      ) =>
-        source.weight >
-          0 &&
-        source.players
-          .length >
-          0
+      source =>
+        source.weight > 0 &&
+        source.players.length > 0
     );
 
-  if (
-    activeSources.length ===
-    0
-  ) {
+
+  if(active.length === 0) {
     return {
-      activeSourceCount:
-        0,
-
-      totalUniquePlayers:
-        0,
-
-      matchedAcrossAllSources:
-        0,
-
-      matchedAcrossMultipleSources:
-        0,
-
-      sources:
-        [],
+      activeSourceCount:0,
+      totalUniquePlayers:0,
+      matchedAcrossAllSources:0,
+      matchedAcrossMultipleSources:0,
+      sources:[]
     };
   }
 
-  const playerMap =
-    buildPlayerMap(
-      activeSources
-    );
 
-  let matchedAcrossAllSources =
-    0;
+  const map =
+    buildPlayerMap(active);
 
-  let matchedAcrossMultipleSources =
-    0;
 
-  for (
-    const entries of
-    playerMap.values()
-  ) {
-    const sourceIds =
+  let matchedAll = 0;
+  let matchedMultiple = 0;
+
+
+  for(const entries of map.values()) {
+
+    const ids =
       new Set(
         entries.map(
-          (
-            entry
-          ) =>
-            entry.source.id
+          e=>e.source.id
         )
       );
 
-    if (
-      sourceIds.size >
-      1
-    ) {
-      matchedAcrossMultipleSources++;
-    }
 
-    if (
-      sourceIds.size ===
-      activeSources.length
-    ) {
-      matchedAcrossAllSources++;
-    }
+    if(ids.size > 1)
+      matchedMultiple++;
+
+
+    if(ids.size === active.length)
+      matchedAll++;
   }
 
-  const sourceDiagnostics =
-    activeSources.map(
-      (
-        source
-      ): ProjectionSourceDiagnostic => {
-        let matchedPlayers =
-          0;
 
-        const uniquePlayerNames:
-          string[] =
-          [];
 
-        for (
-          const player of
-          source.players
-        ) {
-          const key =
-            getProjectionPlayerKey(
-              player
-            );
+  const diagnostics =
+    active.map(
+      source => {
+
+        let matched = 0;
+
+        const unique:string[]=[];
+
+
+        for(const player of source.players) {
 
           const entries =
-            playerMap.get(
-              key
+            map.get(
+              getProjectionPlayerKey(player)
             ) ?? [];
 
-          const otherSourceMatch =
+
+          const other =
             entries.some(
-              (
-                entry
-              ) =>
-                entry.source.id !==
-                source.id
+              e =>
+                e.source.id !== source.id
             );
 
-          if (
-            otherSourceMatch
-          ) {
-            matchedPlayers++;
-          } else {
-            uniquePlayerNames.push(
-              player.name
-            );
-          }
+
+          if(other)
+            matched++;
+          else
+            unique.push(player.name);
         }
 
-        const uniquePlayers =
-          source.players.length -
-          matchedPlayers;
-
-        const matchPercentage =
-          source.players.length >
-          0
-            ? round(
-                (
-                  matchedPlayers /
-                  source.players.length
-                ) *
-                  100,
-                1
-              )
-            : 0;
 
         return {
-          sourceId:
-            source.id,
-
-          sourceName:
-            source.name,
-
-          playerCount:
-            source.players.length,
-
-          matchedPlayers,
-
-          uniquePlayers,
-
-          matchPercentage,
-
+          sourceId:source.id,
+          sourceName:source.name,
+          playerCount:source.players.length,
+          matchedPlayers:matched,
+          uniquePlayers:
+            source.players.length - matched,
+          matchPercentage:
+            round(
+              matched /
+              source.players.length *
+              100,
+              1
+            ),
           uniquePlayerNames:
-            uniquePlayerNames
-              .sort(
-                (
-                  a,
-                  b
-                ) =>
-                  a.localeCompare(
-                    b
-                  )
-              ),
+            unique.sort()
         };
       }
     );
 
+
   return {
-    activeSourceCount:
-      activeSources.length,
-
-    totalUniquePlayers:
-      playerMap.size,
-
-    matchedAcrossAllSources,
-
-    matchedAcrossMultipleSources,
-
-    sources:
-      sourceDiagnostics,
+    activeSourceCount:active.length,
+    totalUniquePlayers:map.size,
+    matchedAcrossAllSources:matchedAll,
+    matchedAcrossMultipleSources:matchedMultiple,
+    sources:diagnostics
   };
 }
 
+
+
+
 /*
- * --------------------------------------------------------
- * BLEND PROJECTIONS
- * --------------------------------------------------------
- */
+ BLEND
+*/
+
 export function blendSkaterProjections(
-  sources: ProjectionSource[]
-): SkaterProjection[] {
-  const activeSources =
+  sources:ProjectionSource[]
+):SkaterProjection[] {
+
+
+  const active =
     sources.filter(
-      (
-        source
-      ) =>
-        source.weight >
-          0 &&
-        source.players
-          .length >
-          0
+      source =>
+        source.weight > 0 &&
+        source.players.length > 0
     );
 
-  if (
-    activeSources.length ===
-    0
-  ) {
+
+  if(active.length === 0)
     return [];
-  }
 
-  /*
-   * Preserve original single-source behavior.
-   */
-  if (
-    activeSources.length ===
-    1
-  ) {
-    return activeSources[
-      0
-    ].players;
-  }
 
-  const playerMap =
-    buildPlayerMap(
-      activeSources
-    );
+  if(active.length === 1)
+    return active[0].players;
 
-  const blended:
-    SkaterProjection[] =
-    [];
 
-  for (
-    const [
-      key,
-      entries,
-    ] of
-    playerMap
-  ) {
+
+  const map =
+    buildPlayerMap(active);
+
+
+  const blended:SkaterProjection[]=[];
+
+
+  for(const [key,entries] of map) {
+
+
     const primary =
-      getPrimaryEntry(
-        entries
-      );
+      getPrimaryEntry(entries);
 
-    if (
-      !primary
-    ) {
+
+    if(!primary)
       continue;
-    }
+
 
     const ageEntries =
       entries.filter(
-        (
-          entry
-        ) =>
-          entry.player
-            .age >
-          0
+        e =>
+          e.player.age > 0
       );
 
-    const age =
-      ageEntries.length >
-      0
-        ? getWeightedAge(
-            ageEntries
-          )
-        : primary
-            .player
-            .age;
 
     blended.push({
+
       id:
         `blend-${key}`,
 
       name:
-        primary.player
-          .name,
+        primary.player.name,
 
-      age,
 
-team:
-  normalizeTeam(primary.player.team),
+      age:
+        ageEntries.length
+        ? getWeightedAge(ageEntries)
+        : primary.player.age,
+
+
+      team:
+        normalizeTeam(
+          primary.player.team
+        ),
+
 
       positions:
-        getCombinedPositions(
-          entries
+        getCombinedPositions(entries),
+
+
+      projectionSources:
+        entries.length,
+
+
+      projectionConfidence:
+        getProjectionConfidence(
+          entries.length
         ),
+
+
+      projectionVariance:
+        calculateProjectionVariance(entries),
+
 
       gp:
-        getWeightedValue(
-          entries,
-          "gp"
-        ),
+        getWeightedValue(entries,"gp"),
 
       goals:
-        getWeightedValue(
-          entries,
-          "goals"
-        ),
+        getWeightedValue(entries,"goals"),
 
       assists:
-        getWeightedValue(
-          entries,
-          "assists"
-        ),
+        getWeightedValue(entries,"assists"),
 
       points:
-        getWeightedValue(
-          entries,
-          "points"
-        ),
+        getWeightedValue(entries,"points"),
 
       ppp:
-        getWeightedValue(
-          entries,
-          "ppp"
-        ),
+        getWeightedValue(entries,"ppp"),
 
       sog:
-        getWeightedValue(
-          entries,
-          "sog"
-        ),
+        getWeightedValue(entries,"sog"),
 
       hits:
-        getWeightedValue(
-          entries,
-          "hits"
-        ),
+        getWeightedValue(entries,"hits"),
 
       blocks:
-        getWeightedValue(
-          entries,
-          "blocks"
-        ),
+        getWeightedValue(entries,"blocks"),
 
-        projectionSources:
-  entries.length,
-
-projectionConfidence:
-  getProjectionConfidence(
-    entries.length
-  ),
     });
   }
 
+
   return blended;
-}
-
-function getWeightedAge(
-  entries: PlayerEntry[]
-) {
-  const totalWeight =
-    entries.reduce(
-      (
-        total,
-        entry
-      ) =>
-        total +
-        entry.source
-          .weight,
-      0
-    );
-
-  if (
-    totalWeight <=
-    0
-  ) {
-    return (
-      entries[0]
-        ?.player.age ??
-      0
-    );
-  }
-
-  const weightedAge =
-    entries.reduce(
-      (
-        total,
-        entry
-      ) =>
-        total +
-        entry.player
-          .age *
-          entry.source
-            .weight,
-      0
-    ) /
-    totalWeight;
-
-  return round(
-    weightedAge,
-    1
-  );
 }
