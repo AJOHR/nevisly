@@ -933,9 +933,8 @@ export default function ProjectionUpload() {
 
     // ... your existing stats calculation above ...
 
-    
+
     // rest of your VOR logic continues here...
-      }
 
       const fantasyPool =
         [
