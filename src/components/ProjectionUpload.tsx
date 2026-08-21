@@ -933,47 +933,7 @@ export default function ProjectionUpload() {
 
     // ... your existing stats calculation above ...
 
-    const basePlayers =
-      players.map(
-        (
-          player
-        ) => {
-          const zScores =
-            {} as Record<CategoryKey, number>;
-
-          let rawScore = 0;
-
-          for (
-            const category of categoryKeys
-          ) {
-            const {
-              mean,
-              stdDev,
-            } = stats[category];
-
-            const zScore =
-              stdDev === 0
-                ? 0
-                : (
-                    player[category] -
-                    mean
-                  ) / stdDev;
-
-            zScores[category] = zScore;
-
-            rawScore += zScore;
-          }
-
-          return {
-            ...player,
-
-            rawScore,
-
-            zScores,
-          };
-        }
-      );
-
+    
     // rest of your VOR logic continues here...
       }
 
