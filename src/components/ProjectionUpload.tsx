@@ -975,7 +975,6 @@ export default function ProjectionUpload() {
       );
 
     // rest of your VOR logic continues here...
-        ];
       }
 
       const fantasyPool =
