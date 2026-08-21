@@ -10,6 +10,11 @@ import {
 
 import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 
+import {
+  blendSkaterProjections,
+  type ProjectionSource,
+} from "@/lib/projections/blendSkaterProjections";
+
 import type { SkaterProjection } from "@/types/player";
 import type { DraftPick, FantasyTeam } from "@/types/draft";
 
@@ -48,6 +53,14 @@ const CATEGORY_LABELS: Record<CategoryKey, string> = {
   sog: "SOG",
   hits: "HIT",
   blocks: "BLK",
+};
+
+type ProjectionSourceState = {
+  id: string;
+  name: string;
+  weight: number;
+  fileName: string;
+  players: SkaterProjection[];
 };
 
 type BaseRankedPlayer = SkaterProjection & {
@@ -181,10 +194,6 @@ const STARTING_SLOTS = [
 const BENCH_COUNT =
   4;
 
-/*
- * Some projection providers use slightly
- * different NHL abbreviations than the NHL API.
- */
 const SCHEDULE_TEAM_ALIASES: Record<
   string,
   string
@@ -197,6 +206,28 @@ const SCHEDULE_TEAM_ALIASES: Record<
   CLB: "CBJ",
   MON: "MTL",
 };
+
+function createProjectionSource(
+  number: number,
+  weight = 0
+): ProjectionSourceState {
+  return {
+    id: `projection-source-${Date.now()}-${number}-${Math.random()
+      .toString(36)
+      .slice(2)}`,
+
+    name:
+      number === 1
+        ? "Primary Projection"
+        : `Projection Source ${number}`,
+
+    weight,
+
+    fileName: "",
+
+    players: [],
+  };
+}
 
 function getMyTeamId(
   draftSlot: number
@@ -229,14 +260,6 @@ function getSnakeTeamIdForPick(
   return `team-${teamNumber}`;
 }
 
-/*
- * Age is deliberately a very small
- * risk modifier.
- *
- * We do not reward youth.
- * We only apply a modest durability /
- * decline-risk penalty to older players.
- */
 function calculateAgeRiskBonus(
   age: number
 ) {
@@ -310,12 +333,17 @@ function getTeamSchedule(
 
 export default function ProjectionUpload() {
   const [
-    players,
-    setPlayers,
+    projectionSources,
+    setProjectionSources,
   ] =
     useState<
-      SkaterProjection[]
-    >([]);
+      ProjectionSourceState[]
+    >([
+      createProjectionSource(
+        1,
+        100
+      ),
+    ]);
 
   const [
     error,
@@ -399,17 +427,259 @@ export default function ProjectionUpload() {
     );
 
   /*
-   * Load NHL schedule data.
-   *
-   * The API includes:
-   *
-   * - season off-night games
-   * - playoff games
-   * - playoff off-night games
-   *
-   * Yahoo Week 27 is excluded by
-   * the API route.
+   * --------------------------------------------------------
+   * PROJECTION BLENDING
+   * --------------------------------------------------------
    */
+
+  const activeProjectionSources =
+    useMemo(() => {
+      return projectionSources.filter(
+        (
+          source
+        ) =>
+          source.players.length >
+            0 &&
+          source.weight >
+            0
+      );
+    }, [
+      projectionSources,
+    ]);
+
+  const players =
+    useMemo(() => {
+      const sources:
+        ProjectionSource[] =
+        activeProjectionSources.map(
+          (
+            source
+          ) => ({
+            id:
+              source.id,
+
+            name:
+              source.name,
+
+            weight:
+              source.weight,
+
+            players:
+              source.players,
+          })
+        );
+
+      return blendSkaterProjections(
+        sources
+      );
+    }, [
+      activeProjectionSources,
+    ]);
+
+  const totalProjectionWeight =
+    useMemo(() => {
+      return projectionSources.reduce(
+        (
+          total,
+          source
+        ) =>
+          total +
+          Math.max(
+            0,
+            source.weight
+          ),
+        0
+      );
+    }, [
+      projectionSources,
+    ]);
+
+  const loadedSourceCount =
+    projectionSources.filter(
+      (
+        source
+      ) =>
+        source.players.length >
+        0
+    ).length;
+
+  function resetDraftForProjectionChange() {
+    setDraftPicks(
+      []
+    );
+
+    setSelectedDraftTeamId(
+      myTeamId
+    );
+  }
+
+  async function handleProjectionFile(
+    sourceId: string,
+    event:
+      ChangeEvent<HTMLInputElement>
+  ) {
+    const file =
+      event.target
+        .files?.[0];
+
+    if (
+      !file
+    ) {
+      return;
+    }
+
+    try {
+      setError("");
+
+      const parsedPlayers =
+        await parseSkaterCsv(
+          file
+        );
+
+      if (
+        parsedPlayers.length ===
+        0
+      ) {
+        setError(
+          `No skater projections were found in ${file.name}.`
+        );
+
+        return;
+      }
+
+      setProjectionSources(
+        (
+          current
+        ) =>
+          current.map(
+            (
+              source
+            ) =>
+              source.id ===
+              sourceId
+                ? {
+                    ...source,
+
+                    fileName:
+                      file.name,
+
+                    players:
+                      parsedPlayers,
+                  }
+                : source
+          )
+      );
+
+      resetDraftForProjectionChange();
+    } catch {
+      setError(
+        `Could not read ${file.name}.`
+      );
+    }
+  }
+
+  function handleProjectionNameChange(
+    sourceId: string,
+    name: string
+  ) {
+    setProjectionSources(
+      (
+        current
+      ) =>
+        current.map(
+          (
+            source
+          ) =>
+            source.id ===
+            sourceId
+              ? {
+                  ...source,
+                  name,
+                }
+              : source
+        )
+    );
+  }
+
+  function handleProjectionWeightChange(
+    sourceId: string,
+    weight: number
+  ) {
+    const safeWeight =
+      Number.isFinite(
+        weight
+      )
+        ? Math.max(
+            0,
+            weight
+          )
+        : 0;
+
+    setProjectionSources(
+      (
+        current
+      ) =>
+        current.map(
+          (
+            source
+          ) =>
+            source.id ===
+            sourceId
+              ? {
+                  ...source,
+                  weight:
+                    safeWeight,
+                }
+              : source
+        )
+    );
+
+    resetDraftForProjectionChange();
+  }
+
+  function addProjectionSource() {
+    setProjectionSources(
+      (
+        current
+      ) => [
+        ...current,
+
+        createProjectionSource(
+          current.length +
+            1,
+          0
+        ),
+      ]
+    );
+  }
+
+  function removeProjectionSource(
+    sourceId: string
+  ) {
+    setProjectionSources(
+      (
+        current
+      ) => {
+        if (
+          current.length <=
+          1
+        ) {
+          return current;
+        }
+
+        return current.filter(
+          (
+            source
+          ) =>
+            source.id !==
+            sourceId
+        );
+      }
+    );
+
+    resetDraftForProjectionChange();
+  }
+
   useEffect(() => {
     async function loadSchedule() {
       try {
@@ -434,10 +704,6 @@ export default function ProjectionUpload() {
       } catch {
         /*
          * Schedule is supplemental.
-         *
-         * Nevisly should continue
-         * functioning if the NHL API
-         * temporarily fails.
          */
       }
     }
@@ -482,46 +748,6 @@ export default function ProjectionUpload() {
       leagueTeams,
       myDraftSlot,
     ]);
-
-  async function handleFile(
-    event:
-      ChangeEvent<HTMLInputElement>
-  ) {
-    const file =
-      event.target
-        .files?.[0];
-
-    if (
-      !file
-    ) {
-      return;
-    }
-
-    try {
-      setError("");
-
-      const parsedPlayers =
-        await parseSkaterCsv(
-          file
-        );
-
-      setPlayers(
-        parsedPlayers
-      );
-
-      setDraftPicks(
-        []
-      );
-
-      setSelectedDraftTeamId(
-        myTeamId
-      );
-    } catch {
-      setError(
-        "Could not read projection file."
-      );
-    }
-  }
 
   function handleLeagueTeamChange(
     teamCount: number
@@ -1564,13 +1790,6 @@ export default function ProjectionUpload() {
       playerMap,
     ]);
 
-  /*
-   * NHL-wide schedule averages.
-   *
-   * Season off-night value and playoff
-   * off-night value are measured relative
-   * to the league average.
-   */
   const scheduleAverages =
     useMemo(() => {
       const schedules =
@@ -1624,17 +1843,6 @@ export default function ProjectionUpload() {
    * --------------------------------------------------------
    * FINAL NEVISLY SCORE
    * --------------------------------------------------------
-   *
-   * VOR
-   * + team category needs
-   * + H2H impact
-   * + draft-room scarcity
-   * + positional flexibility
-   * + season schedule / off-night value
-   * + playoff schedule value
-   * + small age risk modifier
-   *
-   * Gone Risk remains informational.
    */
   const finalRankedPlayers =
     useMemo<
@@ -1727,10 +1935,6 @@ export default function ProjectionUpload() {
               player.age
             );
 
-          /*
-           * Drafted players retain their schedule
-           * data when "Drafted" is shown.
-           */
           if (
             draftedIds.has(
               player.id
@@ -1801,11 +2005,6 @@ export default function ProjectionUpload() {
               fantasyTeams,
             });
 
-          /*
-           * Multi-position flexibility.
-           *
-           * Small tiebreaker only.
-           */
           let flexibilityBonus =
             0;
 
@@ -2268,11 +2467,6 @@ export default function ProjectionUpload() {
     );
   }
 
-  /*
-   * --------------------------------------------------------
-   * RECOMMENDATION EXPLANATIONS
-   * --------------------------------------------------------
-   */
   function getRecommendationReasons(
     player:
       RankedPlayer
@@ -2521,32 +2715,26 @@ export default function ProjectionUpload() {
         `${player.playoffGames} playoff games`
       );
     }
-    if (
-        player.seasonOffNightGames >=
-        scheduleAverages.seasonOffNightGames +
-          4
-      ) {
-        reasons.push(
-          "Strong off-night schedule"
-        );
-      }
-      if (
 
-        player.playoffOffNightGames >=
-      
-        scheduleAverages.playoffOffNightGames +
-      
-          2
-      
-      ) {
-      
-        reasons.push(
-      
-          "Strong playoff off-nights"
-      
-        );
-      
-      }
+    if (
+      player.seasonOffNightGames >=
+      scheduleAverages.seasonOffNightGames +
+        4
+    ) {
+      reasons.push(
+        "Strong off-night schedule"
+      );
+    }
+
+    if (
+      player.playoffOffNightGames >=
+      scheduleAverages.playoffOffNightGames +
+        2
+    ) {
+      reasons.push(
+        "Strong playoff off-nights"
+      );
+    }
 
     if (
       reasons.length ===
@@ -2714,31 +2902,235 @@ export default function ProjectionUpload() {
       </div>
 
       <div className="mx-auto max-w-[1900px] p-4 lg:p-6">
+        <section className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-blue-400">
+                Projection Engine
+              </div>
+
+              <h2 className="text-lg font-bold">
+                Projection Sources
+              </h2>
+
+              <p className="mt-1 text-xs text-zinc-500">
+                Upload any compatible projection CSV and choose how much influence each source has.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                addProjectionSource
+              }
+              className="rounded-lg border border-blue-800 px-3 py-2 text-xs font-bold text-blue-300 hover:bg-blue-950/40"
+            >
+              + Add Source
+            </button>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {projectionSources.map(
+              (
+                source,
+                index
+              ) => (
+                <div
+                  key={
+                    source.id
+                  }
+                  className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-950 p-3 lg:grid-cols-[minmax(140px,220px)_110px_minmax(220px,1fr)_auto]"
+                >
+                  <div>
+                    <div className="mb-1 text-[9px] uppercase text-zinc-600">
+                      Source
+                    </div>
+
+                    <input
+                      value={
+                        source.name
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        handleProjectionNameChange(
+                          source.id,
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-xs"
+                      placeholder={`Source ${
+                        index +
+                        1
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-1 text-[9px] uppercase text-zinc-600">
+                      Weight
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={
+                          source.weight
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          handleProjectionWeightChange(
+                            source.id,
+                            Number(
+                              event
+                                .target
+                                .value
+                            )
+                          )
+                        }
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-xs"
+                      />
+
+                      <span className="text-xs text-zinc-500">
+                        %
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-1 text-[9px] uppercase text-zinc-600">
+                      CSV
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={(
+                          event
+                        ) =>
+                          handleProjectionFile(
+                            source.id,
+                            event
+                          )
+                        }
+                        className="text-xs"
+                      />
+
+                      {source.players.length >
+                        0 && (
+                        <span className="text-[10px] text-emerald-400">
+                          {
+                            source.players.length
+                          }{" "}
+                          players loaded
+                        </span>
+                      )}
+                    </div>
+
+                    {source.fileName && (
+                      <div className="mt-1 truncate text-[10px] text-zinc-600">
+                        {
+                          source.fileName
+                        }
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      disabled={
+                        projectionSources.length <=
+                        1
+                      }
+                      onClick={() =>
+                        removeProjectionSource(
+                          source.id
+                        )
+                      }
+                      className="rounded-md border border-red-950 px-3 py-2 text-[10px] font-semibold text-red-400 disabled:opacity-20"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+            <span className="text-zinc-500">
+              Loaded sources:{" "}
+              <strong className="text-zinc-300">
+                {
+                  loadedSourceCount
+                }
+              </strong>
+            </span>
+
+            <span className="text-zinc-500">
+              Blended players:{" "}
+              <strong className="text-zinc-300">
+                {
+                  players.length
+                }
+              </strong>
+            </span>
+
+            <span
+              className={
+                Math.abs(
+                  totalProjectionWeight -
+                    100
+                ) <
+                0.01
+                  ? "text-emerald-400"
+                  : "text-yellow-400"
+              }
+            >
+              Weight total:{" "}
+              {totalProjectionWeight.toFixed(
+                0
+              )}
+              %
+            </span>
+
+            {totalProjectionWeight >
+              0 &&
+              Math.abs(
+                totalProjectionWeight -
+                  100
+              ) >=
+                0.01 && (
+                <span className="text-[10px] text-zinc-600">
+                  Nevisly automatically normalizes the weights.
+                </span>
+              )}
+          </div>
+
+          {error && (
+            <p className="mt-3 text-xs text-red-400">
+              {error}
+            </p>
+          )}
+        </section>
+
         {players.length ===
         0 ? (
-          <div className="mx-auto mt-16 max-w-xl rounded-xl border border-zinc-800 bg-zinc-900 p-8">
+          <div className="mx-auto mt-10 max-w-xl rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center">
             <h1 className="text-2xl font-bold">
               Start Nevisly
             </h1>
 
             <p className="mt-2 text-sm text-zinc-400">
-              Import your projection CSV.
+              Upload at least one projection CSV above with a weight greater than 0%.
             </p>
-
-            <input
-              className="mt-6"
-              type="file"
-              accept=".csv"
-              onChange={
-                handleFile
-              }
-            />
-
-            {error && (
-              <p className="mt-4 text-red-400">
-                {error}
-              </p>
-            )}
           </div>
         ) : (
           <>
@@ -3220,24 +3612,24 @@ export default function ProjectionUpload() {
                             )}
                           />
 
-<th className="p-2">
-  Age
-</th>
+                          <th className="p-2">
+                            Age
+                          </th>
 
-<SortableHeader
-  label="OFF"
-  onClick={() =>
-    handleSort(
-      "seasonOffNightGames"
-    )
-  }
-  indicator={sortIndicator(
-    "seasonOffNightGames"
-  )}
-/>
+                          <SortableHeader
+                            label="OFF"
+                            onClick={() =>
+                              handleSort(
+                                "seasonOffNightGames"
+                              )
+                            }
+                            indicator={sortIndicator(
+                              "seasonOffNightGames"
+                            )}
+                          />
 
-<SortableHeader
-  label="PO"
+                          <SortableHeader
+                            label="PO"
                             onClick={() =>
                               handleSort(
                                 "playoffGames"
@@ -3455,12 +3847,12 @@ export default function ProjectionUpload() {
                                 </td>
 
                                 <td
-  className="p-2 font-semibold text-zinc-300"
-  title="Season off-night games"
->
-  {player.seasonOffNightGames ||
-    "—"}
-</td>
+                                  className="p-2 font-semibold text-zinc-300"
+                                  title="Season off-night games"
+                                >
+                                  {player.seasonOffNightGames ||
+                                    "—"}
+                                </td>
 
                                 <td
                                   className={`p-2 font-semibold ${
@@ -3871,7 +4263,13 @@ function TinyStat({
       </div>
 
       <div className="text-sm font-bold">
-        {value}
+        {Number.isInteger(
+          value
+        )
+          ? value
+          : value.toFixed(
+              1
+            )}
       </div>
     </div>
   );
@@ -3932,7 +4330,13 @@ function HeatmapCell({
         2
       )}`}
     >
-      {value}
+      {Number.isInteger(
+        value
+      )
+        ? value
+        : value.toFixed(
+            1
+          )}
     </td>
   );
 }
