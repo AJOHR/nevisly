@@ -21,6 +21,8 @@ import type { DraftPick, FantasyTeam } from "@/types/draft";
 
 import LeagueRankings from "@/components/LeagueRankings";
 
+import NevislyLegend from "@/components/NevislyLegend";
+
 import { calculateH2HImpact } from "@/lib/draft/h2hImpact";
 import { calculateDraftRoomScarcity } from "@/lib/draft/draftRoomScarcity";
 
@@ -2843,15 +2845,19 @@ export default function ProjectionUpload() {
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1900px] flex-wrap items-center gap-3 px-4 py-3 lg:px-6">
-          <div className="mr-4">
-            <div className="text-xl font-black">
-              NEVISLY
-            </div>
+        <div className="mr-4 flex items-center gap-3">
+  <div>
+    <div className="text-xl font-black">
+      NEVISLY
+    </div>
 
-            <div className="text-[10px] uppercase tracking-wider text-zinc-500">
-              Championship Draft Assistant
-            </div>
-          </div>
+    <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+      Championship Draft Assistant
+    </div>
+  </div>
+
+  <NevislyLegend />
+</div>
 
           {players.length >
             0 && (
