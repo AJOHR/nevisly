@@ -21,8 +21,6 @@ import {
 import type { SkaterProjection } from "@/types/player";
 import type { DraftPick, FantasyTeam } from "@/types/draft";
 
-import type { RankedPlayer } from "@/components/ProjectionUpload";
-
 import LeagueRankings from "@/components/LeagueRankings";
 
 import NevislyLegend from "@/components/NevislyLegend";
