@@ -3477,7 +3477,6 @@ export default function ProjectionUpload() {
       ? "bg-emerald-950/25"
       : ""
   }`}
->
                           >
                             <div
                               className={`text-xl font-black ${
