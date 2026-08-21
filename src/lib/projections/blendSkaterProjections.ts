@@ -278,32 +278,26 @@ function getCombinedPositions(
 }
 
 
-
 function buildPlayerMap(
-  sources:ProjectionSource[]
+  sources: ProjectionSource[]
 ) {
 
   const map =
-    new Map<string,PlayerEntry[]>();
+    new Map<string, PlayerEntry[]>();
 
-
-  for(const source of sources) {
-
-    for(const player of source.players) {
+  for (const source of sources) {
+    for (const player of source.players) {
 
       const key =
         getProjectionPlayerKey(player);
 
-
       const current =
         map.get(key) ?? [];
-
 
       current.push({
         source,
         player,
       });
-
 
       map.set(
         key,
@@ -312,11 +306,8 @@ function buildPlayerMap(
     }
   }
 
-
   return map;
-}
-
-
+}   // <-- this closing brace is required
 
 /*
  DIAGNOSTICS
