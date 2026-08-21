@@ -14,7 +14,12 @@ export type SkaterProjection = {
     hits: number;
     blocks: number;
   
-    projectionCount?: number;
-    projectionConfidence?: "HIGH" | "MEDIUM" | "LOW";
+    projectionSources?: number;
+
+    projectionConfidence?: 
+      | "HIGH"
+      | "MEDIUM"
+      | "LOW";
+  
     projectionVariance?: number;
   };
