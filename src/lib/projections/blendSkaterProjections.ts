@@ -57,19 +57,19 @@ type PlayerEntry = {
 };
 
 function normalizeTeam(team: string) {
-    const map: Record<string,string> = {
-      EDMONTON: "EDM",
-      COLORADO: "COL",
-      TAMPA BAY: "TBL",
-      TORONTO: "TOR",
-      BOSTON: "BOS",
-      VANCOUVER: "VAN",
-      FLORIDA: "FLA",
-      NEW YORK RANGERS: "NYR",
-      NEW YORK ISLANDERS: "NYI",
-      NEW JERSEY: "NJD",
-      WASHINGTON: "WSH",
-    };
+    const map: Record<string, string> = {
+        EDMONTON: "EDM",
+        COLORADO: "COL",
+        "TAMPA BAY": "TBL",
+        TORONTO: "TOR",
+        BOSTON: "BOS",
+        VANCOUVER: "VAN",
+        FLORIDA: "FLA",
+        "NEW YORK RANGERS": "NYR",
+        "NEW YORK ISLANDERS": "NYI",
+        "NEW JERSEY": "NJD",
+        WASHINGTON: "WSH",
+      };
   
     const normalized =
       team.trim().toUpperCase();
