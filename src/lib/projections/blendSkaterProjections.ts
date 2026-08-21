@@ -132,7 +132,6 @@ function getProjectionConfidence(
     
     return "LOW";
 
-
 function calculateProjectionVariance(
   entries:PlayerEntry[]
 ) {
