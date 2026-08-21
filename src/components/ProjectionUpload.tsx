@@ -21,6 +21,8 @@ import {
 import type { SkaterProjection } from "@/types/player";
 import type { DraftPick, FantasyTeam } from "@/types/draft";
 
+import type { RankedPlayer } from "@/components/ProjectionUpload";
+
 import LeagueRankings from "@/components/LeagueRankings";
 
 import NevislyLegend from "@/components/NevislyLegend";
@@ -68,14 +70,14 @@ type ProjectionSourceState = {
   players: SkaterProjection[];
 };
 
-type BaseRankedPlayer = SkaterProjection & {
+export type BaseRankedPlayer = SkaterProjection & {
   rawScore: number;
   vor: number;
   replacementPosition: string;
   zScores: Record<CategoryKey, number>;
 };
 
-type RankedPlayer = BaseRankedPlayer & {
+export type RankedPlayer = BaseRankedPlayer & {
   needBonus: number;
 
   h2hGain: number;
