@@ -507,18 +507,18 @@ export function blendSkaterProjections(
         getCombinedPositions(entries),
 
 
-      projectionSources:
+        projectionSources:
         entries.length,
-
-
+      
       projectionConfidence:
         getProjectionConfidence(
-          entries.length
+          entries
         ),
-
-
+      
       projectionVariance:
-        calculateProjectionVariance(entries),
+        calculateProjectionVariance(
+          entries
+        ),
 
 
       gp:
