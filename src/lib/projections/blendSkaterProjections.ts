@@ -131,6 +131,7 @@ function getProjectionConfidence(
     }
     
     return "LOW";
+  }
 
 function calculateProjectionVariance(
   entries:PlayerEntry[]
@@ -307,7 +308,8 @@ function buildPlayerMap(
   }
 
   return map;
-}   // <-- this closing brace is required
+}  
+
 
 /*
  DIAGNOSTICS
