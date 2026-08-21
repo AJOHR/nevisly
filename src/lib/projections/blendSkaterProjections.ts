@@ -56,6 +56,23 @@ type PlayerEntry = {
   player: SkaterProjection;
 };
 
+function getProjectionConfidence(
+    sourceCount: number
+  ):
+    | "HIGH"
+    | "MEDIUM"
+    | "LOW" {
+    if (sourceCount >= 2) {
+      return "HIGH";
+    }
+  
+    if (sourceCount === 1) {
+      return "MEDIUM";
+    }
+  
+    return "LOW";
+  }
+
 function round(
   value: number,
   decimals = 2
@@ -560,6 +577,14 @@ export function blendSkaterProjections(
           entries,
           "blocks"
         ),
+
+        projectionSources:
+  entries.length,
+
+projectionConfidence:
+  getProjectionConfidence(
+    entries.length
+  ),
     });
   }
 

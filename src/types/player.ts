@@ -1,4 +1,9 @@
 export type SkaterProjection = {
+    projectionSources?: number;
+projectionConfidence?: 
+  | "HIGH"
+  | "MEDIUM"
+  | "LOW";
     id: string;
     name: string;
     age: number;
