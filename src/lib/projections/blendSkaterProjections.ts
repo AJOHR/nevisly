@@ -43,10 +43,10 @@ const weightedFields = [
 type WeightedField =
   (typeof weightedFields)[number];
 
-type PlayerEntry = {
-  source: ProjectionSource;
-  player: SkaterProjection;
-};
+  type PlayerEntry = {
+    source: ProjectionSource;
+    player: SkaterProjection;
+  };
 
 
 function normalizeTeam(team: string) {
@@ -440,9 +440,16 @@ export function getProjectionDiagnostics(
  BLEND
 */
 
+export type BlendedSkaterProjection = SkaterProjection & {
+  projectionSources?: number;
+  projectionConfidence?: "HIGH" | "MEDIUM" | "LOW";
+  projectionVariance?: number;
+};
+
+
 export function blendSkaterProjections(
-  sources:ProjectionSource[]
-):SkaterProjection[] {
+  sources: ProjectionSource[]
+): BlendedSkaterProjection[] {
 
 
   const active =
@@ -457,8 +464,17 @@ export function blendSkaterProjections(
     return [];
 
 
-  if(active.length === 1)
-    return active[0].players;
+  if(active.length === 1) {
+    return active[0].players.map(player => ({
+      ...player,
+  
+      projectionSources: 1,
+  
+      projectionConfidence: "MEDIUM",
+  
+      projectionVariance: 0,
+    }));
+  }
 
 
 
