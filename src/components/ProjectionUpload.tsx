@@ -3689,6 +3689,10 @@ export default function ProjectionUpload() {
                             Gone Risk
                           </th>
 
+                          <th className="p-2">
+  Confidence
+</th>
+
                           <SortableHeader
                             label="G"
                             onClick={() =>
@@ -3916,6 +3920,17 @@ export default function ProjectionUpload() {
                                     }
                                   />
                                 </td>
+
+                                <td className="p-2 text-[10px]">
+  <ProjectionConfidenceBadge
+    confidence={
+      player.projectionConfidence
+    }
+    sources={
+      player.projectionSources
+    }
+  />
+</td>
 
                                 <HeatmapCell
                                   value={
@@ -4618,5 +4633,30 @@ function DiagnosticStat({
           {value}
         </div>
       </div>
+    );
+  }
+
+  function ProjectionConfidenceBadge({
+    confidence,
+    sources,
+  }: {
+    confidence?: "HIGH" | "MEDIUM" | "LOW";
+    sources?: number;
+  }) {
+    if (!confidence) {
+      return <span className="text-zinc-600">—</span>;
+    }
+  
+    const color =
+      confidence === "HIGH"
+        ? "text-emerald-400"
+        : confidence === "MEDIUM"
+          ? "text-yellow-400"
+          : "text-red-400";
+  
+    return (
+      <span className={color}>
+        {confidence} ({sources})
+      </span>
     );
   }
