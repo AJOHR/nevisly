@@ -108,20 +108,25 @@ function round(
 }
 
 
-function getProjectionConfidence(
-  sourceCount:number
+ffunction getProjectionConfidence(
+  entries: PlayerEntry[]
 ):
-"HIGH"|"MEDIUM"|"LOW" {
+"HIGH" | "MEDIUM" | "LOW" {
 
-  if(sourceCount >= 2) {
+  if(entries.length <= 1) {
+    return "LOW";
+  }
+
+  const variance =
+    calculateProjectionVariance(
+      entries
+    );
+
+  if(variance <= 10) {
     return "HIGH";
   }
 
-  if(sourceCount === 1) {
-    return "MEDIUM";
-  }
-
-  return "LOW";
+  return "MEDIUM";
 }
 
 
