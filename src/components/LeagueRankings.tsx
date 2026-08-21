@@ -34,54 +34,44 @@ type Props = {
   leagueTeamPlayers: Map<string, LeagueSkater[]>;
 };
 
-type TeamTotals = Record<
-  CategoryKey,
-  number
->;
-
-type TeamRanks = Record<
-  CategoryKey,
-  number
->;
+type TeamTotals = Record<CategoryKey, number>;
+type TeamRanks = Record<CategoryKey, number>;
 
 type BaseTeamRow = {
   id: string;
   name: string;
   isMyTeam: boolean;
   picks: number;
+
+  /*
+   * Actual drafted totals.
+   *
+   * These are what the UI displays.
+   */
   totals: TeamTotals;
+
+  /*
+   * Per-pick category production.
+   *
+   * These are used only for normalized
+   * H2H comparisons while teams have
+   * unequal pick counts.
+   */
+  perPickTotals: TeamTotals;
 };
 
-type TeamRow =
-  BaseTeamRow & {
-    ranks: TeamRanks;
+type TeamRow = BaseTeamRow & {
+  ranks: TeamRanks;
 
-    /*
-     * Average category score across
-     * every possible H2H opponent.
-     *
-     * Category win = 1
-     * Category tie = 0.5
-     * Category loss = 0
-     */
-    averageCategoriesWon: number;
+  averageCategoriesWon: number;
+  matchupWinRate: number;
 
-    /*
-     * Percentage of projected H2H
-     * matchups won.
-     *
-     * Matchup win = 1
-     * Matchup tie = 0.5
-     * Matchup loss = 0
-     */
-    matchupWinRate: number;
+  matchupWins: number;
+  matchupTies: number;
+  matchupLosses: number;
 
-    matchupWins: number;
-    matchupTies: number;
-    matchupLosses: number;
-
-    overallRank: number;
-  };
+  overallRank: number;
+};
 
 const categories: {
   key: CategoryKey;
@@ -120,10 +110,8 @@ const categories: {
 const CATEGORY_COUNT =
   categories.length;
 
-function buildTeamTotals(
-  players: LeagueSkater[]
-): TeamTotals {
-  const totals: TeamTotals = {
+function createEmptyTotals(): TeamTotals {
+  return {
     goals: 0,
     assists: 0,
     points: 0,
@@ -132,6 +120,13 @@ function buildTeamTotals(
     hits: 0,
     blocks: 0,
   };
+}
+
+function buildTeamTotals(
+  players: LeagueSkater[]
+): TeamTotals {
+  const totals =
+    createEmptyTotals();
 
   for (
     const player of
@@ -162,23 +157,119 @@ function buildTeamTotals(
   return totals;
 }
 
+function buildPerPickTotals(
+  totals: TeamTotals,
+  picks: number
+): TeamTotals {
+  if (
+    picks <=
+    0
+  ) {
+    return createEmptyTotals();
+  }
+
+  const result =
+    createEmptyTotals();
+
+  for (
+    const category of
+    categories
+  ) {
+    result[
+      category.key
+    ] =
+      totals[
+        category.key
+      ] /
+      picks;
+  }
+
+  return result;
+}
+
 /*
- * Compare one team against one opponent
- * over the seven skater categories.
- *
- * Every category contributes:
- *
- * win  = 1
- * tie  = 0.5
- * loss = 0
+ * Produce fair comparison totals for two
+ * teams that may temporarily have different
+ * numbers of drafted players.
  *
  * Example:
  *
- * Team A wins 4 categories,
- * loses 3:
+ * Team A has 5 picks
+ * Team B has 4 picks
  *
- * categoryScore = 4
+ * Both are compared at 4 picks worth
+ * of production.
+ *
+ * We use each team's per-pick production
+ * multiplied by the smaller pick count.
+ *
+ * This removes the temporary snake-draft
+ * advantage from having one extra player.
  */
+function buildNormalizedMatchupTotals(
+  teamA: BaseTeamRow,
+  teamB: BaseTeamRow
+) {
+  const comparablePicks =
+    Math.min(
+      teamA.picks,
+      teamB.picks
+    );
+
+  const teamATotals =
+    createEmptyTotals();
+
+  const teamBTotals =
+    createEmptyTotals();
+
+  /*
+   * If either team has no players yet,
+   * there is not enough information for
+   * a meaningful H2H comparison.
+   */
+  if (
+    comparablePicks <=
+    0
+  ) {
+    return {
+      teamATotals,
+      teamBTotals,
+      comparablePicks,
+      valid:
+        false,
+    };
+  }
+
+  for (
+    const category of
+    categories
+  ) {
+    teamATotals[
+      category.key
+    ] =
+      teamA.perPickTotals[
+        category.key
+      ] *
+      comparablePicks;
+
+    teamBTotals[
+      category.key
+    ] =
+      teamB.perPickTotals[
+        category.key
+      ] *
+      comparablePicks;
+  }
+
+  return {
+    teamATotals,
+    teamBTotals,
+    comparablePicks,
+    valid:
+      true,
+  };
+}
+
 function compareTeams(
   teamA: TeamTotals,
   teamB: TeamTotals
@@ -233,13 +324,6 @@ function compareTeams(
     }
   }
 
-  /*
-   * There are seven categories.
-   *
-   * > 3.5 = matchup win
-   * = 3.5 = matchup tie
-   * < 3.5 = matchup loss
-   */
   let matchupResult:
     | "WIN"
     | "TIE"
@@ -299,6 +383,11 @@ export default function LeagueRankings({
           ) ??
           [];
 
+        const totals =
+          buildTeamTotals(
+            players
+          );
+
         return {
           id:
             team.id,
@@ -312,9 +401,12 @@ export default function LeagueRankings({
           picks:
             players.length,
 
-          totals:
-            buildTeamTotals(
-              players
+          totals,
+
+          perPickTotals:
+            buildPerPickTotals(
+              totals,
+              players.length
             ),
         };
       }
@@ -325,18 +417,16 @@ export default function LeagueRankings({
    * CATEGORY RANKS
    * --------------------------------------------------------
    *
-   * These are retained for the category
-   * matrix / heatmap.
+   * Visible category cells still use actual
+   * drafted totals.
    *
-   * They are NOT used as roto points.
+   * This keeps the matrix intuitive:
+   * what you see is what each team has drafted.
    */
   const categoryRanks =
     {} as Record<
       CategoryKey,
-      Map<
-        string,
-        number
-      >
+      Map<string, number>
     >;
 
   for (
@@ -429,13 +519,23 @@ export default function LeagueRankings({
 
   /*
    * --------------------------------------------------------
-   * TRUE H2H LEAGUE COMPARISON
+   * NORMALIZED H2H LEAGUE COMPARISON
    * --------------------------------------------------------
    *
-   * Every fantasy team is compared against
-   * every other fantasy team.
+   * H2H comparisons use equalized pick counts.
+   *
+   * If:
+   *
+   * Team A = 5 picks
+   * Team B = 4 picks
+   *
+   * both teams are compared as if they had
+   * 4 picks.
+   *
+   * Actual visible totals are NOT changed.
    */
-  const rows: TeamRow[] =
+  const rows:
+    TeamRow[] =
     baseRows.map(
       (
         team
@@ -470,6 +570,9 @@ export default function LeagueRankings({
         let matchupLosses =
           0;
 
+        let validOpponentCount =
+          0;
+
         for (
           const opponent of
           baseRows
@@ -481,11 +584,25 @@ export default function LeagueRankings({
             continue;
           }
 
+          const normalized =
+            buildNormalizedMatchupTotals(
+              team,
+              opponent
+            );
+
+          if (
+            !normalized.valid
+          ) {
+            continue;
+          }
+
           const result =
             compareTeams(
-              team.totals,
-              opponent.totals
+              normalized.teamATotals,
+              normalized.teamBTotals
             );
+
+          validOpponentCount++;
 
           totalCategoryScore +=
             result.categoryScore;
@@ -505,29 +622,22 @@ export default function LeagueRankings({
           }
         }
 
-        const opponentCount =
-          Math.max(
-            0,
-            teamCount -
-              1
-          );
-
         const averageCategoriesWon =
-          opponentCount >
+          validOpponentCount >
           0
             ? totalCategoryScore /
-              opponentCount
+              validOpponentCount
             : 0;
 
         const matchupWinRate =
-          opponentCount >
+          validOpponentCount >
           0
             ? (
                 matchupWins +
                 matchupTies *
                   0.5
               ) /
-              opponentCount
+              validOpponentCount
             : 0;
 
         return {
@@ -557,10 +667,10 @@ export default function LeagueRankings({
    * --------------------------------------------------------
    *
    * Primary:
-   * matchup win rate
+   * normalized matchup win rate
    *
-   * Tiebreak:
-   * average categories won
+   * Secondary:
+   * normalized average categories won
    */
   const sortedRows =
     [
@@ -570,6 +680,29 @@ export default function LeagueRankings({
         a,
         b
       ) => {
+        /*
+         * Teams with zero players should not
+         * rank above teams that have begun
+         * drafting.
+         */
+        if (
+          a.picks ===
+            0 &&
+          b.picks >
+            0
+        ) {
+          return 1;
+        }
+
+        if (
+          b.picks ===
+            0 &&
+          a.picks >
+            0
+        ) {
+          return -1;
+        }
+
         if (
           b.matchupWinRate !==
           a.matchupWinRate
@@ -590,27 +723,64 @@ export default function LeagueRankings({
           );
         }
 
-        /*
-         * During the draft, one team can
-         * temporarily have one extra player.
-         *
-         * Do not use picks as a positive
-         * ranking tiebreaker.
-         */
         return a.name.localeCompare(
           b.name
         );
       }
     );
 
+  /*
+   * Preserve tied H2H ranks.
+   *
+   * Example:
+   *
+   * #1
+   * #1
+   * #3
+   *
+   * instead of arbitrarily calling
+   * equivalent teams #1 and #2.
+   */
+  let previousTeam:
+    TeamRow |
+    undefined;
+
+  let previousRank =
+    0;
+
   sortedRows.forEach(
     (
       team,
       index
     ) => {
-      team.overallRank =
-        index +
-        1;
+      const tiedWithPrevious =
+        previousTeam !==
+          undefined &&
+        team.picks >
+          0 &&
+        previousTeam.picks >
+          0 &&
+        team.matchupWinRate ===
+          previousTeam.matchupWinRate &&
+        team.averageCategoriesWon ===
+          previousTeam.averageCategoriesWon;
+
+      if (
+        tiedWithPrevious
+      ) {
+        team.overallRank =
+          previousRank;
+      } else {
+        team.overallRank =
+          index +
+          1;
+
+        previousRank =
+          team.overallRank;
+      }
+
+      previousTeam =
+        team;
     }
   );
 
@@ -621,6 +791,19 @@ export default function LeagueRankings({
       ) =>
         team.isMyTeam
     );
+
+  const activeTeamCount =
+    baseRows.filter(
+      (
+        team
+      ) =>
+        team.picks >
+        0
+    ).length;
+
+  const rankingsAreEarly =
+    activeTeamCount <
+    teamCount;
 
   return (
     <div className="mb-6 rounded-xl border border-violet-900/60 bg-zinc-900 p-5">
@@ -635,8 +818,14 @@ export default function LeagueRankings({
           </h2>
 
           <p className="mt-1 text-sm text-zinc-400">
-            Projected H2H strength using the skaters drafted so far.
+            Projected H2H strength normalized for unequal pick counts.
           </p>
+
+          {rankingsAreEarly && (
+            <p className="mt-1 text-xs text-zinc-600">
+              Rankings become more reliable once every team has drafted at least one skater.
+            </p>
+          )}
         </div>
 
         {myTeam && (
@@ -775,37 +964,53 @@ export default function LeagueRankings({
                   </td>
 
                   <td className="p-3 text-center font-bold">
-                    {team.averageCategoriesWon.toFixed(
-                      2
-                    )}
-                    /7
+                    {team.picks >
+                    0
+                      ? `${team.averageCategoriesWon.toFixed(
+                          2
+                        )}/7`
+                      : "—"}
                   </td>
 
                   <td className="p-3 text-center">
-                    <WinRateBadge
-                      winRate={
-                        team.matchupWinRate
-                      }
-                    />
+                    {team.picks >
+                    0 ? (
+                      <WinRateBadge
+                        winRate={
+                          team.matchupWinRate
+                        }
+                      />
+                    ) : (
+                      <span className="text-zinc-700">
+                        —
+                      </span>
+                    )}
                   </td>
 
                   <td className="p-3 text-center text-xs text-zinc-400">
-                    {
-                      team.matchupWins
-                    }
-                    -
-                    {
-                      team.matchupLosses
-                    }
-
-                    {team.matchupTies >
-                      0 && (
+                    {team.picks >
+                    0 ? (
                       <>
+                        {
+                          team.matchupWins
+                        }
                         -
                         {
-                          team.matchupTies
+                          team.matchupLosses
                         }
+
+                        {team.matchupTies >
+                          0 && (
+                          <>
+                            -
+                            {
+                              team.matchupTies
+                            }
+                          </>
+                        )}
                       </>
+                    ) : (
+                      "—"
                     )}
                   </td>
 
@@ -842,7 +1047,15 @@ export default function LeagueRankings({
 
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-zinc-500">
         <span>
-          H2H Win % = projected matchup wins vs every opponent
+          H2H metrics are normalized to equal pick counts
+        </span>
+
+        <span>
+          Visible category totals remain actual drafted totals
+        </span>
+
+        <span>
+          H2H Win % = projected matchup wins vs opponents
         </span>
 
         <span>
@@ -854,11 +1067,7 @@ export default function LeagueRankings({
         </span>
 
         <span>
-          Cell number = projected category total
-        </span>
-
-        <span>
-          Small label = category rank
+          Small category label = raw-total rank
         </span>
 
         <span>
@@ -1024,7 +1233,7 @@ function getLeagueHeatmapStyle(
 
   return {
     backgroundColor:
-      "rgba(220, 38, 38, 0.48)",
+      "rgba(220, 38, 38,0.48)",
     color:
       "#ffffff",
   };
