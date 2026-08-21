@@ -56,6 +56,27 @@ type PlayerEntry = {
   player: SkaterProjection;
 };
 
+function normalizeTeam(team: string) {
+    const map: Record<string,string> = {
+      EDMONTON: "EDM",
+      COLORADO: "COL",
+      TAMPA BAY: "TBL",
+      TORONTO: "TOR",
+      BOSTON: "BOS",
+      VANCOUVER: "VAN",
+      FLORIDA: "FLA",
+      NEW YORK RANGERS: "NYR",
+      NEW YORK ISLANDERS: "NYI",
+      NEW JERSEY: "NJD",
+      WASHINGTON: "WSH",
+    };
+  
+    const normalized =
+      team.trim().toUpperCase();
+  
+    return map[normalized] ?? normalized;
+  }
+
 function getProjectionConfidence(
     sourceCount: number
   ):
@@ -521,9 +542,8 @@ export function blendSkaterProjections(
 
       age,
 
-      team:
-        primary.player
-          .team,
+team:
+  normalizeTeam(primary.player.team),
 
       positions:
         getCombinedPositions(
