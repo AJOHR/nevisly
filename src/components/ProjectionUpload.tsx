@@ -3877,7 +3877,7 @@ export default function ProjectionUpload() {
       ? "opacity-40"
       : "hover:bg-zinc-800/50"
   }`}
->
+
                               >
                                 <td className="p-2">
                                   {drafted ? (
