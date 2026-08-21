@@ -1528,12 +1528,18 @@ Implemented:
 - schedule scoring
 - age-risk scoring
 - NHL/projection team-abbreviation normalization
+- multi-source projection blending
+- weighted projection consensus system
+- projection source diagnostics
+- projection confidence scoring
+- projection variance tracking
 - OFF column
 - PO column
 - sortable OFF
 - sortable PO
 - schedule hover details
 - 90-second-draft-focused UI
+
 
 ---
 
@@ -1579,6 +1585,9 @@ Draft types:
 
 src/types/draft.ts
 
+Projection blending:
+
+src/lib/projections/blendSkaterProjections.ts
 ---
 
 # Next Major Step
@@ -1748,3 +1757,210 @@ That answer should account for:
 The user should see a simple recommendation.
 
 The complexity should stay inside Nevisly.
+
+---
+
+# Projection Consensus / Confidence System
+
+Projection blending has been added.
+
+Purpose:
+
+Allow Nevisly to combine multiple projection providers into a weighted consensus projection instead of relying on a single projection source.
+
+Projection sources are now treated independently:
+
+ProjectionSource:
+
+- id
+- name
+- weight
+- players
+
+Higher weight sources have more influence on the final blended projection.
+
+Current blended stats:
+
+- GP
+- Goals
+- Assists
+- Points
+- PPP
+- SOG
+- Hits
+- Blocks
+
+Weighted average formula:
+
+(stat × source weight)
+
+÷
+
+(total source weight)
+
+---
+
+# Projection Matching
+
+Players from different projection systems are matched using:
+
+getProjectionPlayerKey()
+
+The system creates a combined player entry containing all available projections.
+
+Example:
+
+Player:
+
+Connor McDavid
+
+Sources:
+
+- DtZ projection
+- Projection Provider B
+- Projection Provider C
+
+These are blended into one Nevisly projection.
+
+---
+
+# Projection Confidence
+
+Confidence measures projection agreement.
+
+It does NOT measure player quality.
+
+A player can have:
+
+HIGH confidence + average player value
+
+or:
+
+LOW confidence + elite player value
+
+Confidence only answers:
+
+"How much do projection systems agree?"
+
+---
+
+# Projection Variance
+
+Variance measures how far apart projection sources are.
+
+Current calculation uses projected Points.
+
+Lower variance:
+
+- projection sources agree
+- outcome is more predictable
+
+Higher variance:
+
+- projection sources disagree
+- uncertainty is higher
+
+Example:
+
+Variance 2:
+
+Source A:
+
+100 points
+
+Source B:
+
+102 points
+
+Meaning:
+
+Projection systems are very close.
+
+Variance 20:
+
+Source A:
+
+90 points
+
+Source B:
+
+110 points
+
+Meaning:
+
+Projection systems disagree significantly.
+
+---
+
+# Current Confidence Rules
+
+HIGH:
+
+Variance <= 5
+
+Meaning:
+
+Very strong agreement.
+
+MEDIUM:
+
+Variance >5 and <=15
+
+Meaning:
+
+Normal projection uncertainty.
+
+LOW:
+
+Variance >15
+
+OR
+
+Only one projection source exists.
+
+Single source:
+
+Projection Sources:
+
+1
+
+Variance:
+
+0
+
+Confidence:
+
+LOW
+
+Reason:
+
+Variance cannot be measured without multiple projection sources.
+A zero variance does not mean high confidence; it means no comparison exists.
+
+---
+
+# Projection Legend
+
+Legend now explains:
+
+Projection Sources:
+
+Number of projection systems contributing to the player projection.
+
+Example:
+
+3 sources = three projection models support the player.
+
+Variance:
+
+How far apart projection systems are.
+
+Lower variance means stronger agreement.
+
+Higher variance means more uncertainty.
+
+Confidence should influence trust in the projection, not directly punish player value.
+
+---
+
+Projection confidence currently informs user trust only. It should not significantly reduce player value until calibration data exists.
