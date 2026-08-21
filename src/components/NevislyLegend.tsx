@@ -98,3 +98,5 @@
     </p>
   </div>
 </section>
+
+export default NevislyLegend;
