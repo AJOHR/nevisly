@@ -3951,14 +3951,17 @@ export default function ProjectionUpload() {
                                 </td>
 
                                 <td className="p-2 text-[10px]">
-  <ProjectionConfidenceBadge
-    confidence={
-      player.projectionConfidence
-    }
-    sources={
-      player.projectionSources
-    }
-  />
+                                <ProjectionConfidenceBadge
+  confidence={
+    player.projectionConfidence
+  }
+  sources={
+    player.projectionSources
+  }
+  variance={
+    player.projectionVariance
+  }
+/>
 </td>
 
                                 <HeatmapCell
@@ -4668,9 +4671,11 @@ function DiagnosticStat({
   function ProjectionConfidenceBadge({
     confidence,
     sources,
+    variance,
   }: {
     confidence?: "HIGH" | "MEDIUM" | "LOW";
     sources?: number;
+    variance?: number;
   }) {
     if (!confidence) {
       return <span className="text-zinc-600">—</span>;
@@ -4684,8 +4689,39 @@ function DiagnosticStat({
           : "text-red-400";
   
     return (
-      <span className={color}>
-        {confidence} ({sources})
-      </span>
+      <details className="cursor-pointer">
+        <summary className={`${color} font-bold`}>
+          {confidence}
+        </summary>
+  
+        <div className="mt-2 w-48 rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-[10px] text-zinc-400">
+  
+          <div>
+            Sources:
+            <span className="ml-1 text-zinc-200">
+              {sources ?? 1}
+            </span>
+          </div>
+  
+          <div className="mt-1">
+            Variance:
+            <span className="ml-1 text-zinc-200">
+              {variance?.toFixed(1) ?? "—"}
+            </span>
+          </div>
+  
+          <div className="mt-2 text-zinc-500">
+            {confidence === "HIGH" &&
+              "Multiple projections agree closely."}
+  
+            {confidence === "MEDIUM" &&
+              "Limited projection agreement."}
+  
+            {confidence === "LOW" &&
+              "High uncertainty or limited data."}
+          </div>
+  
+        </div>
+      </details>
     );
   }
