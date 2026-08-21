@@ -1,11 +1,40 @@
 import type { SkaterProjection } from "@/types/player";
-import { getProjectionPlayerKey } from "@/lib/projections/parseSkaterCsv";
+
+import {
+  getProjectionPlayerKey,
+} from "@/lib/projections/parseSkaterCsv";
 
 export type ProjectionSource = {
   id: string;
   name: string;
   weight: number;
   players: SkaterProjection[];
+};
+
+export type ProjectionSourceDiagnostic = {
+  sourceId: string;
+  sourceName: string;
+
+  playerCount: number;
+
+  matchedPlayers: number;
+  uniquePlayers: number;
+
+  matchPercentage: number;
+
+  uniquePlayerNames: string[];
+};
+
+export type ProjectionDiagnostics = {
+  activeSourceCount: number;
+
+  totalUniquePlayers: number;
+
+  matchedAcrossAllSources: number;
+
+  matchedAcrossMultipleSources: number;
+
+  sources: ProjectionSourceDiagnostic[];
 };
 
 const weightedFields = [
@@ -140,41 +169,9 @@ function getCombinedPositions(
   ];
 }
 
-export function blendSkaterProjections(
+function buildPlayerMap(
   sources: ProjectionSource[]
-): SkaterProjection[] {
-  const activeSources =
-    sources.filter(
-      (
-        source
-      ) =>
-        source.weight >
-          0 &&
-        source.players
-          .length >
-          0
-    );
-
-  if (
-    activeSources.length ===
-    0
-  ) {
-    return [];
-  }
-
-  /*
-   * A single source behaves essentially
-   * the same as the existing importer.
-   */
-  if (
-    activeSources.length ===
-    1
-  ) {
-    return activeSources[
-      0
-    ].players;
-  }
-
+) {
   const playerMap =
     new Map<
       string,
@@ -183,7 +180,7 @@ export function blendSkaterProjections(
 
   for (
     const source of
-    activeSources
+    sources
   ) {
     for (
       const player of
@@ -210,6 +207,250 @@ export function blendSkaterProjections(
       );
     }
   }
+
+  return playerMap;
+}
+
+/*
+ * --------------------------------------------------------
+ * PROJECTION MATCH DIAGNOSTICS
+ * --------------------------------------------------------
+ *
+ * This does not change any player projections.
+ *
+ * It tells Nevisly how well the uploaded
+ * projection sources are matching one another.
+ */
+export function getProjectionDiagnostics(
+  sources: ProjectionSource[]
+): ProjectionDiagnostics {
+  const activeSources =
+    sources.filter(
+      (
+        source
+      ) =>
+        source.weight >
+          0 &&
+        source.players
+          .length >
+          0
+    );
+
+  if (
+    activeSources.length ===
+    0
+  ) {
+    return {
+      activeSourceCount:
+        0,
+
+      totalUniquePlayers:
+        0,
+
+      matchedAcrossAllSources:
+        0,
+
+      matchedAcrossMultipleSources:
+        0,
+
+      sources:
+        [],
+    };
+  }
+
+  const playerMap =
+    buildPlayerMap(
+      activeSources
+    );
+
+  let matchedAcrossAllSources =
+    0;
+
+  let matchedAcrossMultipleSources =
+    0;
+
+  for (
+    const entries of
+    playerMap.values()
+  ) {
+    const sourceIds =
+      new Set(
+        entries.map(
+          (
+            entry
+          ) =>
+            entry.source.id
+        )
+      );
+
+    if (
+      sourceIds.size >
+      1
+    ) {
+      matchedAcrossMultipleSources++;
+    }
+
+    if (
+      sourceIds.size ===
+      activeSources.length
+    ) {
+      matchedAcrossAllSources++;
+    }
+  }
+
+  const sourceDiagnostics =
+    activeSources.map(
+      (
+        source
+      ): ProjectionSourceDiagnostic => {
+        let matchedPlayers =
+          0;
+
+        const uniquePlayerNames:
+          string[] =
+          [];
+
+        for (
+          const player of
+          source.players
+        ) {
+          const key =
+            getProjectionPlayerKey(
+              player
+            );
+
+          const entries =
+            playerMap.get(
+              key
+            ) ?? [];
+
+          const otherSourceMatch =
+            entries.some(
+              (
+                entry
+              ) =>
+                entry.source.id !==
+                source.id
+            );
+
+          if (
+            otherSourceMatch
+          ) {
+            matchedPlayers++;
+          } else {
+            uniquePlayerNames.push(
+              player.name
+            );
+          }
+        }
+
+        const uniquePlayers =
+          source.players.length -
+          matchedPlayers;
+
+        const matchPercentage =
+          source.players.length >
+          0
+            ? round(
+                (
+                  matchedPlayers /
+                  source.players.length
+                ) *
+                  100,
+                1
+              )
+            : 0;
+
+        return {
+          sourceId:
+            source.id,
+
+          sourceName:
+            source.name,
+
+          playerCount:
+            source.players.length,
+
+          matchedPlayers,
+
+          uniquePlayers,
+
+          matchPercentage,
+
+          uniquePlayerNames:
+            uniquePlayerNames
+              .sort(
+                (
+                  a,
+                  b
+                ) =>
+                  a.localeCompare(
+                    b
+                  )
+              ),
+        };
+      }
+    );
+
+  return {
+    activeSourceCount:
+      activeSources.length,
+
+    totalUniquePlayers:
+      playerMap.size,
+
+    matchedAcrossAllSources,
+
+    matchedAcrossMultipleSources,
+
+    sources:
+      sourceDiagnostics,
+  };
+}
+
+/*
+ * --------------------------------------------------------
+ * BLEND PROJECTIONS
+ * --------------------------------------------------------
+ */
+export function blendSkaterProjections(
+  sources: ProjectionSource[]
+): SkaterProjection[] {
+  const activeSources =
+    sources.filter(
+      (
+        source
+      ) =>
+        source.weight >
+          0 &&
+        source.players
+          .length >
+          0
+    );
+
+  if (
+    activeSources.length ===
+    0
+  ) {
+    return [];
+  }
+
+  /*
+   * Preserve original single-source behavior.
+   */
+  if (
+    activeSources.length ===
+    1
+  ) {
+    return activeSources[
+      0
+    ].players;
+  }
+
+  const playerMap =
+    buildPlayerMap(
+      activeSources
+    );
 
   const blended:
     SkaterProjection[] =
@@ -254,7 +495,8 @@ export function blendSkaterProjections(
             .age;
 
     blended.push({
-      id: `blend-${key}`,
+      id:
+        `blend-${key}`,
 
       name:
         primary.player
@@ -271,10 +513,11 @@ export function blendSkaterProjections(
           entries
         ),
 
-      gp: getWeightedValue(
-        entries,
-        "gp"
-      ),
+      gp:
+        getWeightedValue(
+          entries,
+          "gp"
+        ),
 
       goals:
         getWeightedValue(
@@ -294,15 +537,17 @@ export function blendSkaterProjections(
           "points"
         ),
 
-      ppp: getWeightedValue(
-        entries,
-        "ppp"
-      ),
+      ppp:
+        getWeightedValue(
+          entries,
+          "ppp"
+        ),
 
-      sog: getWeightedValue(
-        entries,
-        "sog"
-      ),
+      sog:
+        getWeightedValue(
+          entries,
+          "sog"
+        ),
 
       hits:
         getWeightedValue(
