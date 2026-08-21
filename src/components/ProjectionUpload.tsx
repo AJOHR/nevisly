@@ -103,6 +103,20 @@ type RankedPlayer = BaseRankedPlayer & {
 
   scheduleBonus: number;
 
+
+
+  projectionSources?: number;
+
+  projectionConfidence?: 
+
+    "HIGH" |
+
+    "MEDIUM" |
+
+    "LOW";
+
+  projectionVariance?: number;
+
   score: number;
 };
 
@@ -1965,54 +1979,62 @@ export default function ProjectionUpload() {
               player.age
             );
 
-          if (
-            draftedIds.has(
-              player.id
-            )
-          ) {
-            return {
-              ...player,
+            const projectionConfidenceBonus =
+  player.projectionConfidence === "HIGH"
+    ? 0.08
+    : player.projectionConfidence === "MEDIUM"
+      ? 0
+      : -0.05;
 
-              h2hGain:
-                0,
-
-              scarcityBonus:
-                0,
-
-              scarcityReasons:
-                [],
-
-              returnRisk:
-                "SAFE",
-
-              returnProbability:
-                0,
-
-              returnReason:
-                "",
-
-              picksUntilNext:
-                0,
-
-              seasonOffNightGames,
-
-              playoffGames,
-
-              playoffOffNightGames,
-
-              playoffWeekGames,
-
-              playoffWeekOffNights,
-
-              scheduleBonus,
-
-              score:
-                player.vor +
-                player.needBonus +
-                scheduleBonus +
-                ageRiskBonus,
-            };
-          }
+      if (
+        draftedIds.has(
+          player.id
+        )
+      ) {
+        return {
+          ...player,
+      
+          h2hGain:
+            0,
+      
+          scarcityBonus:
+            0,
+      
+          scarcityReasons:
+            [],
+      
+          returnRisk:
+            "SAFE",
+      
+          returnProbability:
+            0,
+      
+          returnReason:
+            "",
+      
+          picksUntilNext:
+            0,
+      
+          seasonOffNightGames,
+      
+          playoffGames,
+      
+          playoffOffNightGames,
+      
+          playoffWeekGames,
+      
+          playoffWeekOffNights,
+      
+          scheduleBonus,
+      
+          score:
+            player.vor +
+            player.needBonus +
+            scheduleBonus +
+            ageRiskBonus +
+            projectionConfidenceBonus,
+        };
+      }
 
           const h2h =
             calculateH2HImpact({
@@ -2134,14 +2156,15 @@ export default function ProjectionUpload() {
             scheduleBonus,
 
             score:
-              player.vor +
-              player.needBonus +
-              h2h.matchupGain *
-                1.25 +
-              scarcity.scarcityBonus +
-              flexibilityBonus +
-              scheduleBonus +
-              ageRiskBonus,
+            player.vor +
+            player.needBonus +
+            h2h.matchupGain *
+              1.25 +
+            scarcity.scarcityBonus +
+            flexibilityBonus +
+            scheduleBonus +
+            ageRiskBonus +
+            projectionConfidenceBonus,
           };
         }
       );
