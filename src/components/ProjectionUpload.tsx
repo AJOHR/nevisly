@@ -11,9 +11,10 @@ import {
 import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 
 import {
-  blendSkaterProjections,
-  type ProjectionSource,
-} from "@/lib/projections/blendSkaterProjections";
+    blendSkaterProjections,
+    getProjectionDiagnostics,
+    type ProjectionSource,
+  } from "@/lib/projections/blendSkaterProjections";
 
 import type { SkaterProjection } from "@/types/player";
 import type { DraftPick, FantasyTeam } from "@/types/draft";
@@ -445,6 +446,35 @@ export default function ProjectionUpload() {
       );
     }, [
       projectionSources,
+    ]);
+
+    const projectionDiagnostics =
+    useMemo(() => {
+      const sources:
+        ProjectionSource[] =
+        activeProjectionSources.map(
+          (
+            source
+          ) => ({
+            id:
+              source.id,
+  
+            name:
+              source.name,
+  
+            weight:
+              source.weight,
+  
+            players:
+              source.players,
+          })
+        );
+  
+      return getProjectionDiagnostics(
+        sources
+      );
+    }, [
+      activeProjectionSources,
     ]);
 
   const players =
@@ -3114,6 +3144,137 @@ export default function ProjectionUpload() {
               )}
           </div>
 
+          {projectionDiagnostics.activeSourceCount >
+  1 && (
+  <details className="mt-4 rounded-lg border border-zinc-800 bg-zinc-950">
+    <summary className="cursor-pointer px-3 py-3 text-xs font-semibold text-zinc-300">
+      Projection Match Diagnostics
+    </summary>
+
+    <div className="border-t border-zinc-800 p-3">
+      <div className="mb-3 grid gap-2 sm:grid-cols-3">
+        <DiagnosticStat
+          label="Sources"
+          value={
+            projectionDiagnostics.activeSourceCount
+          }
+        />
+
+        <DiagnosticStat
+          label="Matched All"
+          value={
+            projectionDiagnostics.matchedAcrossAllSources
+          }
+        />
+
+        <DiagnosticStat
+          label="Blended Pool"
+          value={
+            projectionDiagnostics.totalUniquePlayers
+          }
+        />
+      </div>
+
+      <div className="space-y-3">
+        {projectionDiagnostics.sources.map(
+          (
+            source
+          ) => (
+            <div
+              key={
+                source.sourceId
+              }
+              className="rounded-lg border border-zinc-800 bg-zinc-900 p-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="font-semibold">
+                  {
+                    source.sourceName
+                  }
+                </div>
+
+                <div
+                  className={`text-xs font-bold ${
+                    source.matchPercentage >=
+                    90
+                      ? "text-emerald-400"
+                      : source.matchPercentage >=
+                          75
+                        ? "text-yellow-400"
+                        : "text-red-400"
+                  }`}
+                >
+                  {
+                    source.matchPercentage
+                  }
+                  % matched
+                </div>
+              </div>
+
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-zinc-500">
+                <span>
+                  {
+                    source.playerCount
+                  }{" "}
+                  players
+                </span>
+
+                <span>
+                  {
+                    source.matchedPlayers
+                  }{" "}
+                  matched
+                </span>
+
+                <span>
+                  {
+                    source.uniquePlayers
+                  }{" "}
+                  unique
+                </span>
+              </div>
+
+              {source.uniquePlayerNames.length >
+                0 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-[10px] text-zinc-600 hover:text-zinc-400">
+                    Show unmatched players
+                  </summary>
+
+                  <div className="mt-2 max-h-40 overflow-auto rounded-md bg-zinc-950 p-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {source.uniquePlayerNames.map(
+                        (
+                          name
+                        ) => (
+                          <span
+                            key={
+                              name
+                            }
+                            className="rounded border border-zinc-800 px-2 py-1 text-[10px] text-zinc-500"
+                          >
+                            {
+                              name
+                            }
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                </details>
+              )}
+            </div>
+          )
+        )}
+      </div>
+
+      <div className="mt-3 text-[10px] text-zinc-600">
+        Matching currently uses normalized player name + NHL team.
+      </div>
+    </div>
+  </details>
+)}
+
           {error && (
             <p className="mt-3 text-xs text-red-400">
               {error}
@@ -4440,3 +4601,22 @@ function SortableHeader({
     </th>
   );
 }
+function DiagnosticStat({
+    label,
+    value,
+  }: {
+    label: string;
+    value: number;
+  }) {
+    return (
+      <div className="rounded-md bg-zinc-900 p-2">
+        <div className="text-[9px] uppercase text-zinc-600">
+          {label}
+        </div>
+  
+        <div className="mt-0.5 text-sm font-black text-zinc-200">
+          {value}
+        </div>
+      </div>
+    );
+  }
