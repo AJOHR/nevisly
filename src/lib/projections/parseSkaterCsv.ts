@@ -171,17 +171,12 @@ function normalizeName(
 }
 
 export function getProjectionPlayerKey(
-  player: Pick<
-    SkaterProjection,
-    "name" | "team"
-  >
-) {
-  return `${normalizeName(
-    player.name
-  )}|${normalizeTeam(
-    player.team
-  )}`;
-}
+    player: SkaterProjection
+  ) {
+    return player.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+  }
 
 export function parseSkaterCsv(
   file: File
