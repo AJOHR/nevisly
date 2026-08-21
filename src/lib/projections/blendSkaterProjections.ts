@@ -108,7 +108,7 @@ function round(
 }
 
 
-ffunction getProjectionConfidence(
+function getProjectionConfidence(
   entries: PlayerEntry[]
 ):
 "HIGH" | "MEDIUM" | "LOW" {
