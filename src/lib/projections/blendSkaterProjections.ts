@@ -122,12 +122,15 @@ function getProjectionConfidence(
       entries
     );
 
-  if(variance <= 10) {
-    return "HIGH";
-  }
-
-  return "MEDIUM";
-}
+    if(variance <= 5) {
+      return "HIGH";
+    }
+    
+    if(variance <= 15) {
+      return "MEDIUM";
+    }
+    
+    return "LOW";
 
 
 function calculateProjectionVariance(
@@ -470,7 +473,7 @@ export function blendSkaterProjections(
   
       projectionSources: 1,
   
-      projectionConfidence: "MEDIUM",
+      projectionConfidence: "LOW",
   
       projectionVariance: 0,
     }));
@@ -482,7 +485,7 @@ export function blendSkaterProjections(
     buildPlayerMap(active);
 
 
-  const blended:SkaterProjection[]=[];
+  const blended:BlendedSkaterProjection[]=[];
 
 
   for(const [key,entries] of map) {
