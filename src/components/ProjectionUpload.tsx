@@ -10,6 +10,8 @@ import {
 
 import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 
+import PlayerExplanationCard from "@/components/PlayerExplanationCard";
+
 import {
     blendSkaterProjections,
     getProjectionDiagnostics,
@@ -421,6 +423,11 @@ export default function ProjectionUpload() {
     useState<
       DraftPick[]
     >([]);
+
+    const [
+        selectedPlayer,
+        setSelectedPlayer,
+      ] = useState<RankedPlayer | null>(null);
 
   const [
     selectedDraftTeamId,
@@ -3457,16 +3464,20 @@ export default function ProjectionUpload() {
                           );
 
                         return (
-                          <div
-                            key={
-                              player.id
-                            }
-                            className={`grid gap-3 px-4 py-3 lg:grid-cols-[42px_minmax(200px,1fr)_110px_125px] lg:items-center ${
-                              index ===
-                              0
-                                ? "bg-emerald-950/25"
-                                : ""
-                            }`}
+<div
+  key={
+    player.id
+  }
+  onClick={() =>
+    setSelectedPlayer(player)
+  }
+  className={`cursor-pointer grid gap-3 px-4 py-3 lg:grid-cols-[42px_minmax(200px,1fr)_110px_125px] lg:items-center ${
+    index ===
+    0
+      ? "bg-emerald-950/25"
+      : ""
+  }`}
+>
                           >
                             <div
                               className={`text-xl font-black ${
@@ -3855,15 +3866,19 @@ export default function ProjectionUpload() {
                               undefined;
 
                             return (
-                              <tr
-                                key={
-                                  player.id
-                                }
-                                className={`border-t border-zinc-800 ${
-                                  drafted
-                                    ? "opacity-40"
-                                    : "hover:bg-zinc-800/50"
-                                }`}
+<tr
+  key={
+    player.id
+  }
+  onClick={() =>
+    setSelectedPlayer(player)
+  }
+  className={`cursor-pointer border-t border-zinc-800 ${
+    drafted
+      ? "opacity-40"
+      : "hover:bg-zinc-800/50"
+  }`}
+>
                               >
                                 <td className="p-2">
                                   {drafted ? (
