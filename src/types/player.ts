@@ -16,10 +16,10 @@ export type SkaterProjection = {
   
     projectionSources?: number;
 
-    projectionConfidence?: 
-      "HIGH" |
-      "MEDIUM" |
-      "LOW";
-    
+    projectionConfidence?:
+      | "HIGH"
+      | "MEDIUM"
+      | "LOW";
+  
     projectionVariance?: number;
   };

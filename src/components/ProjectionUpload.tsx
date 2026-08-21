@@ -69,15 +69,15 @@ type ProjectionSourceState = {
 };
 
 export type BaseRankedPlayer = SkaterProjection & {
-  rawScore: number;
-  vor: number;
-  replacementPosition: string;
-  zScores: Record<CategoryKey, number>;
-
-  projectionCount?: number;
-  projectionConfidence?: "HIGH" | "MEDIUM" | "LOW";
-  projectionVariance?: number;
-};
+    rawScore: number;
+    vor: number;
+    replacementPosition: string;
+    zScores: Record<CategoryKey, number>;
+  
+    projectionSources?: number;
+    projectionConfidence?: "HIGH" | "MEDIUM" | "LOW";
+    projectionVariance?: number;
+  };
 
 export type RankedPlayer = BaseRankedPlayer & {
   needBonus: number;
