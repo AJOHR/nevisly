@@ -2040,7 +2040,7 @@ export default function ProjectionUpload() {
             player.vor +
             player.needBonus +
             scheduleBonus +
-            ageRiskBonus +
+            ageRiskBonus,
         };
       }
 
@@ -2171,7 +2171,7 @@ export default function ProjectionUpload() {
             scarcity.scarcityBonus +
             flexibilityBonus +
             scheduleBonus +
-            ageRiskBonus +
+            ageRiskBonus,
           };
         }
       );
