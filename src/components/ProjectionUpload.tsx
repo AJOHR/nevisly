@@ -68,11 +68,6 @@ type ProjectionSourceState = {
   players: SkaterProjection[];
 };
 
-const [
-    injuries,
-    setInjuries,
-  ] = useState<InjuryStatus[]>([]);
-
 type InjuryStatus = {
     id: string;
     name: string;
@@ -161,6 +156,15 @@ type SortKey =
 type SortDirection =
   | "asc"
   | "desc";
+
+  type InjuryStatus = {
+    id: string;
+    name: string;
+    team: string;
+    status: string;
+    injuryType: string | null;
+    returnDate: string | null;
+  };
 
 type RosterSlot = {
   id: string;
@@ -381,6 +385,11 @@ export default function ProjectionUpload() {
         100
       ),
     ]);
+
+    const [
+        injuries,
+        setInjuries,
+      ] = useState<InjuryStatus[]>([]);
 
   const [
     error,
