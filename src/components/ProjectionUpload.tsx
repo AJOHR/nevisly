@@ -68,6 +68,20 @@ type ProjectionSourceState = {
   players: SkaterProjection[];
 };
 
+const [
+    injuries,
+    setInjuries,
+  ] = useState<InjuryStatus[]>([]);
+
+type InjuryStatus = {
+    id: string;
+    name: string;
+    team: string;
+    status: string;
+    injuryType: string | null;
+    returnDate: string | null;
+  };
+
 export type BaseRankedPlayer = SkaterProjection & {
     rawScore: number;
     vor: number;
@@ -709,6 +723,52 @@ export default function ProjectionUpload() {
       ]
     );
   }
+ 
+  function normalizePlayerName(
+    name: string
+  ) {
+    return name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(
+        /[\u0300-\u036f]/g,
+        ""
+      )
+      .replace(
+        /[^a-z0-9]/g,
+        ""
+      );
+  }
+
+  const injuryByPlayer =
+  useMemo(() => {
+    const map =
+      new Map<
+        string,
+        InjuryStatus
+      >();
+
+    for (
+      const injury of
+      injuries
+    ) {
+      const key =
+        `${normalizePlayerName(
+          injury.name
+        )}|${injury.team
+          .trim()
+          .toUpperCase()}`;
+
+      map.set(
+        key,
+        injury
+      );
+    }
+
+    return map;
+  }, [
+    injuries,
+  ]);
 
   function removeProjectionSource(
     sourceId: string
@@ -736,6 +796,37 @@ export default function ProjectionUpload() {
 
     resetDraftForProjectionChange();
   }
+
+  useEffect(() => {
+    async function loadInjuries() {
+      try {
+        const response =
+          await fetch(
+            "/api/nhl/injuries"
+          );
+  
+        if (
+          !response.ok
+        ) {
+          return;
+        }
+  
+        const data =
+          await response.json();
+  
+        setInjuries(
+          data.injuries ??
+            []
+        );
+      } catch {
+        /*
+         * Injury status is supplemental.
+         */
+      }
+    }
+  
+    loadInjuries();
+  }, []);
 
   useEffect(() => {
     async function loadSchedule() {
@@ -3667,6 +3758,15 @@ export default function ProjectionUpload() {
                       Player Pool
                     </h2>
 
+                    const injury =
+  injuryByPlayer.get(
+    `${normalizePlayerName(
+      player.name
+    )}|${player.team
+      .trim()
+      .toUpperCase()}`
+  );
+
                     <span className="text-xs text-zinc-500">
                       {
                         filteredPlayers.length
@@ -4092,9 +4192,13 @@ export default function ProjectionUpload() {
                                     "—"}
                                 </td>
 
-                                <td className="p-2 text-zinc-600">
-                                  —
-                                </td>
+                              <td className="p-2">
+  <InjuryBadge
+    injury={
+      injury
+    }
+  />
+</td>
                               </tr>
                             );
                           }
@@ -4742,5 +4846,83 @@ function DiagnosticStat({
   
         </div>
       </details>
+    );
+  }
+
+  function InjuryBadge({
+    injury,
+  }: {
+    injury?: InjuryStatus;
+  }) {
+    if (
+      !injury
+    ) {
+      return (
+        <span className="text-zinc-700">
+          —
+        </span>
+      );
+    }
+  
+    const status =
+      injury.status
+        .trim()
+        .toLowerCase();
+  
+    let label =
+      injury.status;
+  
+    let className =
+      "text-yellow-400";
+  
+    if (
+      status.includes(
+        "day"
+      )
+    ) {
+      label =
+        "DTD";
+  
+      className =
+        "text-yellow-400";
+    } else if (
+      status.includes(
+        "reserve"
+      ) ||
+      status ===
+        "ir"
+    ) {
+      label =
+        "IR";
+  
+      className =
+        "text-red-400";
+    } else if (
+      status.includes(
+        "out"
+      )
+    ) {
+      label =
+        "OUT";
+  
+      className =
+        "text-red-400";
+    }
+  
+    return (
+      <span
+        className={`whitespace-nowrap text-[10px] font-bold ${className}`}
+        title={[
+          injury.status,
+          injury.injuryType,
+          injury.returnDate
+            ? `Return: ${injury.returnDate}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      >
+        {label}
+      </span>
     );
   }
