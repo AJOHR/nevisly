@@ -3937,7 +3937,7 @@ export default function ProjectionUpload() {
                           </th>
                         </tr>
                       </thead>
-
+<tbody>
                       {filteredPlayers.map(
   (
     player
@@ -4203,7 +4203,7 @@ export default function ProjectionUpload() {
                           }
                         )}
                       </tbody>
-                      
+
                     </table>
                   </div>
                 </section>
