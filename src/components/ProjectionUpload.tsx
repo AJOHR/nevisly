@@ -4849,6 +4849,36 @@ function DiagnosticStat({
     );
   }
 
+  function formatReturnDate(
+    date?: string | null
+  ) {
+    if (!date) {
+      return null;
+    }
+  
+    const parsed =
+      new Date(
+        `${date}T00:00:00`
+      );
+  
+    if (
+      Number.isNaN(
+        parsed.getTime()
+      )
+    ) {
+      return date;
+    }
+  
+    return parsed.toLocaleDateString(
+      "en-CA",
+      {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }
+    );
+  }
+
   function InjuryBadge({
     injury,
   }: {
@@ -4915,9 +4945,11 @@ function DiagnosticStat({
         title={[
           injury.status,
           injury.injuryType,
-          injury.returnDate
-            ? `Return: ${injury.returnDate}`
-            : null,
+injury.returnDate
+  ? `Return: ${formatReturnDate(
+      injury.returnDate
+    )}`
+  : null,
         ]
           .filter(Boolean)
           .join(" · ")}
