@@ -3965,7 +3965,7 @@ export default function ProjectionUpload() {
         key={
           player.id
         }
-        
+
   onClick={() =>
     setSelectedPlayer(player)
   }
@@ -4191,18 +4191,19 @@ export default function ProjectionUpload() {
                                     "—"}
                                 </td>
 
-                              <td className="p-2">
-  <InjuryBadge
-    injury={
-      injury
-    }
-  />
-</td>
+                                <td className="p-2">
+                                  <InjuryBadge
+                                    injury={
+                                      injury
+                                    }
+                                  />
+                                </td>
                               </tr>
                             );
                           }
                         )}
                       </tbody>
+                      
                     </table>
                   </div>
                 </section>
