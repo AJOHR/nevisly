@@ -3757,16 +3757,6 @@ export default function ProjectionUpload() {
                     <h2 className="font-semibold">
                       Player Pool
                     </h2>
-
-                    const injury =
-  injuryByPlayer.get(
-    `${normalizePlayerName(
-      player.name
-    )}|${player.team
-      .trim()
-      .toUpperCase()}`
-  );
-
                     <span className="text-xs text-zinc-500">
                       {
                         filteredPlayers.length
@@ -3948,25 +3938,34 @@ export default function ProjectionUpload() {
                         </tr>
                       </thead>
 
-                      <tbody>
-                        {filteredPlayers.map(
-                          (
-                            player
-                          ) => {
-                            const ownerId =
-                              ownerByPlayerId.get(
-                                player.id
-                              );
+                      {filteredPlayers.map(
+  (
+    player
+  ) => {
+    const ownerId =
+      ownerByPlayerId.get(
+        player.id
+      );
 
-                            const drafted =
-                              ownerId !==
-                              undefined;
+    const drafted =
+      ownerId !==
+      undefined;
 
-                            return (
-<tr
-  key={
-    player.id
-  }
+    const injury =
+      injuryByPlayer.get(
+        `${normalizePlayerName(
+          player.name
+        )}|${player.team
+          .trim()
+          .toUpperCase()}`
+      );
+
+    return (
+      <tr
+        key={
+          player.id
+        }
+        
   onClick={() =>
     setSelectedPlayer(player)
   }
