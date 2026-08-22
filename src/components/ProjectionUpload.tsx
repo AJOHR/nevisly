@@ -528,7 +528,7 @@ export default function ProjectionUpload() {
 
       return blendSkaterProjections(
         sources
-      );
+      ); 
     }, [
       activeProjectionSources,
     ]);
@@ -1994,12 +1994,6 @@ export default function ProjectionUpload() {
               player.age
             );
 
-            const projectionConfidenceBonus =
-  player.projectionConfidence === "HIGH"
-    ? 0.08
-    : player.projectionConfidence === "MEDIUM"
-      ? 0
-      : -0.05;
 
       if (
         draftedIds.has(
@@ -2047,7 +2041,6 @@ export default function ProjectionUpload() {
             player.needBonus +
             scheduleBonus +
             ageRiskBonus +
-            projectionConfidenceBonus,
         };
       }
 
@@ -2179,7 +2172,6 @@ export default function ProjectionUpload() {
             flexibilityBonus +
             scheduleBonus +
             ageRiskBonus +
-            projectionConfidenceBonus,
           };
         }
       );
