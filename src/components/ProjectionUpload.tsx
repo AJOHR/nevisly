@@ -68,15 +68,6 @@ type ProjectionSourceState = {
   players: SkaterProjection[];
 };
 
-type InjuryStatus = {
-    id: string;
-    name: string;
-    team: string;
-    status: string;
-    injuryType: string | null;
-    returnDate: string | null;
-  };
-
 export type BaseRankedPlayer = SkaterProjection & {
     rawScore: number;
     vor: number;
