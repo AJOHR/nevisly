@@ -40,3 +40,7 @@ Assumptions: name-based projection identity is provisional; ambiguous identities
 Validation: six regression cases failed before fixes; all 28 tests, TypeScript, ESLint and production build passed afterward.
 
 Assumptions: versioned sequence numbers persist for the lifetime of a Yahoo draft. Legacy events cannot prove completeness. The 30-second stale indicator reflects event recency, not proof that Yahoo changed. Explicit normalized fantasy-team IDs override snake inference.
+
+### Stage 3 identity follow-up
+
+Final review found that one Yahoo player ID could appear under a changed name at a different pick. A regression reproduced it; incremental and snapshot validation now compare Yahoo IDs as well as resolved projection IDs. This follow-up is committed separately.

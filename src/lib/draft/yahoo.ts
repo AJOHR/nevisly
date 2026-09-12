@@ -52,6 +52,8 @@ export function applyYahooMessage(session:Session,raw:unknown,kind:'pick'|'snaps
   const values=kind==='snapshot'?(versioned?data.picks:data):[versioned?data.pick:data];
   if(!Array.isArray(values)||values.length>10000)throw Error('Invalid snapshot');
   const incoming=values.map(v=>resolve(readPick(v,session.leagueTeams),players,session.leagueTeams,session.draftPicks)).sort((a,b)=>a.pickNumber-b.pickNumber);
+  const yahooIds=incoming.flatMap(p=>p.yahooPlayerId?[p.yahooPlayerId]:[]);
+  if(new Set(yahooIds).size!==yahooIds.length)throw Error("Duplicate Yahoo player identity in snapshot");
   if(new Set(incoming.map(p=>p.pickNumber)).size!==incoming.length||new Set(incoming.map(p=>p.playerId)).size!==incoming.length)throw Error('Duplicate pick number or player in Yahoo snapshot');
   if(versioned&&kind==='snapshot'&&incoming.some((p,i)=>p.pickNumber!==i+1))throw Error('Complete snapshot has gaps');
   let result=[...session.draftPicks];const revisions={...prior.pickSequences};let conflicts=0;
@@ -69,7 +71,7 @@ export function applyYahooMessage(session:Session,raw:unknown,kind:'pick'|'snaps
    if(sequence===undefined&&existing){
     if(existing.playerId!==pick.playerId||existing.fantasyTeamId!==pick.fantasyTeamId){conflicts++;continue;}
    }
-   if(result.some(p=>p.pickNumber!==pick.pickNumber&&p.playerId===pick.playerId)){conflicts++;continue;}
+   if(result.some(p=>p.pickNumber!==pick.pickNumber&&(p.playerId===pick.playerId||(pick.yahooPlayerId&&p.yahooPlayerId===pick.yahooPlayerId)))){conflicts++;continue;}
    result=[...result.filter(p=>p.pickNumber!==pick.pickNumber),pick];
    if(sequence!==undefined)revisions[pick.pickNumber]=sequence;
   }
