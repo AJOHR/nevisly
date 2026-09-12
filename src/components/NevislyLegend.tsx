@@ -275,7 +275,7 @@ export default function NevislyLegend() {
                 </strong>
 
                 <p>
-                  Probability another team drafts the
+                  Heuristic estimate of whether another team drafts the
                   player before your next pick.
                 </p>
               </div>

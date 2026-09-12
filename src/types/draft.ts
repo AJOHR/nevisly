@@ -6,6 +6,7 @@ export type DraftPick = {
     nhlTeam?: string;
     positions?: string[];
     yahooPlayerId?: string;
+    manualProjectionId?: string;
     source?: "manual" | "yahoo";
     resolution?: "matched" | "unresolved" | "ambiguous" | "goalie";
 
@@ -16,3 +17,12 @@ export type DraftPick = {
     name: string;
     isMyTeam: boolean;
   };
+export type SyncMetadata = {
+ draftSessionId?:string;
+ lastSnapshotSequence:number;
+ pickSequences:Record<string,number>;
+ status:'LIVE'|'PARTIAL'|'ERROR';
+ message:string;
+ lastReceivedAt:number;
+ lastSnapshotAt?:number;
+};

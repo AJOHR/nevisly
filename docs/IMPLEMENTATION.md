@@ -28,3 +28,15 @@ Assumptions: standard snake order; when currently on the clock, urgency describe
 Validation: 12 tests, TypeScript, lint and production build passed. The reset/identity regressions failed before their fixes. Additional persistence tests cover reload, corruption, quota failure, unavailable storage and stale tabs.
 
 Assumptions: name-based projection identity is provisional; ambiguous identities must remain unresolved, not silently merged. Browser storage is device/browser-local, not cloud backup. Simultaneous multi-tab editing is not supported.
+
+## Stage 3
+
+- Replaced both event handlers with a tested, runtime-validated Yahoo reconciliation boundary using current session state.
+- Legacy events merge without deleting picks. Versioned snapshots carry a draft-session ID, monotonic sequence and completeness declaration; stale snapshots/events cannot roll back newer state. Rollbacks require an explicit newer correction.
+- Unknown, ambiguous and goalie selections retain Yahoo identity, ownership and pick numbers. Exact names precede unique initial matches; ambiguous matches require manual resolution, which survives subsequent snapshots.
+- Added sync health, reconciliation requests and persisted sequence barriers. Gone Risk displays heuristic bands; H2H comparison rates are explicitly uncalibrated.
+- Documented the bridge contract in YAHOO_BRIDGE.md. The extension is outside this repository and was not modified or end-to-end tested.
+
+Validation: six regression cases failed before fixes; all 28 tests, TypeScript, ESLint and production build passed afterward.
+
+Assumptions: versioned sequence numbers persist for the lifetime of a Yahoo draft. Legacy events cannot prove completeness. The 30-second stale indicator reflects event recency, not proof that Yahoo changed. Explicit normalized fantasy-team IDs override snake inference.

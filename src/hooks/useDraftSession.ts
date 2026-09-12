@@ -8,7 +8,8 @@ const subscribe=(listener:()=>void)=>getStore().subscribe(listener);
 const getSnapshot=()=>getStore().getSnapshot();
 const getServerSnapshot=()=>serverSnapshot;
 function setField<K extends keyof Session>(key:K,value:Session[K]|((current:Session[K])=>Session[K])){getStore().update(s=>({...s,[key]:typeof value==='function'?(value as (v:Session[K])=>Session[K])(s[key]):value}));}
+function update(change:(s:Session)=>Session){getStore().update(change);}
 export function useDraftSession(){
  const snapshot=useSyncExternalStore(subscribe,getSnapshot,getServerSnapshot);
- return {...snapshot,setField,recover:()=>getStore().recover(),update:(change:(s:Session)=>Session)=>getStore().update(change)};
+ return {...snapshot,setField,recover:()=>getStore().recover(),update};
 }

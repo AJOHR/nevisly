@@ -135,10 +135,7 @@ export default function PlayerExplanationCard({
 
           Gone Risk:
           {" "}
-          {Math.round(
-            player.returnProbability * 100
-          )}
-          %
+          {player.returnRisk} (heuristic)
 
           <br />
 

@@ -9,6 +9,9 @@ import {
   type ChangeEvent,
 } from "react";
 
+import { applyYahooMessage } from "@/lib/draft/yahoo";
+import { getNextTurn } from "@/lib/draft/state";
+
 import { useDraftSession } from "@/hooks/useDraftSession";
 import { SESSION_KEY, type ProjectionSourceState } from "@/lib/session/session";
 
@@ -338,143 +341,6 @@ function getTeamSchedule(
   }
 
   return undefined;
-}
-
-function normalizeNamePart(
-  value: string
-) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
-    .replace(
-      /[^a-z0-9]/g,
-      ""
-    );
-}
-
-function matchesYahooPlayerName(
-  yahooName: string,
-  fullName: string
-) {
-  const yahoo =
-    yahooName
-      .trim()
-      .replace(/\s+/g, " ");
-
-  const full =
-    fullName
-      .trim()
-      .replace(/\s+/g, " ");
-
-  if (
-    normalizePlayerName(yahoo) ===
-    normalizePlayerName(full)
-  ) {
-    return true;
-  }
-
-  const yahooParts =
-    yahoo.split(" ");
-
-  const fullParts =
-    full.split(" ");
-
-  if (
-    yahooParts.length <
-      2 ||
-    fullParts.length <
-      2
-  ) {
-    return false;
-  }
-
-  const yahooFirst =
-    yahooParts[0]
-      .replace(".", "")
-      .trim();
-
-  const yahooLast =
-    yahooParts[
-      yahooParts.length -
-        1
-    ];
-
-  const fullFirst =
-    fullParts[0];
-
-  const fullLast =
-    fullParts[
-      fullParts.length -
-        1
-    ];
-
-  const firstInitialMatches =
-    normalizeNamePart(
-      yahooFirst
-    )[0] ===
-    normalizeNamePart(
-      fullFirst
-    )[0];
-
-  const lastNameMatches =
-    normalizeNamePart(
-      yahooLast
-    ) ===
-    normalizeNamePart(
-      fullLast
-    );
-
-  return (
-    firstInitialMatches &&
-    lastNameMatches
-  );
-}
-
-function normalizeYahooNhlTeam(
-  team: string
-) {
-  const normalized =
-    team
-      .trim()
-      .toUpperCase();
-
-  const aliases:
-    Record<string, string> = {
-      TB: "TBL",
-      LA: "LAK",
-      NJ: "NJD",
-      SJ: "SJS",
-      WAS: "WSH",
-      CLB: "CBJ",
-      MON: "MTL",
-    };
-
-  return (
-    aliases[
-      normalized
-    ] ??
-    normalized
-  );
-}
-
-function normalizePlayerName(
-  name: string
-) {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
-    .replace(
-      /[^a-z0-9]/g,
-      ""
-    );
 }
 
 function getTierGroup(
@@ -932,188 +798,6 @@ export default function ProjectionUpload() {
   }, []);
 
   useEffect(() => {
-    function handleYahooSnapshot(
-      event: Event
-    ) {
-      const customEvent =
-        event as CustomEvent<string>;
-  
-        let yahooPicks: Array<{
-          pickNumber: number;
-          playerName: string;
-          nhlTeam: string;
-          teamName: string;
-          positions?: string[];
-        }>;
-
-      try {
-        yahooPicks =
-          JSON.parse(
-            customEvent.detail
-          );
-      } catch {
-        console.warn(
-          "[Nevisly Sync] Could not read Yahoo snapshot."
-        );
-        return;
-      }
-  
-      if (
-        !Array.isArray(yahooPicks) ||
-        yahooPicks.length === 0
-      ) {
-        return;
-      }
-  
-      const reconciledPicks: DraftPick[] =
-        [];
-  
-      const unmatched: Array<{
-        pickNumber: number;
-        playerName: string;
-        nhlTeam: string;
-      }> = [];
-  
-      for (
-
-        const yahooPick of yahooPicks
-      
-      ) {
-      
-        const {
-      
-          pickNumber,
-      
-          playerName,
-      
-          nhlTeam,
-      
-          positions = [],
-      
-        } = yahooPick;
-
-  const matchedTeamId =
-    getSnakeTeamIdForPick(
-      pickNumber,
-      leagueTeams
-    );
-
-  if (
-    positions.includes("G")
-  ) {
-    reconciledPicks.push({
-      playerId:
-        `__yahoo_goalie_pick_${pickNumber}`,
-
-      fantasyTeamId:
-        matchedTeamId,
-
-      pickNumber,
-    });
-
-    continue;
-  }
-
-  const matchedPlayer =
-    players.find(
-      (player) =>
-        matchesYahooPlayerName(
-          playerName,
-          player.name
-        ) &&
-        normalizeYahooNhlTeam(
-          player.team
-        ) ===
-          normalizeYahooNhlTeam(
-            nhlTeam
-          )
-    );
-
-  if (!matchedPlayer) {
-    unmatched.push({
-      pickNumber,
-      playerName,
-      nhlTeam,
-    });
-
-    continue;
-  }
-
-  reconciledPicks.push({
-    playerId:
-      matchedPlayer.id,
-
-    fantasyTeamId:
-      matchedTeamId,
-
-    pickNumber,
-  });
-}
-  
-      reconciledPicks.sort(
-        (a, b) =>
-          a.pickNumber -
-          b.pickNumber
-      );
-  
-      console.log(
-        `[Nevisly Sync] Authoritative Yahoo reconciliation: ${reconciledPicks.length}/${yahooPicks.length} matched`
-      );
-
-      if (
-        reconciledPicks.length !== yahooPicks.length
-      ) {
-        console.warn(
-          "[Nevisly Sync] Snapshot NOT applied because some Yahoo players were not matched.",
-          {
-            matched: reconciledPicks.length,
-            total: yahooPicks.length,
-            unmatched
-          }
-        );
-      
-        return;
-      }
-  
-      if (unmatched.length > 0) {
-        console.warn(
-          "[Nevisly Sync] Unmatched Yahoo players:",
-          unmatched
-        );
-      }
-  
-      /*
-       * IMPORTANT:
-       * Yahoo Round by Round is authoritative.
-       *
-       * We replace Nevisly's draft state with
-       * exactly the successfully matched Yahoo
-       * picks instead of layering them over stale
-       * mock-draft data.
-       */
-      setDraftPicks(
-        reconciledPicks
-      );
-    }
-  
-    window.addEventListener(
-      "nevisly-yahoo-snapshot",
-      handleYahooSnapshot
-    );
-  
-    return () => {
-      window.removeEventListener(
-        "nevisly-yahoo-snapshot",
-        handleYahooSnapshot
-      );
-    };
-  }, [
-    players,
-    leagueTeams,
-    setDraftPicks,
-  ]);
-
-  useEffect(() => {
     async function loadSchedule() {
       try {
         const response =
@@ -1202,216 +886,20 @@ export default function ProjectionUpload() {
       draftPicks,
     ]);
 
-    useEffect(() => {
-      function handleYahooPick(
-        event: Event
-      ) {
-        const customEvent =
-        event as CustomEvent<string>;
-      
-        let yahooPick: {
-          pickNumber: number;
-          playerName: string;
-          nhlTeam: string;
-          teamName: string;
-          positions?: string[];
-        };
-      
-      try {
-        yahooPick =
-          JSON.parse(
-            customEvent.detail
-          );
-      } catch {
-        console.warn(
-          "[Nevisly Sync] Could not read Yahoo pick."
-        );
-      
-        return;
-      }
-      
-      const {
-        pickNumber,
-        playerName,
-        nhlTeam,
-        teamName,
-        positions = [],
-      } = yahooPick;
-    
-      const isYahooGoalie =
-      positions.includes("G");
-    
-    if (isYahooGoalie) {
-      const goaliePlaceholderId =
-        `__yahoo_goalie_pick_${pickNumber}`;
-    
-      const matchedTeamId =
-        getSnakeTeamIdForPick(
-          pickNumber,
-          leagueTeams
-        );
-    
-      console.log(
-        "[Nevisly Sync] Tracking goalie pick:",
-        {
-          pickNumber,
-          playerName,
-          team:
-            matchedTeamId,
-        }
-      );
-    
-      setDraftPicks(
-        (current) => {
-          const withoutPickNumber =
-            current.filter(
-              (pick) =>
-                pick.pickNumber !==
-                pickNumber
-            );
-    
-          return [
-            ...withoutPickNumber,
-            {
-              playerId:
-                goaliePlaceholderId,
-              fantasyTeamId:
-                matchedTeamId,
-              pickNumber,
-            },
-          ].sort(
-            (a, b) =>
-              a.pickNumber -
-              b.pickNumber
-          );
-        }
-      );
-    
-      return;
-    }
-
-          const matchedPlayer =
-          players.find(
-            (
-              player
-            ) =>
-              matchesYahooPlayerName(
-                playerName,
-                player.name
-              ) &&
-              normalizeYahooNhlTeam(
-                player.team
-              ) ===
-                normalizeYahooNhlTeam(
-                  nhlTeam
-                )
-          );
-    
-        if (!matchedPlayer) {
-          console.warn(
-            "[Nevisly Sync] Player not matched:",
-            playerName
-          );
-    
-          return;
-        }
-    
-        const matchedTeamId =
-  getSnakeTeamIdForPick(
-    pickNumber,
-    leagueTeams
-  );
-    
-        if (
-          draftedIds.has(
-            matchedPlayer.id
-          )
-        ) {
-          return;
-        }
-    
-        console.log(
-          "[Nevisly Sync] Applying pick:",
-          {
-            pickNumber,
-            player:
-              matchedPlayer.name,
-            team:
-            fantasyTeams.find(
-              (
-                team
-              ) =>
-                team.id ===
-                matchedTeamId
-            )?.name ??
-            teamName,
-          }
-        );
-    
-        setDraftPicks(
-          (
-            current
-          ) => {
-            const alreadyExists =
-              current.some(
-                (
-                  pick
-                ) =>
-                  pick.pickNumber ===
-                    pickNumber ||
-                  pick.playerId ===
-                    matchedPlayer.id
-              );
-    
-            if (alreadyExists) {
-              return current;
-            }
-    
-            const next =
-              [
-                ...current,
-    
-                {
-                  playerId:
-                    matchedPlayer.id,
-    
-                    fantasyTeamId:
-                    matchedTeamId,
-    
-                  pickNumber,
-                },
-              ].sort(
-                (
-                  a,
-                  b
-                ) =>
-                  a.pickNumber -
-                  b.pickNumber
-              );
-    
-            return next;
-          }
-        );
-      }
-    
-      window.addEventListener(
-        "nevisly-yahoo-pick",
-        handleYahooPick
-      );
-    
-      return () => {
-        window.removeEventListener(
-          "nevisly-yahoo-pick",
-          handleYahooPick
-        );
-      };
-    }, [
-      players,
-      fantasyTeams,
-      draftedIds,
-      leagueTeams,
-      setDraftPicks,
-    ]);
+  const {update: updateSession} = session;
+  useEffect(()=>{
+    const receive = (kind:"pick"|"snapshot") => (event:Event) => {
+      const detail = (event as CustomEvent<unknown>).detail;
+      updateSession(current=>applyYahooMessage(current,detail,kind,blendSkaterProjections(current.projectionSources)));
+    };
+    const pick=receive("pick"), snapshot=receive("snapshot");
+    window.addEventListener("nevisly-yahoo-pick",pick);
+    window.addEventListener("nevisly-yahoo-snapshot",snapshot);
+    window.dispatchEvent(new CustomEvent("nevisly-yahoo-request-snapshot"));
+    return ()=>{window.removeEventListener("nevisly-yahoo-pick",pick);window.removeEventListener("nevisly-yahoo-snapshot",snapshot);};
+  },[updateSession]);
+  const [clock,setClock]=useState(0);
+  useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return ()=>window.clearInterval(timer);},[]);
 
   const ownerByPlayerId =
     useMemo(() => {
@@ -4054,6 +3542,13 @@ powerForwardBonus,
       </div>
 
       <div className="mx-auto max-w-[1900px] p-4 lg:p-6">
+        <div role="status" className="mb-3 rounded border border-zinc-700 p-3 text-sm">
+          Yahoo sync: <strong>{!session.data.sync ? "DISCONNECTED" : clock-session.data.sync.lastReceivedAt>30000 ? "STALE" : session.data.sync.status}</strong>
+          <span className="ml-3">{session.data.sync?.message ?? "Manual drafting available"}</span>
+          <div>Represented: {draftPicks.length} · Unmatched: {draftPicks.filter(p=>p.resolution === "unresolved" || p.resolution === "ambiguous").length} · Last complete snapshot: {session.data.sync?.lastSnapshotAt ? `${Math.max(0,Math.floor((clock-session.data.sync.lastSnapshotAt)/1000))}s ago` : "none"}</div>
+          <div>Next own selection: {getNextTurn(draftPicks,leagueTeams,myDraftSlot).nextMyPick} · {getNextTurn(draftPicks,leagueTeams,myDraftSlot).opponentTeamIds.length} opponent selections before it</div>
+          <button onClick={()=>window.dispatchEvent(new CustomEvent("nevisly-yahoo-request-snapshot"))} className="mt-2 underline">Request fresh snapshot</button>
+        </div>
         {session.warning && <p role="alert" className="mb-3 text-amber-300">{session.warning}</p>}
         <details className="mb-4 rounded border border-zinc-700 p-3">
           <summary>Draft history & manual fallback · {draftPicks.length} selections · next pick {currentPickNumber}</summary>
@@ -4063,9 +3558,9 @@ powerForwardBonus,
             <select aria-label="Manual pick owner" value={selectedDraftTeamId} onChange={e=>setSelectedDraftTeamId(e.target.value)} className="bg-zinc-900 p-2">{fantasyTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>
             <input aria-label="Pick number to correct" placeholder="Correction pick # (optional)" value={correctionNumber} onChange={e=>setCorrectionNumber(e.target.value)} className="bg-zinc-900 p-2" />
             <button onClick={recordManualSelection} className="border p-2">Record selection</button><button onClick={exportSession} className="border p-2">Export draft</button>
-            <button onClick={()=>{if(window.confirm("Start a new draft? Export your current draft first.")){session.recover();session.update(s=>({...s,id:crypto.randomUUID(),draftPicks:[]}));}}} className="border p-2">New draft</button>
+            <button onClick={()=>{if(window.confirm("Start a new draft? Export your current draft first.")){session.recover();session.update(s=>({...s,id:crypto.randomUUID(),draftPicks:[],sync:undefined}));}}} className="border p-2">New draft</button>
           </div>
-          <ol className="mt-3 max-h-52 overflow-auto">{draftPicks.map(p=><li key={p.pickNumber}>#{p.pickNumber} · {getTeamName(p.fantasyTeamId)} · {players.find(x=>x.id===p.playerId)?.name ?? p.playerName ?? "Unresolved selection"} · {p.resolution ?? "matched"} <button onClick={()=>undoDraftPlayer(p.playerId)} className="ml-2 text-red-300">Undo</button></li>)}</ol>
+          <ol className="mt-3 max-h-52 overflow-auto">{draftPicks.map(p=><li key={p.pickNumber}>#{p.pickNumber} · {getTeamName(p.fantasyTeamId)} · {players.find(x=>x.id===p.playerId)?.name ?? p.playerName ?? "Unresolved selection"} · {p.resolution ?? "matched"} {(p.resolution === "unresolved" || p.resolution === "ambiguous") && <select aria-label={`Resolve pick ${p.pickNumber}`} value="" onChange={e=>{const candidate=players.find(x=>x.id===e.target.value);if(candidate)setDraftPicks(current=>draftReducer(current,{type:"correct",pick:{...p,playerId:candidate.id,manualProjectionId:candidate.id,resolution:"matched"}}));}} className="ml-2 bg-zinc-900"><option value="">Match to projection…</option>{players.filter(x=>!draftedIds.has(x.id)).map(x=><option key={x.id} value={x.id}>{x.name} · {x.team}</option>)}</select>} <button onClick={()=>undoDraftPlayer(p.playerId)} className="ml-2 text-red-300">Undo</button></li>)}</ol>
         </details>
         <section className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -4534,7 +4029,7 @@ powerForwardBonus,
               </div>
 
               <span className="ml-auto text-xs text-zinc-500">
-                H2H Categories · 90 sec pick
+                H2H Categories · 60 sec pick
               </span>
             </div>
 
@@ -5449,7 +4944,6 @@ powerForwardBonus,
 
 function ReturnRiskDisplay({
   level,
-  probability,
   reason,
   picksUntilNext,
 }: {
@@ -5481,11 +4975,7 @@ function ReturnRiskDisplay({
       "text-yellow-400";
   }
 
-  const percentage =
-    Math.round(
-      probability *
-        100
-    );
+
 
   return (
     <div className="mt-1">
@@ -5493,8 +4983,8 @@ function ReturnRiskDisplay({
         <span
           className={`text-[10px] font-bold ${className}`}
         >
-          GONE RISK:{" "}
-          {percentage}%
+          WAIT RISK (heuristic):{" "}
+          {level}
         </span>
 
         <span className="text-[10px] text-zinc-600">
@@ -5523,7 +5013,6 @@ function ReturnRiskDisplay({
 
 function GoneRiskBadge({
   level,
-  probability,
 }: {
   level: ReturnRiskLevel;
   probability: number;
@@ -5558,11 +5047,7 @@ function GoneRiskBadge({
         level
       }
     >
-      {Math.round(
-        probability *
-          100
-      )}
-      %
+      {level}
     </span>
   );
 }
