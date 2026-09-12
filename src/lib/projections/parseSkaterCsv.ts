@@ -1,3 +1,4 @@
+import { projectionId, normalizePlayerName } from "./identity";
 import Papa from "papaparse";
 import type { SkaterProjection } from "@/types/player";
 
@@ -209,39 +210,7 @@ function normalizePosition(position: string) {
   return normalized;
 }
 
-function normalizeName(name: string) {
-  return name
-    .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
-    .replace(
-      /[.’']/g,
-      ""
-    )
-    .replace(
-      /[-]/g,
-      " "
-    )
-    .replace(
-      /\s+/g,
-      " "
-    )
-    .trim()
-    .toLowerCase();
-}
-
-export function getProjectionPlayerKey(
-  player: SkaterProjection
-) {
-  return player.name
-    .toLowerCase()
-    .replace(
-      /[^a-z0-9]/g,
-      ""
-    );
-}
+export function getProjectionPlayerKey(player: SkaterProjection) { return normalizePlayerName(player.name); }
 
 export function parseSkaterCsv(
   file: File
@@ -266,8 +235,7 @@ export function parseSkaterCsv(
               results.data
                 .map(
                   (
-                    row,
-                    index
+                    row
                   ) => {
                     const name =
                       text(
@@ -331,9 +299,7 @@ export function parseSkaterCsv(
 
                     return {
                       id:
-                        `${normalizeName(
-                          name
-                        )}-${team}-${index}`,
+                        projectionId(name),
 
                       name,
 

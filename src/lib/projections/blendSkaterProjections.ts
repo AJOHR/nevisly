@@ -1,3 +1,4 @@
+import { projectionId } from "./identity";
 import type { SkaterProjection } from "@/types/player";
 
 import {
@@ -462,6 +463,7 @@ export function blendSkaterProjections(
   if(active.length === 1) {
     return active[0].players.map(player => ({
       ...player,
+      id: projectionId(player.name),
   
       projectionSources: 1,
   
@@ -480,7 +482,7 @@ export function blendSkaterProjections(
   const blended:BlendedSkaterProjection[]=[];
 
 
-  for(const [key,entries] of map) {
+  for(const entries of map.values()) {
 
 
     const primary =
@@ -501,7 +503,7 @@ export function blendSkaterProjections(
     blended.push({
 
       id:
-        `blend-${key}`,
+        projectionId(primary.player.name),
 
       name:
         primary.player.name,

@@ -2,11 +2,15 @@
 
 import {
   useEffect,
+  useCallback,
   useMemo,
   useState,
   type CSSProperties,
   type ChangeEvent,
 } from "react";
+
+import { useDraftSession } from "@/hooks/useDraftSession";
+import { SESSION_KEY, type ProjectionSourceState } from "@/lib/session/session";
 
 import { nextPickNumber, getSnakeTeamIdForPick, draftReducer } from "@/lib/draft/state";
 
@@ -60,14 +64,6 @@ const CATEGORY_LABELS: Record<CategoryKey, string> = {
   sog: "SOG",
   hits: "HIT",
   blocks: "BLK",
-};
-
-type ProjectionSourceState = {
-  id: string;
-  name: string;
-  weight: number;
-  fileName: string;
-  players: SkaterProjection[];
 };
 
 export type BaseRankedPlayer = SkaterProjection & {
@@ -505,18 +501,14 @@ function getTierGroup(
 }
 
 export default function ProjectionUpload() {
-  const [
-    projectionSources,
-    setProjectionSources,
-  ] =
-    useState<
-      ProjectionSourceState[]
-    >([
-      createProjectionSource(
-        1,
-        100
-      ),
-    ]);
+  const session = useDraftSession();
+  const { projectionSources, draftPicks, leagueTeams, myDraftSlot } = session.data;
+  const setProjectionSources = (value: ProjectionSourceState[] | ((s:ProjectionSourceState[])=>ProjectionSourceState[])) => session.setField("projectionSources", value);
+  const {setField} = session;
+  const setDraftPicks = useCallback((value: DraftPick[] | ((s:DraftPick[])=>DraftPick[])) => setField("draftPicks", value), [setField]);
+  const [manualName, setManualName] = useState("");
+  const [manualKind, setManualKind] = useState("unknown");
+  const [correctionNumber, setCorrectionNumber] = useState("");
 
     const [
         injuries,
@@ -563,38 +555,14 @@ export default function ProjectionUpload() {
   ] =
     useState(false);
 
-  const [
-    leagueTeams,
-    setLeagueTeams,
-  ] =
-    useState(12);
-
-  const [
-    myDraftSlot,
-    setMyDraftSlot,
-  ] =
-    useState(1);
-
-  const [
-    draftPicks,
-    setDraftPicks,
-  ] =
-    useState<
-      DraftPick[]
-    >([]);
-
     const [
         selectedPlayer,
         setSelectedPlayer,
       ] = useState<RankedPlayer | null>(null);
 
-  const [
-    selectedDraftTeamId,
-    setSelectedDraftTeamId,
-  ] =
-    useState(
-      "team-1"
-    );
+  const [draftTeamOverride, setDraftTeamOverride] = useState<{pick:number;team:string}|null>(null);
+  const selectedDraftTeamId = draftTeamOverride?.pick === nextPickNumber(draftPicks) ? draftTeamOverride.team : getSnakeTeamIdForPick(nextPickNumber(draftPicks),leagueTeams);
+  const setSelectedDraftTeamId = (team:string) => setDraftTeamOverride({pick:nextPickNumber(draftPicks),team});
 
   const [
     playoffSchedule,
@@ -716,13 +684,7 @@ export default function ProjectionUpload() {
     ).length;
 
   function resetDraftForProjectionChange() {
-    setDraftPicks(
-      []
-    );
-
-    setSelectedDraftTeamId(
-      myTeamId
-    );
+    // Intentionally preserve selections; missing projections remain represented in draft history.
   }
 
   async function handleProjectionFile(
@@ -1148,6 +1110,7 @@ export default function ProjectionUpload() {
   }, [
     players,
     leagueTeams,
+    setDraftPicks,
   ]);
 
   useEffect(() => {
@@ -1219,51 +1182,11 @@ export default function ProjectionUpload() {
       myDraftSlot,
     ]);
 
-  function handleLeagueTeamChange(
-    teamCount: number
-  ) {
-    const nextDraftSlot =
-      Math.min(
-        myDraftSlot,
-        teamCount
-      );
-
-    setLeagueTeams(
-      teamCount
-    );
-
-    setMyDraftSlot(
-      nextDraftSlot
-    );
-
-    setDraftPicks(
-      []
-    );
-
-    setSelectedDraftTeamId(
-      getMyTeamId(
-        nextDraftSlot
-      )
-    );
+  function handleLeagueTeamChange(teamCount:number) {
+    if (draftPicks.length) { setError("Start a new draft before changing league size."); return; }
+    session.update(s=>({...s,leagueTeams:teamCount,myDraftSlot:Math.min(s.myDraftSlot,teamCount)}));
   }
-
-  function handleDraftSlotChange(
-    slot: number
-  ) {
-    setMyDraftSlot(
-      slot
-    );
-
-    setDraftPicks(
-      []
-    );
-
-    setSelectedDraftTeamId(
-      getMyTeamId(
-        slot
-      )
-    );
-  }
+  function handleDraftSlotChange(slot:number) { session.setField("myDraftSlot",slot); }
 
   const draftedIds =
     useMemo(() => {
@@ -1487,6 +1410,7 @@ export default function ProjectionUpload() {
       fantasyTeams,
       draftedIds,
       leagueTeams,
+      setDraftPicks,
     ]);
 
   const ownerByPlayerId =
@@ -3604,7 +3528,7 @@ powerForwardBonus,
 
   function draftPlayer(playerId: string, fantasyTeamId: string) {
     setDraftPicks(current => {
-      const next = draftReducer(current, {type: "record", pick: {playerId, fantasyTeamId, pickNumber: nextPickNumber(current)}});
+      const next = draftReducer(current, {type: "record", pick: {playerId, fantasyTeamId, pickNumber: nextPickNumber(current), source: "manual", playerName: players.find(p=>p.id===playerId)?.name, resolution: "matched"}});
       setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(next), leagueTeams));
       return next;
     });
@@ -3623,6 +3547,19 @@ powerForwardBonus,
       setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(next), leagueTeams));
       return next;
     });
+  }
+
+  function recordManualSelection() {
+    if (!manualName.trim()) return;
+    const number = correctionNumber ? Number(correctionNumber) : nextPickNumber(draftPicks);
+    if (!Number.isSafeInteger(number) || number < 1) { setError("Enter a valid pick number."); return; }
+    setDraftPicks(current=>draftReducer(current,{type:correctionNumber ? "correct" : "record",pick:{playerId:`selection:${crypto.randomUUID()}`,playerName:manualName.trim(),positions:manualKind === "goalie" ? ["G"] : [],resolution:manualKind === "goalie" ? "goalie" : "unresolved",source:"manual",fantasyTeamId:selectedDraftTeamId,pickNumber:number}}));
+    setManualName("");setCorrectionNumber("");
+    setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(draftPicks) + (correctionNumber ? 0 : 1),leagueTeams));
+  }
+  function exportSession() {
+    const url=URL.createObjectURL(new Blob([session.warning.includes("could not be read") ? (window.localStorage.getItem(SESSION_KEY) ?? JSON.stringify(session.data)) : JSON.stringify(session.data,null,2)],{type:"application/json"}));
+    const a=document.createElement("a");a.href=url;a.download="nevisly-draft.json";a.click();URL.revokeObjectURL(url);
   }
 
   function handleSort(
@@ -3982,17 +3919,7 @@ powerForwardBonus,
     "D",
   ];
 
-  const draftedSkaterCount =
-  draftPicks.filter(
-    (pick) =>
-      !pick.playerId.startsWith(
-        "__yahoo_goalie_pick_"
-      )
-  ).length;
-
-const availableCount =
-  players.length -
-  draftedSkaterCount;
+  const availableCount = players.filter(player=>!draftedIds.has(player.id)).length;
 
   const lastPick =
     draftPicks.length >
@@ -4127,6 +4054,19 @@ const availableCount =
       </div>
 
       <div className="mx-auto max-w-[1900px] p-4 lg:p-6">
+        {session.warning && <p role="alert" className="mb-3 text-amber-300">{session.warning}</p>}
+        <details className="mb-4 rounded border border-zinc-700 p-3">
+          <summary>Draft history & manual fallback · {draftPicks.length} selections · next pick {currentPickNumber}</summary>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <input aria-label="Unprojected player name" placeholder="Goalie / unknown player name" value={manualName} onChange={e=>setManualName(e.target.value)} className="bg-zinc-900 p-2" />
+            <select aria-label="Player kind" value={manualKind} onChange={e=>setManualKind(e.target.value)} className="bg-zinc-900 p-2"><option value="unknown">Unknown / unprojected</option><option value="goalie">Goalie</option></select>
+            <select aria-label="Manual pick owner" value={selectedDraftTeamId} onChange={e=>setSelectedDraftTeamId(e.target.value)} className="bg-zinc-900 p-2">{fantasyTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>
+            <input aria-label="Pick number to correct" placeholder="Correction pick # (optional)" value={correctionNumber} onChange={e=>setCorrectionNumber(e.target.value)} className="bg-zinc-900 p-2" />
+            <button onClick={recordManualSelection} className="border p-2">Record selection</button><button onClick={exportSession} className="border p-2">Export draft</button>
+            <button onClick={()=>{if(window.confirm("Start a new draft? Export your current draft first.")){session.recover();session.update(s=>({...s,id:crypto.randomUUID(),draftPicks:[]}));}}} className="border p-2">New draft</button>
+          </div>
+          <ol className="mt-3 max-h-52 overflow-auto">{draftPicks.map(p=><li key={p.pickNumber}>#{p.pickNumber} · {getTeamName(p.fantasyTeamId)} · {players.find(x=>x.id===p.playerId)?.name ?? p.playerName ?? "Unresolved selection"} · {p.resolution ?? "matched"} <button onClick={()=>undoDraftPlayer(p.playerId)} className="ml-2 text-red-300">Undo</button></li>)}</ol>
+        </details>
         <section className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -5473,10 +5413,7 @@ const availableCount =
                           </div>
 
                           <div className="text-zinc-600">
-                            {leagueTeamPlayers.get(
-                              team.id
-                            )?.length ??
-                              0}{" "}
+                            {draftPicks.filter(p=>p.fantasyTeamId===team.id).length}{" "}
                             picks
                           </div>
                         </button>
