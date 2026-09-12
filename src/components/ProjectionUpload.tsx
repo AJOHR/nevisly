@@ -8,6 +8,8 @@ import {
   type ChangeEvent,
 } from "react";
 
+import { nextPickNumber, getSnakeTeamIdForPick, draftReducer } from "@/lib/draft/state";
+
 import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 
 import PlayerExplanationCard from "@/components/PlayerExplanationCard";
@@ -271,31 +273,6 @@ function getMyTeamId(
   return `team-${draftSlot}`;
 }
 
-function getSnakeTeamIdForPick(
-  pickNumber: number,
-  teamCount: number
-) {
-  const roundIndex =
-    Math.floor(
-      (pickNumber - 1) /
-        teamCount
-    );
-
-  const positionInRound =
-    (pickNumber - 1) %
-    teamCount;
-
-  const teamNumber =
-    roundIndex % 2 ===
-    0
-      ? positionInRound +
-        1
-      : teamCount -
-        positionInRound;
-
-  return `team-${teamNumber}`;
-}
-
 function calculateAgeRiskBonus(
   age: number
 ) {
@@ -502,6 +479,29 @@ function normalizePlayerName(
       /[^a-z0-9]/g,
       ""
     );
+}
+
+function getTierGroup(
+  player:
+    BaseRankedPlayer
+) {
+  if (
+    player.positions.includes(
+      "D"
+    )
+  ) {
+    return "D";
+  }
+
+  if (
+    player.positions.includes(
+      "G"
+    )
+  ) {
+    return "G";
+  }
+
+  return "F";
 }
 
 export default function ProjectionUpload() {
@@ -1367,11 +1367,6 @@ export default function ProjectionUpload() {
       return;
     }
 
-        const normalizedYahooName =
-          normalizePlayerName(
-            playerName
-          );
-    
           const matchedPlayer =
           players.find(
             (
@@ -2096,29 +2091,7 @@ const currentRound =
  * doesn't hide a real tier cliff.
  */
 
-function getTierGroup(
-  player:
-    (typeof baseRankedPlayers)[number]
-) {
-  if (
-    player.positions.includes(
-      "D"
-    )
-  ) {
-    return "D";
-  }
-
-  if (
-    player.positions.includes(
-      "G"
-    )
-  ) {
-    return "G";
-  }
-
-  return "F";
-}
-
+const tierGroups = useMemo(() => {
 const availableForTierAnalysis =
   baseRankedPlayers.filter(
     (player) =>
@@ -2127,7 +2100,7 @@ const availableForTierAnalysis =
       )
   );
 
-const tierGroups = {
+return {
   F: availableForTierAnalysis
     .filter(
       (player) =>
@@ -2161,6 +2134,8 @@ const tierGroups = {
         b.vor - a.vor
     ),
 };
+
+}, [baseRankedPlayers, draftedIds]);
 
   const rankedPlayers =
     useMemo<
@@ -2403,10 +2378,9 @@ if (
       );
     }, [
       baseRankedPlayers,
+      currentRound,
+      tierGroups,
       teamNeedWeights,
-      draftedIds,
-      draftPicks.length,
-      leagueTeams,
     ]);
 
   const playerMap =
@@ -3473,6 +3447,8 @@ powerForwardBonus,
       openStarterPositions,
       playoffSchedule,
       scheduleAverages,
+      currentRound,
+      myTeamPlayers,
     ]);
 
   const bestAvailable =
@@ -3626,127 +3602,27 @@ powerForwardBonus,
       showDrafted,
     ]);
 
-  function draftPlayer(
-    playerId: string,
-    fantasyTeamId: string
-  ) {
-    if (
-      draftedIds.has(
-        playerId
-      )
-    ) {
-      return;
-    }
-
-    setDraftPicks(
-      (
-        current
-      ) => {
-        const nextPicks:
-          DraftPick[] =
-          [
-            ...current,
-
-            {
-              playerId,
-
-              fantasyTeamId,
-
-              pickNumber:
-                current.length +
-                1,
-            },
-          ];
-
-        const nextPickNumber =
-          nextPicks.length +
-          1;
-
-        const nextTeamId =
-          getSnakeTeamIdForPick(
-            nextPickNumber,
-            leagueTeams
-          );
-
-        setSelectedDraftTeamId(
-          nextTeamId
-        );
-
-        return nextPicks;
-      }
-    );
+  function draftPlayer(playerId: string, fantasyTeamId: string) {
+    setDraftPicks(current => {
+      const next = draftReducer(current, {type: "record", pick: {playerId, fantasyTeamId, pickNumber: nextPickNumber(current)}});
+      setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(next), leagueTeams));
+      return next;
+    });
   }
-
-  function undoDraftPlayer(
-    playerId: string
-  ) {
-    setDraftPicks(
-      (
-        current
-      ) => {
-        const next =
-          current
-            .filter(
-              (
-                pick
-              ) =>
-                pick.playerId !==
-                playerId
-            )
-            .map(
-              (
-                pick,
-                index
-              ) => ({
-                ...pick,
-
-                pickNumber:
-                  index +
-                  1,
-              })
-            );
-
-        const nextTeamId =
-          getSnakeTeamIdForPick(
-            next.length +
-              1,
-            leagueTeams
-          );
-
-        setSelectedDraftTeamId(
-          nextTeamId
-        );
-
-        return next;
-      }
-    );
+  function undoDraftPlayer(playerId: string) {
+    setDraftPicks(current => {
+      const pick = current.find(p => p.playerId === playerId);
+      const next = pick ? draftReducer(current, {type: "remove", pickNumber: pick.pickNumber}) : current;
+      setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(next), leagueTeams));
+      return next;
+    });
   }
-
   function undoLastPick() {
-    setDraftPicks(
-      (
-        current
-      ) => {
-        const next =
-          current.slice(
-            0,
-            -1
-          );
-
-        const nextTeamId =
-          getSnakeTeamIdForPick(
-            next.length +
-              1,
-            leagueTeams
-          );
-
-        setSelectedDraftTeamId(
-          nextTeamId
-        );
-
-        return next;
-      }
-    );
+    setDraftPicks(current => {
+      const next = draftReducer(current, {type: "undo-last"});
+      setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(next), leagueTeams));
+      return next;
+    });
   }
 
   function handleSort(

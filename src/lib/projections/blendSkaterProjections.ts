@@ -29,7 +29,7 @@ export type ProjectionDiagnostics = {
   sources: ProjectionSourceDiagnostic[];
 };
 
-const weightedFields = [
+export const weightedFields = [
   "gp",
   "goals",
   "assists",

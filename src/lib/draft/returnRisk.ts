@@ -1,3 +1,5 @@
+import { getNextTurn } from "./state";
+
 type Position = "C" | "LW" | "RW" | "D";
 
 type CategoryKey =
@@ -111,34 +113,10 @@ export function calculateReturnRisk({
           b.score - a.score
       );
 
-  const currentPick =
-    draftPicks.length + 1;
-
-  const nextMyPick =
-    findNextMyPick({
-      currentPick,
-      leagueTeams,
-      myDraftSlot,
-    });
-
-  const picksUntilNext =
-    Math.max(
-      0,
-      nextMyPick - currentPick
-    );
-
-  /*
-   * If it is currently your pick,
-   * we want to look at all teams
-   * that draft before your NEXT turn.
-   */
-  const upcomingTeamIds =
-    getTeamsBeforeNextPick({
-      currentPick,
-      nextMyPick,
-      leagueTeams,
-      myDraftSlot,
-    });
+  const turn = getNextTurn(draftPicks, leagueTeams, myDraftSlot);
+  const upcomingTeamIds = turn.opponentTeamIds;
+  const picksUntilNext = upcomingTeamIds.length;
+  if (picksUntilNext === 0) return {level: "SAFE", probability: 0, picksUntilNext: 0, interestedTeams: 0, teamsBeforeNextPick: 0, reason: "No opponents select before your next pick"};
 
   const playerMap =
     new Map(
@@ -608,111 +586,6 @@ function buildTeamRosters({
   }
 
   return result;
-}
-
-function getTeamsBeforeNextPick({
-  currentPick,
-  nextMyPick,
-  leagueTeams,
-  myDraftSlot,
-}: {
-  currentPick: number;
-  nextMyPick: number;
-  leagueTeams: number;
-  myDraftSlot: number;
-}) {
-  const teamIds: string[] =
-    [];
-
-  for (
-    let pick =
-      currentPick + 1;
-    pick < nextMyPick;
-    pick++
-  ) {
-    const teamNumber =
-      getTeamNumberForPick(
-        pick,
-        leagueTeams
-      );
-
-    if (
-      teamNumber ===
-      myDraftSlot
-    ) {
-      continue;
-    }
-
-    teamIds.push(
-      `team-${teamNumber}`
-    );
-  }
-
-  /*
-   * A team can have two consecutive picks
-   * at the snake turn. Keep both because
-   * two selections means two chances that
-   * player disappears.
-   */
-  return teamIds;
-}
-
-function findNextMyPick({
-  currentPick,
-  leagueTeams,
-  myDraftSlot,
-}: {
-  currentPick: number;
-  leagueTeams: number;
-  myDraftSlot: number;
-}) {
-  for (
-    let pick =
-      currentPick + 1;
-    pick <=
-      currentPick +
-        leagueTeams * 2;
-    pick++
-  ) {
-    const teamNumber =
-      getTeamNumberForPick(
-        pick,
-        leagueTeams
-      );
-
-    if (
-      teamNumber ===
-      myDraftSlot
-    ) {
-      return pick;
-    }
-  }
-
-  return (
-    currentPick +
-    leagueTeams
-  );
-}
-
-function getTeamNumberForPick(
-  pickNumber: number,
-  leagueTeams: number
-) {
-  const roundIndex =
-    Math.floor(
-      (pickNumber - 1) /
-        leagueTeams
-    );
-
-  const positionInRound =
-    (pickNumber - 1) %
-    leagueTeams;
-
-  return roundIndex % 2 ===
-    0
-    ? positionInRound + 1
-    : leagueTeams -
-        positionInRound;
 }
 
 function isPosition(

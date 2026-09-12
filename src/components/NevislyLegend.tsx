@@ -115,7 +115,7 @@ export default function NevislyLegend() {
 
                 <p>
                   Number of projection models contributing
-                  to the player's projection.
+                  to the player&apos;s projection.
                 </p>
 
                 <p className="text-zinc-500">
