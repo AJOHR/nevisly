@@ -21,12 +21,19 @@ export function getNextTurn(picks: readonly DraftPick[], teams: number, slot: nu
   for (let pick = currentPick + (onClock ? 1 : 0); pick < nextMyPick; pick++) opponentTeamIds.push(getSnakeTeamIdForPick(pick, teams));
   return { currentPick, currentRound: Math.floor((currentPick - 1) / teams) + 1, onClock, nextMyPick, opponentTeamIds };
 }
+/** Migrate the legacy view key without inventing external Yahoo identifiers. */
+export function withSelectionIdentity(p: DraftPick, sessionId: string): DraftPick {
+  const selectionId = p.selectionId ?? `local:${encodeURIComponent(sessionId)}:pick:${p.pickNumber}`;
+  const projectionId = p.projectionId ?? ((p.resolution === 'matched' || !p.resolution) ? p.playerId : undefined);
+  return {...p, selectionId, projectionId, playerId: projectionId ?? selectionId};
+}
 export type DraftAction = {type:'record'|'correct'; pick:DraftPick} | {type:'remove'; pickNumber:number} | {type:'undo-last'};
 /** Authoritative pick numbers are keys, never array offsets. */
 export function draftReducer(picks: DraftPick[], action: DraftAction): DraftPick[] {
   if (action.type === 'undo-last') return picks.filter(p => p.pickNumber !== nextPickNumber(picks) - 1);
   if (action.type === 'remove') return picks.filter(p => p.pickNumber !== action.pickNumber);
-  const p = action.pick;
+  const existing = picks.find(p => p.pickNumber === action.pick.pickNumber);
+  const p = withSelectionIdentity({...action.pick, selectionId: existing?.selectionId ?? action.pick.selectionId ?? `local:${crypto.randomUUID()}`}, 'manual');
   if (!Number.isSafeInteger(p.pickNumber) || p.pickNumber < 1 || !p.playerId || !/^team-[1-9]\d*$/.test(p.fantasyTeamId)) return picks;
   if (picks.some(old => old.playerId === p.playerId && old.pickNumber !== p.pickNumber)) return picks;
   if (action.type === 'record' && picks.some(old => old.pickNumber === p.pickNumber)) return picks;

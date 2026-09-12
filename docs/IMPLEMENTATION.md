@@ -59,3 +59,13 @@ Eight correctness regressions failed before changes: absent values versus zero, 
 Validation: final 43 tests, TypeScript, ESLint and production build passed. Each earlier stage also passed these gates independently. Additional tests cover zero GP, negative input, absent-provider normalization, metadata reload, duplicate source IDs and diagnostics.
 
 Assumptions/limits: all existing numeric score inputs are required before ranking, including age and GP. Correct duplicate rows in the CSV before uploading. Names remain provisional cross-provider identities; team disagreement may represent a trade and is flagged for review. Older imports cannot reveal which zeroes originally came from blanks; re-upload those files. No live Firefox/Yahoo end-to-end test was possible from this repository. Stage 5 decomposition, scenario comparisons and coefficient recommendations have not begun.
+
+## Yahoo receiver follow-up — extension evidence gate
+
+Implemented receiver fixes before extension work: stable local selectionId separate from projectionId; metadata-free ordinal records; collision-safe projection linkage; conservative legacy enrichment; equal-revision fingerprint checking and snapshot preservation; final represented-slot checks. Projection uploads relink Yahoo selections without requiring another event. Local persistence validates replay evidence and migrates old selection identities. Manual correction retains selection identity and later authoritative numbers.
+
+The UI separates recent message receipt, extraction/coverage status and projection matching. Legacy/v1 cannot establish independently verified coverage and no longer reports LIVE. Source ownership inference is explicitly labeled in the domain record. The compatibility playerId view key remains for existing recommendation consumers; no scoring terms changed.
+
+Validation: nine new regression cases failed before their fixes, plus a projection-refresh regression before its implementation. All 58 tests (43 existing + 15 new), TypeScript, ESLint and production build passed. Deterministic replay covers all 24 orderings of four observations, duplicating each delivery and reloading persisted state between deliveries. Added checks also cover manual correction, Yahoo owner retention, projection removal/restoration and corrupted replay evidence.
+
+Not complete: v2 runtime, extension changes, ready/ACK/replay/request routing, verified sender/session binding, DOM extraction, independently verified complete coverage, extension fixtures, and actual Firefox end-to-end tests. YAHOO_BRIDGE_V2_DRAFT.md is a versioned design document, not an activated protocol. YAHOO_CAPTURE_REQUEST.md specifies the actual evidence needed. Stop at this evidence gate as requested; Stage 5 remains paused.

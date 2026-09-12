@@ -1,3 +1,4 @@
+import { withSelectionIdentity } from '@/lib/draft/state';
 import type { DraftPick, SyncMetadata } from '@/types/draft';
 import type { SkaterProjection } from '@/types/player';
 export type ProjectionSourceState = {id:string; name:string; weight:number; fileName:string; players:SkaterProjection[]};
@@ -13,8 +14,23 @@ export function parseSession(raw:string):Session {
  const sourceIds=new Set<string>();
  const numeric=['age','gp','goals','assists','points','ppp','sog','hits','blocks'];
  for(const s of x.projectionSources){if(!record(s)||typeof s.id!=='string'||typeof s.name!=='string'||typeof s.fileName!=='string'||typeof s.weight!=='number'||!Number.isFinite(s.weight)||s.weight<0||sourceIds.has(s.id)||!Array.isArray(s.players))throw new Error('Invalid saved projections');sourceIds.add(s.id);for(const p of s.players){if(!record(p)||typeof p.id!=='string'||typeof p.name!=='string'||typeof p.team!=='string'||!Array.isArray(p.positions)||!p.positions.every(v=>typeof v==='string')||!numeric.every(k=>typeof p[k]==='number'&&Number.isFinite(p[k])&&Number(p[k])>=0)||(p.missingFields!==undefined&&(!Array.isArray(p.missingFields)||!p.missingFields.every(k=>typeof k==='string'&&numeric.includes(k)))))throw new Error('Invalid saved player');}}
+ const selectionIds=new Set<string>();
+ for(const p of x.draftPicks){
+  for(const field of ['selectionId','projectionId','manualProjectionId','yahooPlayerId','playerName','nhlTeam']) {
+   if(p[field]!==undefined&&typeof p[field]!=='string')throw new Error('Invalid saved selection metadata');
+  }
+  if(p.positions!==undefined&&(!Array.isArray(p.positions)||!p.positions.every((v:unknown)=>typeof v==='string')))throw new Error('Invalid saved positions');
+  if(p.selectionId!==undefined){if(!p.selectionId||selectionIds.has(p.selectionId))throw new Error('Duplicate saved selection identity');selectionIds.add(p.selectionId);}
+ }
  if(x.sync!==undefined){const m=x.sync;if(!record(m)||!['LIVE','PARTIAL','ERROR'].includes(String(m.status))||typeof m.message!=='string'||!Number.isSafeInteger(m.lastSnapshotSequence)||typeof m.lastReceivedAt!=='number'||!Number.isFinite(m.lastReceivedAt)||!record(m.pickSequences)||!Object.values(m.pickSequences).every(v=>Number.isSafeInteger(v)&&Number(v)>=0)||(m.draftSessionId!==undefined&&typeof m.draftSessionId!=='string')||(m.lastSnapshotAt!==undefined&&(typeof m.lastSnapshotAt!=='number'||!Number.isFinite(m.lastSnapshotAt))))throw new Error('Invalid saved sync state');}
- return x as Session;
+ if(x.sync!==undefined){
+  const m=x.sync as Record<string,unknown>;
+  if(m.pickFingerprints!==undefined&&(!record(m.pickFingerprints)||!Object.entries(m.pickFingerprints).every(([k,v])=>/^[1-9]\d*$/.test(k)&&typeof v==='string')))throw new Error('Invalid saved replay evidence');
+  if(m.lastSnapshotFingerprint!==undefined&&typeof m.lastSnapshotFingerprint!=='string')throw new Error('Invalid saved snapshot evidence');
+  if(m.health!==undefined){const h=m.health;if(!record(h)||h.extraction!=='unverified'||!['unverified','gaps','conflict'].includes(String(h.history))||!['lastMessageAt','unmatchedSelections','projectionCollisions'].every(k=>typeof h[k]==='number'&&Number.isFinite(h[k])&&Number(h[k])>=0)||!Array.isArray(h.missingPickNumbers)||!h.missingPickNumbers.every(v=>Number.isSafeInteger(v)&&Number(v)>0))throw new Error('Invalid saved sync health');}
+ }
+ const session=x as Session;
+ return {...session,draftPicks:session.draftPicks.map(p=>withSelectionIdentity(p,session.id))};
 }
 export type LocalStorageLike=Pick<Storage,'getItem'|'setItem'>;
 /** Atomic single-key writes. A stale tab cannot silently overwrite a newer session. */

@@ -1,5 +1,11 @@
 export type DraftPick = {
+    /** Local selection identity; never a fabricated Yahoo player key. */
+    selectionId?: string;
+    /** Optional link to a projection, independent of selection identity. */
+    projectionId?: string;
+    /** Compatibility view key for existing recommendation consumers. */
     playerId: string;
+    ownershipSource?: "yahoo" | "snake-inferred" | "manual";
     fantasyTeamId: string;
     pickNumber: number;
     playerName?: string;
@@ -18,6 +24,16 @@ export type DraftPick = {
     isMyTeam: boolean;
   };
 export type SyncMetadata = {
+ health?: {
+  lastMessageAt: number;
+  extraction: 'unverified';
+  history: 'unverified' | 'gaps' | 'conflict';
+  unmatchedSelections: number;
+  projectionCollisions: number;
+  missingPickNumbers: number[];
+ };
+ pickFingerprints?: Record<string,string>;
+ lastSnapshotFingerprint?: string;
  draftSessionId?:string;
  lastSnapshotSequence:number;
  pickSequences:Record<string,number>;
