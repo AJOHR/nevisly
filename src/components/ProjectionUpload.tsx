@@ -611,9 +611,9 @@ export default function ProjectionUpload() {
       );
 
       resetDraftForProjectionChange();
-    } catch {
+    } catch (cause) {
       setError(
-        `Could not read ${file.name}.`
+        `Could not read ${file.name}: ${cause instanceof Error ? cause.message : "invalid CSV"}`
       );
     }
   }
@@ -3774,6 +3774,9 @@ powerForwardBonus,
               )}
           </div>
 
+          <p className="mt-3 text-xs text-zinc-400">Blank statistics are missing, not zero. Each field uses only providers that supply it. Players need age, GP and all seven categories before ranking; partial projections stay saved. Agreement measures point-projection spread, not calibrated accuracy. Re-upload older files if blanks were previously imported as zero.</p>
+          {projectionDiagnostics.warnings.length > 0 && <details className="mt-3 text-xs text-amber-300"><summary>Projection data issues ({projectionDiagnostics.warnings.length})</summary><ul className="mt-2 space-y-1">{projectionDiagnostics.warnings.map((message, index) => <li key={index}>{message}</li>)}</ul></details>}
+
           {projectionDiagnostics.activeSourceCount >
   1 && (
   <details className="mt-4 rounded-lg border border-zinc-800 bg-zinc-950">
@@ -4322,7 +4325,7 @@ powerForwardBonus,
                           </th>
 
                           <th className="p-2">
-  Confidence
+  Agreement
 </th>
 
                           <SortableHeader
@@ -5319,7 +5322,7 @@ function DiagnosticStat({
           </div>
   
           <div className="mt-1">
-            Variance:
+            Points standard deviation:
             <span className="ml-1 text-zinc-200">
               {variance?.toFixed(1) ?? "—"}
             </span>
@@ -5333,7 +5336,7 @@ function DiagnosticStat({
               "Limited projection agreement."}
   
             {confidence === "LOW" &&
-              "High uncertainty or limited data."}
+              "Wide point spread or limited data; not calibrated accuracy."}
           </div>
   
         </div>

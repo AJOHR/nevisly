@@ -44,3 +44,18 @@ Assumptions: versioned sequence numbers persist for the lifetime of a Yahoo draf
 ### Stage 3 identity follow-up
 
 Final review found that one Yahoo player ID could appear under a changed name at a different pick. A regression reproduced it; incremental and snapshot validation now compare Yahoo IDs as well as resolved projection IDs. This follow-up is committed separately.
+
+## Stage 4
+
+Eight correctness regressions failed before changes: absent values versus zero, invalid numbers, duplicate weighting, conflicting identities, duplicate CSV rows, per-field blending, incomplete score inputs and malformed CSV structure. They now pass.
+
+- CSV imports reject malformed rows, invalid/negative numbers, missing names/positions and duplicate identities atomically, with actionable errors; the previous source remains intact.
+- Missing numeric values carry explicit `missingFields` metadata. Their numeric placeholders are excluded from every blend. A legitimate zero participates normally.
+- Weights renormalize separately per available field. Partial source records remain saved; the recommendation pool requires age, GP and all seven categories supplied across active sources. This prevents missing age from masquerading as youth or missing categories as zero production.
+- Defensive blending counts identical legacy rows once and excludes conflicting identities within a provider. Diagnostics count distinct rows, expose conflicts/missing fields and flag NHL-team disagreements across providers.
+- Agreement remains the existing point-spread heuristic, using providers with points present; the UI correctly names its statistic standard deviation. No scoring coefficients or agreement thresholds were retuned.
+- Saved sessions validate missing-field metadata and unique source IDs.
+
+Validation: final 43 tests, TypeScript, ESLint and production build passed. Each earlier stage also passed these gates independently. Additional tests cover zero GP, negative input, absent-provider normalization, metadata reload, duplicate source IDs and diagnostics.
+
+Assumptions/limits: all existing numeric score inputs are required before ranking, including age and GP. Correct duplicate rows in the CSV before uploading. Names remain provisional cross-provider identities; team disagreement may represent a trade and is flagged for review. Older imports cannot reveal which zeroes originally came from blanks; re-upload those files. No live Firefox/Yahoo end-to-end test was possible from this repository. Stage 5 decomposition, scenario comparisons and coefficient recommendations have not begun.

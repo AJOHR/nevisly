@@ -1,3 +1,4 @@
+import { inspectProjectionRows, projectionFields, hasProjectionValue } from './quality';
 import { projectionId } from "./identity";
 import type { SkaterProjection } from "@/types/player";
 
@@ -23,12 +24,19 @@ export type ProjectionSourceDiagnostic = {
 };
 
 export type ProjectionDiagnostics = {
+  warnings: string[];
   activeSourceCount: number;
   totalUniquePlayers: number;
   matchedAcrossAllSources: number;
   matchedAcrossMultipleSources: number;
   sources: ProjectionSourceDiagnostic[];
 };
+
+function activeSources(sources: ProjectionSource[]) {
+  const ids = new Map<string, number>();
+  for (const source of sources) ids.set(source.id, (ids.get(source.id) ?? 0) + 1);
+  return sources.filter(source => ids.get(source.id) === 1 && Number.isFinite(source.weight) && source.weight > 0 && source.players.length > 0);
+}
 
 export const weightedFields = [
   "gp",
@@ -183,7 +191,7 @@ function getWeightedValue(
   const valid =
     entries.filter(
       entry =>
-        entry.source.weight > 0
+        entry.source.weight > 0 && hasProjectionValue(entry.player, field)
     );
 
 
@@ -288,7 +296,7 @@ function buildPlayerMap(
     new Map<string, PlayerEntry[]>();
 
   for (const source of sources) {
-    for (const player of source.players) {
+    for (const player of inspectProjectionRows(source.players).players) {
 
       const key =
         getProjectionPlayerKey(player);
@@ -322,15 +330,12 @@ export function getProjectionDiagnostics(
 
 
   const active =
-    sources.filter(
-      source =>
-        source.weight > 0 &&
-        source.players.length > 0
-    );
+    activeSources(sources);
 
 
   if(active.length === 0) {
     return {
+      warnings: [],
       activeSourceCount:0,
       totalUniquePlayers:0,
       matchedAcrossAllSources:0,
@@ -377,7 +382,8 @@ export function getProjectionDiagnostics(
         const unique:string[]=[];
 
 
-        for(const player of source.players) {
+        const uniqueSourcePlayers = inspectProjectionRows(source.players).players;
+        for(const player of uniqueSourcePlayers) {
 
           const entries =
             map.get(
@@ -402,14 +408,14 @@ export function getProjectionDiagnostics(
         return {
           sourceId:source.id,
           sourceName:source.name,
-          playerCount:source.players.length,
+          playerCount:uniqueSourcePlayers.length,
           matchedPlayers:matched,
           uniquePlayers:
-            source.players.length - matched,
+            uniqueSourcePlayers.length - matched,
           matchPercentage:
             round(
               matched /
-              source.players.length *
+              Math.max(1, uniqueSourcePlayers.length) *
               100,
               1
             ),
@@ -420,7 +426,14 @@ export function getProjectionDiagnostics(
     );
 
 
+  const warnings = active.flatMap(source => inspectProjectionRows(source.players).warnings.map(message => `${source.name}: ${message}`));
+  for (const entries of map.values()) {
+    const missing = projectionFields.filter(field => !entries.some(entry => hasProjectionValue(entry.player, field)));
+    if (missing.length) warnings.push(`${entries[0].player.name}: not ranked; missing ${missing.join(', ')}.`);
+    if (new Set(entries.map(entry => normalizeTeam(entry.player.team))).size > 1) warnings.push(`${entries[0].player.name}: providers disagree on NHL team; highest-weight source used. Verify identity.`);
+  }
   return {
+    warnings,
     activeSourceCount:active.length,
     totalUniquePlayers:map.size,
     matchedAcrossAllSources:matchedAll,
@@ -449,30 +462,11 @@ export function blendSkaterProjections(
 
 
   const active =
-    sources.filter(
-      source =>
-        source.weight > 0 &&
-        source.players.length > 0
-    );
+    activeSources(sources);
 
 
   if(active.length === 0)
     return [];
-
-
-  if(active.length === 1) {
-    return active[0].players.map(player => ({
-      ...player,
-      id: projectionId(player.name),
-  
-      projectionSources: 1,
-  
-      projectionConfidence: "LOW",
-  
-      projectionVariance: 0,
-    }));
-  }
-
 
 
   const map =
@@ -485,6 +479,10 @@ export function blendSkaterProjections(
   for(const entries of map.values()) {
 
 
+    // Existing score consumers require complete numeric inputs, including age and GP.
+    // Partial rows stay in the session and may be completed by another source.
+    if (projectionFields.some(field => !entries.some(entry => hasProjectionValue(entry.player, field)))) continue;
+
     const primary =
       getPrimaryEntry(entries);
 
@@ -496,7 +494,7 @@ export function blendSkaterProjections(
     const ageEntries =
       entries.filter(
         e =>
-          e.player.age > 0
+          hasProjectionValue(e.player, "age")
       );
 
 
@@ -530,12 +528,12 @@ export function blendSkaterProjections(
       
       projectionConfidence:
         getProjectionConfidence(
-          entries
+          entries.filter(entry => hasProjectionValue(entry.player, "points"))
         ),
       
       projectionVariance:
         calculateProjectionVariance(
-          entries
+          entries.filter(entry => hasProjectionValue(entry.player, "points"))
         ),
 
 

@@ -1,3 +1,4 @@
+import { inspectProjectionRows, projectionFields, type ProjectionField } from './quality';
 import { projectionId, normalizePlayerName } from "./identity";
 import Papa from "papaparse";
 import type { SkaterProjection } from "@/types/player";
@@ -136,14 +137,6 @@ type CsvValue =
 
 type ProjectionRow = Record<string, CsvValue>;
 
-function num(value: CsvValue) {
-  const parsed = Number(value);
-
-  return Number.isFinite(parsed)
-    ? parsed
-    : 0;
-}
-
 function text(value: CsvValue) {
   if (
     value === undefined ||
@@ -212,220 +205,54 @@ function normalizePosition(position: string) {
 
 export function getProjectionPlayerKey(player: SkaterProjection) { return normalizePlayerName(player.name); }
 
-export function parseSkaterCsv(
-  file: File
-): Promise<SkaterProjection[]> {
-  return new Promise(
-    (
-      resolve,
-      reject
-    ) => {
-      Papa.parse<ProjectionRow>(
-        file,
-        {
-          header: true,
-          skipEmptyLines: true,
+const aliases: Record<ProjectionField, string[]> = {
+  age: ['Age', 'AGE', 'age'], gp: ['GP', 'Games', 'Games Played'],
+  goals: ['Goals', 'G', 'goals'], assists: ['Assists', 'A', 'assists'],
+  points: ['Points', 'PTS', 'Pts', 'P', 'points'],
+  ppp: ['PP Points', 'PPP', 'Power Play Points', 'Power-Play Points'],
+  sog: ['SOG', 'Shots', 'Shots on Goal', 'Shots On Goal'],
+  hits: ['Hits', 'HIT', 'HITS'], blocks: ['BLK', 'Blocks', 'Blocked Shots'],
+};
 
-          transformHeader(header) {
-            return header.trim();
-          },
-
-          complete(results) {
-            const players =
-              results.data
-                .map(
-                  (
-                    row
-                  ) => {
-                    const name =
-                      text(
-                        getValue(
-                          row,
-                          [
-                            "Player",
-                            "Name",
-                            "NAME",
-                            "Player Name",
-                            "PLAYER",
-                            "player",
-                            "name",
-                          ]
-                        )
-                      );
-
-                    if (!name) {
-                      return null;
-                    }
-
-                    const team =
-                      normalizeTeam(
-                        text(
-                          getValue(
-                            row,
-                            [
-                              "Team",
-                              "TEAM",
-                              "Tm",
-                              "team",
-                            ]
-                          )
-                        )
-                      );
-
-                    const positions =
-                      text(
-                        getValue(
-                          row,
-                          [
-                            "Pos",
-                            "Position",
-                            "POS",
-                            "position",
-                          ]
-                        )
-                      )
-                        .split(/[,/|]/)
-                        .map(normalizePosition)
-                        .filter(Boolean);
-
-                    // Skater importer only.
-                    if (
-                      positions.includes(
-                        "G"
-                      )
-                    ) {
-                      return null;
-                    }
-
-                    return {
-                      id:
-                        projectionId(name),
-
-                      name,
-
-                      age: num(
-                        getValue(
-                          row,
-                          [
-                            "Age",
-                            "AGE",
-                            "age",
-                          ]
-                        )
-                      ),
-
-                      team,
-
-                      positions,
-
-                      gp: num(
-                        getValue(
-                          row,
-                          [
-                            "GP",
-                            "Games",
-                            "Games Played",
-                          ]
-                        )
-                      ),
-
-                      goals: num(
-                        getValue(
-                          row,
-                          [
-                            "Goals",
-                            "G",
-                            "goals",
-                          ]
-                        )
-                      ),
-
-                      assists: num(
-                        getValue(
-                          row,
-                          [
-                            "Assists",
-                            "A",
-                            "assists",
-                          ]
-                        )
-                      ),
-
-                      points: num(
-                        getValue(
-                          row,
-                          [
-                            "Points",
-                            "PTS",
-                            "Pts",
-                            "points",
-                          ]
-                        )
-                      ),
-
-                      ppp: num(
-                        getValue(
-                          row,
-                          [
-                            "PP Points",
-                            "PPP",
-                            "Power Play Points",
-                            "Power-Play Points",
-                          ]
-                        )
-                      ),
-
-                      sog: num(
-                        getValue(
-                          row,
-                          [
-                            "SOG",
-                            "Shots",
-                            "Shots on Goal",
-                            "Shots On Goal",
-                          ]
-                        )
-                      ),
-
-                      hits: num(
-                        getValue(
-                          row,
-                          [
-                            "Hits",
-                            "HIT",
-                            "HITS",
-                          ]
-                        )
-                      ),
-
-                      blocks: num(
-                        getValue(
-                          row,
-                          [
-                            "BLK",
-                            "Blocks",
-                            "Blocked Shots",
-                          ]
-                        )
-                      ),
-                    } satisfies SkaterProjection;
-                  }
-                )
-                .filter(
-                  (
-                    player
-                  ): player is SkaterProjection =>
-                    player !== null
-                );
-
-            resolve(players);
-          },
-
-          error(error) {
-            reject(error);
-          },
-        }
-      );
-    }
-  );
+export function parseSkaterCsv(file: File): Promise<SkaterProjection[]> {
+  return new Promise((resolve, reject) => {
+    Papa.parse<ProjectionRow>(file, {
+      header: true,
+      skipEmptyLines: 'greedy',
+      transformHeader: header => header.trim(),
+      complete(results) {
+        try {
+          if (results.errors.length) throw new Error(`CSV error: ${results.errors[0].message}`);
+          if (Object.keys(results.meta.renamedHeaders ?? {}).length) throw new Error('CSV contains duplicate column headers.');
+          const players: SkaterProjection[] = [];
+          for (const [index, row] of results.data.entries()) {
+            const name = text(getValue(row, ['Player', 'Name', 'NAME', 'Player Name', 'PLAYER', 'player', 'name']));
+            if (!name) throw new Error(`CSV row ${index + 2}: missing player name.`);
+            const team = normalizeTeam(text(getValue(row, ['Team', 'TEAM', 'Tm', 'team'])));
+            const positions = text(getValue(row, ['Pos', 'Position', 'POS', 'position']))
+              .split(/[,/|]/).map(normalizePosition).filter(Boolean);
+            if (positions.includes('G')) continue;
+            if (!positions.length || positions.some(pos => !['C', 'LW', 'RW', 'D', 'F', 'W'].includes(pos))) {
+              throw new Error(`${name}: missing or unsupported skater position.`);
+            }
+            const missingFields: ProjectionField[] = [];
+            const values = {} as Record<ProjectionField, number>;
+            for (const field of projectionFields) {
+              const raw = getValue(row, aliases[field]);
+              if (raw === undefined) { missingFields.push(field); values[field] = 0; continue; }
+              const value = Number(raw);
+              if (!Number.isFinite(value) || value < 0) throw new Error(`${name}: invalid ${field} value "${raw}".`);
+              values[field] = value;
+            }
+            players.push({ id: projectionId(name), name, team, positions, missingFields, ...values });
+          }
+          const checked = inspectProjectionRows(players);
+          // Reject the upload atomically: keep the previous source and make the correction explicit.
+          if (checked.warnings.length) throw new Error(checked.warnings.join(' '));
+          resolve(checked.players);
+        } catch (error) { reject(error); }
+      },
+      error: reject,
+    });
+  });
 }
