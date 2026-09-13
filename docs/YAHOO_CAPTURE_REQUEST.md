@@ -1,3 +1,7 @@
+# Capture supplied — historical request
+
+The supplied draft.zip satisfies this request for the supported layout. See YAHOO_CAPTURE_EVIDENCE.md for remaining live-verification limits; no additional capture is currently required.
+
 # Yahoo mock-draft evidence required before extension work
 
 The extension ZIP contains code, not an actual Yahoo DOM fixture. Capture the rendered page in Firefox during a Yahoo NHL mock draft. A screenshot alone cannot establish selectors or identifiers, and View Page Source may omit the rendered draft history.

@@ -18,3 +18,4 @@ export function useDraftSession(){
  const snapshot=useSyncExternalStore(subscribe,getSnapshot,getServerSnapshot);
  return {...snapshot,setField,recover:()=>getStore().recover(),update};
 }
+export const getDraftSessionSnapshot = () => getStore().getSnapshot();
