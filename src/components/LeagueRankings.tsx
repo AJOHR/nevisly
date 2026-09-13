@@ -875,7 +875,7 @@ export default function LeagueRankings({
           </h2>
 
           <p className="mt-1 text-sm text-zinc-400">
-            Projected H2H strength normalized for unequal pick counts.
+            Deterministic skater comparisons normalized for unequal pick counts; these are not calibrated win probabilities.
           </p>
 
           {rankingsAreEarly && (
@@ -985,7 +985,7 @@ export default function LeagueRankings({
               </th>
 
               <th className="p-3 text-center">
-                H2H Win %
+                Projected comparison win rate
               </th>
 
               <th className="p-3 text-center">

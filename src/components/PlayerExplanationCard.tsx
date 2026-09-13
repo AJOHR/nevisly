@@ -99,7 +99,7 @@ export default function PlayerExplanationCard({
 
         <div className="mt-2 text-xs text-zinc-300">
 
-          Confidence:
+          Projection agreement:
           {" "}
           <span className="font-bold">
             {player.projectionConfidence}
@@ -113,7 +113,7 @@ export default function PlayerExplanationCard({
 
           <br />
 
-          Variance:
+          Points standard deviation:
           {" "}
           {player.projectionVariance}
 
@@ -135,10 +135,7 @@ export default function PlayerExplanationCard({
 
           Gone Risk:
           {" "}
-          {Math.round(
-            player.returnProbability * 100
-          )}
-          %
+          {player.returnRisk} (heuristic)
 
           <br />
 

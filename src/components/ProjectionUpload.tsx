@@ -2,11 +2,22 @@
 
 import {
   useEffect,
+  useCallback,
   useMemo,
   useState,
   type CSSProperties,
   type ChangeEvent,
 } from "react";
+
+import { applyYahooEligibility } from "@/lib/draft/yahooV2";
+import YahooBridgePanel from "@/components/YahooBridgePanel";
+import { applyYahooMessage } from "@/lib/draft/yahoo";
+import { getNextTurn } from "@/lib/draft/state";
+
+import { useDraftSession } from "@/hooks/useDraftSession";
+import { SESSION_KEY, type ProjectionSourceState } from "@/lib/session/session";
+
+import { nextPickNumber, getSnakeTeamIdForPick, draftReducer } from "@/lib/draft/state";
 
 import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 
@@ -58,14 +69,6 @@ const CATEGORY_LABELS: Record<CategoryKey, string> = {
   sog: "SOG",
   hits: "HIT",
   blocks: "BLK",
-};
-
-type ProjectionSourceState = {
-  id: string;
-  name: string;
-  weight: number;
-  fileName: string;
-  players: SkaterProjection[];
 };
 
 export type BaseRankedPlayer = SkaterProjection & {
@@ -271,31 +274,6 @@ function getMyTeamId(
   return `team-${draftSlot}`;
 }
 
-function getSnakeTeamIdForPick(
-  pickNumber: number,
-  teamCount: number
-) {
-  const roundIndex =
-    Math.floor(
-      (pickNumber - 1) /
-        teamCount
-    );
-
-  const positionInRound =
-    (pickNumber - 1) %
-    teamCount;
-
-  const teamNumber =
-    roundIndex % 2 ===
-    0
-      ? positionInRound +
-        1
-      : teamCount -
-        positionInRound;
-
-  return `team-${teamNumber}`;
-}
-
 function calculateAgeRiskBonus(
   age: number
 ) {
@@ -367,156 +345,38 @@ function getTeamSchedule(
   return undefined;
 }
 
-function normalizeNamePart(
-  value: string
+function getTierGroup(
+  player:
+    BaseRankedPlayer
 ) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
-    .replace(
-      /[^a-z0-9]/g,
-      ""
-    );
-}
-
-function matchesYahooPlayerName(
-  yahooName: string,
-  fullName: string
-) {
-  const yahoo =
-    yahooName
-      .trim()
-      .replace(/\s+/g, " ");
-
-  const full =
-    fullName
-      .trim()
-      .replace(/\s+/g, " ");
-
   if (
-    normalizePlayerName(yahoo) ===
-    normalizePlayerName(full)
+    player.positions.includes(
+      "D"
+    )
   ) {
-    return true;
+    return "D";
   }
 
-  const yahooParts =
-    yahoo.split(" ");
-
-  const fullParts =
-    full.split(" ");
-
   if (
-    yahooParts.length <
-      2 ||
-    fullParts.length <
-      2
+    player.positions.includes(
+      "G"
+    )
   ) {
-    return false;
+    return "G";
   }
 
-  const yahooFirst =
-    yahooParts[0]
-      .replace(".", "")
-      .trim();
-
-  const yahooLast =
-    yahooParts[
-      yahooParts.length -
-        1
-    ];
-
-  const fullFirst =
-    fullParts[0];
-
-  const fullLast =
-    fullParts[
-      fullParts.length -
-        1
-    ];
-
-  const firstInitialMatches =
-    normalizeNamePart(
-      yahooFirst
-    )[0] ===
-    normalizeNamePart(
-      fullFirst
-    )[0];
-
-  const lastNameMatches =
-    normalizeNamePart(
-      yahooLast
-    ) ===
-    normalizeNamePart(
-      fullLast
-    );
-
-  return (
-    firstInitialMatches &&
-    lastNameMatches
-  );
-}
-
-function normalizeYahooNhlTeam(
-  team: string
-) {
-  const normalized =
-    team
-      .trim()
-      .toUpperCase();
-
-  const aliases:
-    Record<string, string> = {
-      TB: "TBL",
-      LA: "LAK",
-      NJ: "NJD",
-      SJ: "SJS",
-      WAS: "WSH",
-      CLB: "CBJ",
-      MON: "MTL",
-    };
-
-  return (
-    aliases[
-      normalized
-    ] ??
-    normalized
-  );
-}
-
-function normalizePlayerName(
-  name: string
-) {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
-    .replace(
-      /[^a-z0-9]/g,
-      ""
-    );
+  return "F";
 }
 
 export default function ProjectionUpload() {
-  const [
-    projectionSources,
-    setProjectionSources,
-  ] =
-    useState<
-      ProjectionSourceState[]
-    >([
-      createProjectionSource(
-        1,
-        100
-      ),
-    ]);
+  const session = useDraftSession();
+  const { projectionSources, draftPicks, leagueTeams, myDraftSlot } = session.data;
+  const setProjectionSources = (value: ProjectionSourceState[] | ((s:ProjectionSourceState[])=>ProjectionSourceState[])) => session.setField("projectionSources", value);
+  const {setField} = session;
+  const setDraftPicks = useCallback((value: DraftPick[] | ((s:DraftPick[])=>DraftPick[])) => setField("draftPicks", value), [setField]);
+  const [manualName, setManualName] = useState("");
+  const [manualKind, setManualKind] = useState("unknown");
+  const [correctionNumber, setCorrectionNumber] = useState("");
 
     const [
         injuries,
@@ -563,38 +423,14 @@ export default function ProjectionUpload() {
   ] =
     useState(false);
 
-  const [
-    leagueTeams,
-    setLeagueTeams,
-  ] =
-    useState(12);
-
-  const [
-    myDraftSlot,
-    setMyDraftSlot,
-  ] =
-    useState(1);
-
-  const [
-    draftPicks,
-    setDraftPicks,
-  ] =
-    useState<
-      DraftPick[]
-    >([]);
-
     const [
         selectedPlayer,
         setSelectedPlayer,
       ] = useState<RankedPlayer | null>(null);
 
-  const [
-    selectedDraftTeamId,
-    setSelectedDraftTeamId,
-  ] =
-    useState(
-      "team-1"
-    );
+  const [draftTeamOverride, setDraftTeamOverride] = useState<{pick:number;team:string}|null>(null);
+  const selectedDraftTeamId = draftTeamOverride?.pick === nextPickNumber(draftPicks) ? draftTeamOverride.team : getSnakeTeamIdForPick(nextPickNumber(draftPicks),leagueTeams);
+  const setSelectedDraftTeamId = (team:string) => setDraftTeamOverride({pick:nextPickNumber(draftPicks),team});
 
   const [
     playoffSchedule,
@@ -681,11 +517,9 @@ export default function ProjectionUpload() {
           })
         );
 
-      return blendSkaterProjections(
-        sources
-      ); 
+      return applyYahooEligibility(blendSkaterProjections(sources),draftPicks);
     }, [
-      activeProjectionSources,
+      activeProjectionSources,draftPicks,
     ]);
 
   const totalProjectionWeight =
@@ -716,13 +550,7 @@ export default function ProjectionUpload() {
     ).length;
 
   function resetDraftForProjectionChange() {
-    setDraftPicks(
-      []
-    );
-
-    setSelectedDraftTeamId(
-      myTeamId
-    );
+    // Intentionally preserve selections; missing projections remain represented in draft history.
   }
 
   async function handleProjectionFile(
@@ -783,9 +611,9 @@ export default function ProjectionUpload() {
       );
 
       resetDraftForProjectionChange();
-    } catch {
+    } catch (cause) {
       setError(
-        `Could not read ${file.name}.`
+        `Could not read ${file.name}: ${cause instanceof Error ? cause.message : "invalid CSV"}`
       );
     }
   }
@@ -970,187 +798,6 @@ export default function ProjectionUpload() {
   }, []);
 
   useEffect(() => {
-    function handleYahooSnapshot(
-      event: Event
-    ) {
-      const customEvent =
-        event as CustomEvent<string>;
-  
-        let yahooPicks: Array<{
-          pickNumber: number;
-          playerName: string;
-          nhlTeam: string;
-          teamName: string;
-          positions?: string[];
-        }>;
-
-      try {
-        yahooPicks =
-          JSON.parse(
-            customEvent.detail
-          );
-      } catch {
-        console.warn(
-          "[Nevisly Sync] Could not read Yahoo snapshot."
-        );
-        return;
-      }
-  
-      if (
-        !Array.isArray(yahooPicks) ||
-        yahooPicks.length === 0
-      ) {
-        return;
-      }
-  
-      const reconciledPicks: DraftPick[] =
-        [];
-  
-      const unmatched: Array<{
-        pickNumber: number;
-        playerName: string;
-        nhlTeam: string;
-      }> = [];
-  
-      for (
-
-        const yahooPick of yahooPicks
-      
-      ) {
-      
-        const {
-      
-          pickNumber,
-      
-          playerName,
-      
-          nhlTeam,
-      
-          positions = [],
-      
-        } = yahooPick;
-
-  const matchedTeamId =
-    getSnakeTeamIdForPick(
-      pickNumber,
-      leagueTeams
-    );
-
-  if (
-    positions.includes("G")
-  ) {
-    reconciledPicks.push({
-      playerId:
-        `__yahoo_goalie_pick_${pickNumber}`,
-
-      fantasyTeamId:
-        matchedTeamId,
-
-      pickNumber,
-    });
-
-    continue;
-  }
-
-  const matchedPlayer =
-    players.find(
-      (player) =>
-        matchesYahooPlayerName(
-          playerName,
-          player.name
-        ) &&
-        normalizeYahooNhlTeam(
-          player.team
-        ) ===
-          normalizeYahooNhlTeam(
-            nhlTeam
-          )
-    );
-
-  if (!matchedPlayer) {
-    unmatched.push({
-      pickNumber,
-      playerName,
-      nhlTeam,
-    });
-
-    continue;
-  }
-
-  reconciledPicks.push({
-    playerId:
-      matchedPlayer.id,
-
-    fantasyTeamId:
-      matchedTeamId,
-
-    pickNumber,
-  });
-}
-  
-      reconciledPicks.sort(
-        (a, b) =>
-          a.pickNumber -
-          b.pickNumber
-      );
-  
-      console.log(
-        `[Nevisly Sync] Authoritative Yahoo reconciliation: ${reconciledPicks.length}/${yahooPicks.length} matched`
-      );
-
-      if (
-        reconciledPicks.length !== yahooPicks.length
-      ) {
-        console.warn(
-          "[Nevisly Sync] Snapshot NOT applied because some Yahoo players were not matched.",
-          {
-            matched: reconciledPicks.length,
-            total: yahooPicks.length,
-            unmatched
-          }
-        );
-      
-        return;
-      }
-  
-      if (unmatched.length > 0) {
-        console.warn(
-          "[Nevisly Sync] Unmatched Yahoo players:",
-          unmatched
-        );
-      }
-  
-      /*
-       * IMPORTANT:
-       * Yahoo Round by Round is authoritative.
-       *
-       * We replace Nevisly's draft state with
-       * exactly the successfully matched Yahoo
-       * picks instead of layering them over stale
-       * mock-draft data.
-       */
-      setDraftPicks(
-        reconciledPicks
-      );
-    }
-  
-    window.addEventListener(
-      "nevisly-yahoo-snapshot",
-      handleYahooSnapshot
-    );
-  
-    return () => {
-      window.removeEventListener(
-        "nevisly-yahoo-snapshot",
-        handleYahooSnapshot
-      );
-    };
-  }, [
-    players,
-    leagueTeams,
-  ]);
-
-  useEffect(() => {
     async function loadSchedule() {
       try {
         const response =
@@ -1219,51 +866,11 @@ export default function ProjectionUpload() {
       myDraftSlot,
     ]);
 
-  function handleLeagueTeamChange(
-    teamCount: number
-  ) {
-    const nextDraftSlot =
-      Math.min(
-        myDraftSlot,
-        teamCount
-      );
-
-    setLeagueTeams(
-      teamCount
-    );
-
-    setMyDraftSlot(
-      nextDraftSlot
-    );
-
-    setDraftPicks(
-      []
-    );
-
-    setSelectedDraftTeamId(
-      getMyTeamId(
-        nextDraftSlot
-      )
-    );
+  function handleLeagueTeamChange(teamCount:number) {
+    if (draftPicks.length) { setError("Start a new draft before changing league size."); return; }
+    session.update(s=>({...s,leagueTeams:teamCount,myDraftSlot:Math.min(s.myDraftSlot,teamCount)}));
   }
-
-  function handleDraftSlotChange(
-    slot: number
-  ) {
-    setMyDraftSlot(
-      slot
-    );
-
-    setDraftPicks(
-      []
-    );
-
-    setSelectedDraftTeamId(
-      getMyTeamId(
-        slot
-      )
-    );
-  }
+  function handleDraftSlotChange(slot:number) { session.setField("myDraftSlot",slot); }
 
   const draftedIds =
     useMemo(() => {
@@ -1279,220 +886,20 @@ export default function ProjectionUpload() {
       draftPicks,
     ]);
 
-    useEffect(() => {
-      function handleYahooPick(
-        event: Event
-      ) {
-        const customEvent =
-        event as CustomEvent<string>;
-      
-        let yahooPick: {
-          pickNumber: number;
-          playerName: string;
-          nhlTeam: string;
-          teamName: string;
-          positions?: string[];
-        };
-      
-      try {
-        yahooPick =
-          JSON.parse(
-            customEvent.detail
-          );
-      } catch {
-        console.warn(
-          "[Nevisly Sync] Could not read Yahoo pick."
-        );
-      
-        return;
-      }
-      
-      const {
-        pickNumber,
-        playerName,
-        nhlTeam,
-        teamName,
-        positions = [],
-      } = yahooPick;
-    
-      const isYahooGoalie =
-      positions.includes("G");
-    
-    if (isYahooGoalie) {
-      const goaliePlaceholderId =
-        `__yahoo_goalie_pick_${pickNumber}`;
-    
-      const matchedTeamId =
-        getSnakeTeamIdForPick(
-          pickNumber,
-          leagueTeams
-        );
-    
-      console.log(
-        "[Nevisly Sync] Tracking goalie pick:",
-        {
-          pickNumber,
-          playerName,
-          team:
-            matchedTeamId,
-        }
-      );
-    
-      setDraftPicks(
-        (current) => {
-          const withoutPickNumber =
-            current.filter(
-              (pick) =>
-                pick.pickNumber !==
-                pickNumber
-            );
-    
-          return [
-            ...withoutPickNumber,
-            {
-              playerId:
-                goaliePlaceholderId,
-              fantasyTeamId:
-                matchedTeamId,
-              pickNumber,
-            },
-          ].sort(
-            (a, b) =>
-              a.pickNumber -
-              b.pickNumber
-          );
-        }
-      );
-    
-      return;
-    }
-
-        const normalizedYahooName =
-          normalizePlayerName(
-            playerName
-          );
-    
-          const matchedPlayer =
-          players.find(
-            (
-              player
-            ) =>
-              matchesYahooPlayerName(
-                playerName,
-                player.name
-              ) &&
-              normalizeYahooNhlTeam(
-                player.team
-              ) ===
-                normalizeYahooNhlTeam(
-                  nhlTeam
-                )
-          );
-    
-        if (!matchedPlayer) {
-          console.warn(
-            "[Nevisly Sync] Player not matched:",
-            playerName
-          );
-    
-          return;
-        }
-    
-        const matchedTeamId =
-  getSnakeTeamIdForPick(
-    pickNumber,
-    leagueTeams
-  );
-    
-        if (
-          draftedIds.has(
-            matchedPlayer.id
-          )
-        ) {
-          return;
-        }
-    
-        console.log(
-          "[Nevisly Sync] Applying pick:",
-          {
-            pickNumber,
-            player:
-              matchedPlayer.name,
-            team:
-            fantasyTeams.find(
-              (
-                team
-              ) =>
-                team.id ===
-                matchedTeamId
-            )?.name ??
-            teamName,
-          }
-        );
-    
-        setDraftPicks(
-          (
-            current
-          ) => {
-            const alreadyExists =
-              current.some(
-                (
-                  pick
-                ) =>
-                  pick.pickNumber ===
-                    pickNumber ||
-                  pick.playerId ===
-                    matchedPlayer.id
-              );
-    
-            if (alreadyExists) {
-              return current;
-            }
-    
-            const next =
-              [
-                ...current,
-    
-                {
-                  playerId:
-                    matchedPlayer.id,
-    
-                    fantasyTeamId:
-                    matchedTeamId,
-    
-                  pickNumber,
-                },
-              ].sort(
-                (
-                  a,
-                  b
-                ) =>
-                  a.pickNumber -
-                  b.pickNumber
-              );
-    
-            return next;
-          }
-        );
-      }
-    
-      window.addEventListener(
-        "nevisly-yahoo-pick",
-        handleYahooPick
-      );
-    
-      return () => {
-        window.removeEventListener(
-          "nevisly-yahoo-pick",
-          handleYahooPick
-        );
-      };
-    }, [
-      players,
-      fantasyTeams,
-      draftedIds,
-      leagueTeams,
-    ]);
+  const {update: updateSession} = session;
+  useEffect(()=>{
+    const receive = (kind:"pick"|"snapshot") => (event:Event) => {
+      const detail = (event as CustomEvent<unknown>).detail;
+      updateSession(current=>applyYahooMessage(current,detail,kind,blendSkaterProjections(current.projectionSources)));
+    };
+    const pick=receive("pick"), snapshot=receive("snapshot");
+    window.addEventListener("nevisly-yahoo-pick",pick);
+    window.addEventListener("nevisly-yahoo-snapshot",snapshot);
+    window.dispatchEvent(new CustomEvent("nevisly-yahoo-request-snapshot"));
+    return ()=>{window.removeEventListener("nevisly-yahoo-pick",pick);window.removeEventListener("nevisly-yahoo-snapshot",snapshot);};
+  },[updateSession]);
+  const [clock,setClock]=useState(0);
+  useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return ()=>window.clearInterval(timer);},[]);
 
   const ownerByPlayerId =
     useMemo(() => {
@@ -2096,29 +1503,7 @@ const currentRound =
  * doesn't hide a real tier cliff.
  */
 
-function getTierGroup(
-  player:
-    (typeof baseRankedPlayers)[number]
-) {
-  if (
-    player.positions.includes(
-      "D"
-    )
-  ) {
-    return "D";
-  }
-
-  if (
-    player.positions.includes(
-      "G"
-    )
-  ) {
-    return "G";
-  }
-
-  return "F";
-}
-
+const tierGroups = useMemo(() => {
 const availableForTierAnalysis =
   baseRankedPlayers.filter(
     (player) =>
@@ -2127,7 +1512,7 @@ const availableForTierAnalysis =
       )
   );
 
-const tierGroups = {
+return {
   F: availableForTierAnalysis
     .filter(
       (player) =>
@@ -2161,6 +1546,8 @@ const tierGroups = {
         b.vor - a.vor
     ),
 };
+
+}, [baseRankedPlayers, draftedIds]);
 
   const rankedPlayers =
     useMemo<
@@ -2403,10 +1790,9 @@ if (
       );
     }, [
       baseRankedPlayers,
+      currentRound,
+      tierGroups,
       teamNeedWeights,
-      draftedIds,
-      draftPicks.length,
-      leagueTeams,
     ]);
 
   const playerMap =
@@ -3473,6 +2859,8 @@ powerForwardBonus,
       openStarterPositions,
       playoffSchedule,
       scheduleAverages,
+      currentRound,
+      myTeamPlayers,
     ]);
 
   const bestAvailable =
@@ -3626,127 +3014,40 @@ powerForwardBonus,
       showDrafted,
     ]);
 
-  function draftPlayer(
-    playerId: string,
-    fantasyTeamId: string
-  ) {
-    if (
-      draftedIds.has(
-        playerId
-      )
-    ) {
-      return;
-    }
-
-    setDraftPicks(
-      (
-        current
-      ) => {
-        const nextPicks:
-          DraftPick[] =
-          [
-            ...current,
-
-            {
-              playerId,
-
-              fantasyTeamId,
-
-              pickNumber:
-                current.length +
-                1,
-            },
-          ];
-
-        const nextPickNumber =
-          nextPicks.length +
-          1;
-
-        const nextTeamId =
-          getSnakeTeamIdForPick(
-            nextPickNumber,
-            leagueTeams
-          );
-
-        setSelectedDraftTeamId(
-          nextTeamId
-        );
-
-        return nextPicks;
-      }
-    );
+  function draftPlayer(playerId: string, fantasyTeamId: string) {
+    setDraftPicks(current => {
+      const next = draftReducer(current, {type: "record", pick: {playerId, fantasyTeamId, pickNumber: nextPickNumber(current), source: "manual", playerName: players.find(p=>p.id===playerId)?.name, resolution: "matched"}});
+      setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(next), leagueTeams));
+      return next;
+    });
   }
-
-  function undoDraftPlayer(
-    playerId: string
-  ) {
-    setDraftPicks(
-      (
-        current
-      ) => {
-        const next =
-          current
-            .filter(
-              (
-                pick
-              ) =>
-                pick.playerId !==
-                playerId
-            )
-            .map(
-              (
-                pick,
-                index
-              ) => ({
-                ...pick,
-
-                pickNumber:
-                  index +
-                  1,
-              })
-            );
-
-        const nextTeamId =
-          getSnakeTeamIdForPick(
-            next.length +
-              1,
-            leagueTeams
-          );
-
-        setSelectedDraftTeamId(
-          nextTeamId
-        );
-
-        return next;
-      }
-    );
+  function undoDraftPlayer(playerId: string) {
+    setDraftPicks(current => {
+      const pick = current.find(p => p.playerId === playerId);
+      const next = pick ? draftReducer(current, {type: "remove", pickNumber: pick.pickNumber}) : current;
+      setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(next), leagueTeams));
+      return next;
+    });
   }
-
   function undoLastPick() {
-    setDraftPicks(
-      (
-        current
-      ) => {
-        const next =
-          current.slice(
-            0,
-            -1
-          );
+    setDraftPicks(current => {
+      const next = draftReducer(current, {type: "undo-last"});
+      setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(next), leagueTeams));
+      return next;
+    });
+  }
 
-        const nextTeamId =
-          getSnakeTeamIdForPick(
-            next.length +
-              1,
-            leagueTeams
-          );
-
-        setSelectedDraftTeamId(
-          nextTeamId
-        );
-
-        return next;
-      }
-    );
+  function recordManualSelection() {
+    if (!manualName.trim()) return;
+    const number = correctionNumber ? Number(correctionNumber) : nextPickNumber(draftPicks);
+    if (!Number.isSafeInteger(number) || number < 1) { setError("Enter a valid pick number."); return; }
+    setDraftPicks(current=>draftReducer(current,{type:correctionNumber ? "correct" : "record",pick:{playerId:`selection:${crypto.randomUUID()}`,playerName:manualName.trim(),positions:manualKind === "goalie" ? ["G"] : [],resolution:manualKind === "goalie" ? "goalie" : "unresolved",source:"manual",fantasyTeamId:selectedDraftTeamId,pickNumber:number}}));
+    setManualName("");setCorrectionNumber("");
+    setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(draftPicks) + (correctionNumber ? 0 : 1),leagueTeams));
+  }
+  function exportSession() {
+    const url=URL.createObjectURL(new Blob([session.warning.includes("could not be read") ? (window.localStorage.getItem(SESSION_KEY) ?? JSON.stringify(session.data)) : JSON.stringify(session.data,null,2)],{type:"application/json"}));
+    const a=document.createElement("a");a.href=url;a.download="nevisly-draft.json";a.click();URL.revokeObjectURL(url);
   }
 
   function handleSort(
@@ -4106,17 +3407,7 @@ powerForwardBonus,
     "D",
   ];
 
-  const draftedSkaterCount =
-  draftPicks.filter(
-    (pick) =>
-      !pick.playerId.startsWith(
-        "__yahoo_goalie_pick_"
-      )
-  ).length;
-
-const availableCount =
-  players.length -
-  draftedSkaterCount;
+  const availableCount = players.filter(player=>!draftedIds.has(player.id)).length;
 
   const lastPick =
     draftPicks.length >
@@ -4251,6 +3542,28 @@ const availableCount =
       </div>
 
       <div className="mx-auto max-w-[1900px] p-4 lg:p-6">
+        <YahooBridgePanel />
+        {!session.data.bridge && <div role="status" className="mb-3 rounded border border-zinc-700 p-3 text-sm">
+          Yahoo messages: <strong>{!session.data.sync?.health?.lastMessageAt ? "NONE" : clock-session.data.sync.health.lastMessageAt>30000 ? "NO RECENT MESSAGE" : "RECEIVED"}</strong>
+          <div>Extraction: {session.data.sync?.health?.extraction ?? "unverified"} · History coverage: {session.data.sync?.health?.history ?? "unverified"} · Projection matching: {draftPicks.filter(p=>p.resolution === "unresolved" || p.resolution === "ambiguous").length} unresolved</div>
+          <span className="ml-3">{session.data.sync?.message ?? "Manual drafting available"}</span>
+          <div>Represented: {draftPicks.length} · Unmatched: {draftPicks.filter(p=>p.resolution === "unresolved" || p.resolution === "ambiguous").length} · Last accepted v1 snapshot: {session.data.sync?.lastSnapshotAt ? `${Math.max(0,Math.floor((clock-session.data.sync.lastSnapshotAt)/1000))}s ago` : "none"}</div>
+          <div>Next own selection: {getNextTurn(draftPicks,leagueTeams,myDraftSlot).nextMyPick} · {getNextTurn(draftPicks,leagueTeams,myDraftSlot).opponentTeamIds.length} opponent selections before it</div>
+          <button onClick={()=>window.dispatchEvent(new CustomEvent("nevisly-yahoo-request-snapshot"))} className="mt-2 underline">Request fresh snapshot</button>
+        </div>}
+        {session.warning && <p role="alert" className="mb-3 text-amber-300">{session.warning}</p>}
+        <details className="mb-4 rounded border border-zinc-700 p-3">
+          <summary>Draft history & manual fallback · {draftPicks.length} selections · next pick {currentPickNumber}</summary>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <input aria-label="Unprojected player name" placeholder="Goalie / unknown player name" value={manualName} onChange={e=>setManualName(e.target.value)} className="bg-zinc-900 p-2" />
+            <select aria-label="Player kind" value={manualKind} onChange={e=>setManualKind(e.target.value)} className="bg-zinc-900 p-2"><option value="unknown">Unknown / unprojected</option><option value="goalie">Goalie</option></select>
+            <select aria-label="Manual pick owner" value={selectedDraftTeamId} onChange={e=>setSelectedDraftTeamId(e.target.value)} className="bg-zinc-900 p-2">{fantasyTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>
+            <input aria-label="Pick number to correct" placeholder="Correction pick # (optional)" value={correctionNumber} onChange={e=>setCorrectionNumber(e.target.value)} className="bg-zinc-900 p-2" />
+            <button onClick={recordManualSelection} className="border p-2">Record selection</button><button onClick={exportSession} className="border p-2">Export draft</button>
+            <button onClick={()=>{if(window.confirm("Start a new draft? Export your current draft first.")){session.recover();session.update(s=>({...s,id:crypto.randomUUID(),draftPicks:[],sync:undefined,bridge:undefined}));}}} className="border p-2">New draft</button>
+          </div>
+          <ol className="mt-3 max-h-52 overflow-auto">{draftPicks.map(p=><li key={p.pickNumber}>#{p.pickNumber} · {p.ownerName || getTeamName(p.fantasyTeamId)} · {players.find(x=>x.id===p.playerId)?.name || p.playerName || "Unresolved selection"} · {p.resolution ?? "matched"} {(p.resolution === "unresolved" || p.resolution === "ambiguous") && <select aria-label={`Resolve pick ${p.pickNumber}`} value="" onChange={e=>{const candidate=players.find(x=>x.id===e.target.value);if(candidate)setDraftPicks(current=>draftReducer(current,{type:"correct",pick:{...p,playerId:candidate.id,projectionId:candidate.id,manualProjectionId:candidate.id,resolution:"matched"}}));}} className="ml-2 bg-zinc-900"><option value="">Match to projection…</option>{players.filter(x=>!draftedIds.has(x.id)).map(x=><option key={x.id} value={x.id}>{x.name} · {x.team}</option>)}</select>} <button onClick={()=>undoDraftPlayer(p.playerId)} className="ml-2 text-red-300">Undo</button></li>)}</ol>
+        </details>
         <section className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -4462,6 +3775,9 @@ const availableCount =
                 </span>
               )}
           </div>
+
+          <p className="mt-3 text-xs text-zinc-400">Blank statistics are missing, not zero. Each field uses only providers that supply it. Players need age, GP and all seven categories before ranking; partial projections stay saved. Agreement measures point-projection spread, not calibrated accuracy. Re-upload older files if blanks were previously imported as zero.</p>
+          {projectionDiagnostics.warnings.length > 0 && <details className="mt-3 text-xs text-amber-300"><summary>Projection data issues ({projectionDiagnostics.warnings.length})</summary><ul className="mt-2 space-y-1">{projectionDiagnostics.warnings.map((message, index) => <li key={index}>{message}</li>)}</ul></details>}
 
           {projectionDiagnostics.activeSourceCount >
   1 && (
@@ -4718,7 +4034,7 @@ const availableCount =
               </div>
 
               <span className="ml-auto text-xs text-zinc-500">
-                H2H Categories · 90 sec pick
+                H2H Categories · 60 sec pick
               </span>
             </div>
 
@@ -5011,7 +4327,7 @@ const availableCount =
                           </th>
 
                           <th className="p-2">
-  Confidence
+  Agreement
 </th>
 
                           <SortableHeader
@@ -5597,10 +4913,7 @@ const availableCount =
                           </div>
 
                           <div className="text-zinc-600">
-                            {leagueTeamPlayers.get(
-                              team.id
-                            )?.length ??
-                              0}{" "}
+                            {draftPicks.filter(p=>p.fantasyTeamId===team.id).length}{" "}
                             picks
                           </div>
                         </button>
@@ -5636,7 +4949,6 @@ const availableCount =
 
 function ReturnRiskDisplay({
   level,
-  probability,
   reason,
   picksUntilNext,
 }: {
@@ -5668,11 +4980,7 @@ function ReturnRiskDisplay({
       "text-yellow-400";
   }
 
-  const percentage =
-    Math.round(
-      probability *
-        100
-    );
+
 
   return (
     <div className="mt-1">
@@ -5680,8 +4988,8 @@ function ReturnRiskDisplay({
         <span
           className={`text-[10px] font-bold ${className}`}
         >
-          GONE RISK:{" "}
-          {percentage}%
+          WAIT RISK (heuristic):{" "}
+          {level}
         </span>
 
         <span className="text-[10px] text-zinc-600">
@@ -5710,7 +5018,6 @@ function ReturnRiskDisplay({
 
 function GoneRiskBadge({
   level,
-  probability,
 }: {
   level: ReturnRiskLevel;
   probability: number;
@@ -5745,11 +5052,7 @@ function GoneRiskBadge({
         level
       }
     >
-      {Math.round(
-        probability *
-          100
-      )}
-      %
+      {level}
     </span>
   );
 }
@@ -6021,7 +5324,7 @@ function DiagnosticStat({
           </div>
   
           <div className="mt-1">
-            Variance:
+            Points standard deviation:
             <span className="ml-1 text-zinc-200">
               {variance?.toFixed(1) ?? "—"}
             </span>
@@ -6035,7 +5338,7 @@ function DiagnosticStat({
               "Limited projection agreement."}
   
             {confidence === "LOW" &&
-              "High uncertainty or limited data."}
+              "Wide point spread or limited data; not calibrated accuracy."}
           </div>
   
         </div>

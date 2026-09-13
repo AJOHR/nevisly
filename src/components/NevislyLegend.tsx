@@ -115,7 +115,7 @@ export default function NevislyLegend() {
 
                 <p>
                   Number of projection models contributing
-                  to the player's projection.
+                  to the player&apos;s projection.
                 </p>
 
                 <p className="text-zinc-500">
@@ -275,7 +275,7 @@ export default function NevislyLegend() {
                 </strong>
 
                 <p>
-                  Probability another team drafts the
+                  Heuristic estimate of whether another team drafts the
                   player before your next pick.
                 </p>
               </div>

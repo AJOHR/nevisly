@@ -1,4 +1,7 @@
+import type { ProjectionField } from '@/lib/projections/quality';
 export type SkaterProjection = {
+    /** Numeric placeholders for absent input are never used in scoring/blending. */
+    missingFields?: ProjectionField[];
     id: string;
     name: string;
     age: number;
