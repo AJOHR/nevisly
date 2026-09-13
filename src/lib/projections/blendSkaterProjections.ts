@@ -1,9 +1,9 @@
-import { inspectProjectionRows, projectionFields, hasProjectionValue } from './quality';
+import { inspectProjectionRows, requiredProjectionFields, optionalProjectionFields, hasProjectionValue } from './quality';
 import { projectionId } from "./identity";
 import type { SkaterProjection } from "@/types/player";
 
 import {
-  getProjectionPlayerKey,
+  getProjectionPlayerKey, normalizeTeam,
 } from "@/lib/projections/parseSkaterCsv";
 
 export type ProjectionSource = {
@@ -56,50 +56,6 @@ type WeightedField =
     source: ProjectionSource;
     player: SkaterProjection;
   };
-
-
-function normalizeTeam(team: string) {
-  const map: Record<string,string> = {
-    "ANAHEIM": "ANA",
-    "ARIZONA": "ARI",
-    "BOSTON": "BOS",
-    "BUFFALO": "BUF",
-    "CALGARY": "CGY",
-    "CAROLINA": "CAR",
-    "CHICAGO": "CHI",
-    "COLORADO": "COL",
-    "COLUMBUS": "CBJ",
-    "DALLAS": "DAL",
-    "DETROIT": "DET",
-    "EDMONTON": "EDM",
-    "FLORIDA": "FLA",
-    "LOS ANGELES": "LAK",
-    "MINNESOTA": "MIN",
-    "MONTREAL": "MTL",
-    "NASHVILLE": "NSH",
-    "NEW JERSEY": "NJD",
-    "NEW YORK ISLANDERS": "NYI",
-    "NEW YORK RANGERS": "NYR",
-    "OTTAWA": "OTT",
-    "PHILADELPHIA": "PHI",
-    "PITTSBURGH": "PIT",
-    "SEATTLE": "SEA",
-    "SAN JOSE": "SJS",
-    "ST. LOUIS": "STL",
-    "TAMPA BAY": "TBL",
-    "TORONTO": "TOR",
-    "UTAH": "UTA",
-    "VANCOUVER": "VAN",
-    "VEGAS": "VGK",
-    "WASHINGTON": "WSH",
-    "WINNIPEG": "WPG",
-  };
-
-  const normalized =
-    team.trim().toUpperCase();
-
-  return map[normalized] ?? normalized;
-}
 
 
 function round(
@@ -427,11 +383,16 @@ export function getProjectionDiagnostics(
 
 
   const warnings = active.flatMap(source => inspectProjectionRows(source.players).warnings.map(message => `${source.name}: ${message}`));
+  const optionalCounts = {age: 0, gp: 0};
   for (const entries of map.values()) {
-    const missing = projectionFields.filter(field => !entries.some(entry => hasProjectionValue(entry.player, field)));
+    const missing = requiredProjectionFields.filter(field => !entries.some(entry => hasProjectionValue(entry.player, field)));
+    const optional = optionalProjectionFields.filter(field => !entries.some(entry => hasProjectionValue(entry.player, field)));
+    for (const field of optional) optionalCounts[field]++;
+    if (!entries.some(entry => entry.player.team)) warnings.push(`${entries[0].player.name}: NHL team unavailable; schedule information unavailable.`);
     if (missing.length) warnings.push(`${entries[0].player.name}: not ranked; missing ${missing.join(', ')}.`);
     if (new Set(entries.map(entry => normalizeTeam(entry.player.team))).size > 1) warnings.push(`${entries[0].player.name}: providers disagree on NHL team; highest-weight source used. Verify identity.`);
   }
+  for (const field of optionalProjectionFields) if (optionalCounts[field]) warnings.push(`${optionalCounts[field]} players: missing ${field} (optional); scoring projections remain usable.${field === 'age' ? ' Age adjustment omitted where age is unavailable.' : ''}`);
   return {
     warnings,
     activeSourceCount:active.length,
@@ -479,9 +440,9 @@ export function blendSkaterProjections(
   for(const entries of map.values()) {
 
 
-    // Existing score consumers require complete numeric inputs, including age and GP.
+    // Only the seven season-total categories are required by the model.
     // Partial rows stay in the session and may be completed by another source.
-    if (projectionFields.some(field => !entries.some(entry => hasProjectionValue(entry.player, field)))) continue;
+    if (requiredProjectionFields.some(field => !entries.some(entry => hasProjectionValue(entry.player, field)))) continue;
 
     const primary =
       getPrimaryEntry(entries);
@@ -500,6 +461,7 @@ export function blendSkaterProjections(
 
     blended.push({
 
+      missingFields: optionalProjectionFields.filter(field => !entries.some(entry => hasProjectionValue(entry.player, field))),
       id:
         projectionId(primary.player.name),
 

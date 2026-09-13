@@ -3,13 +3,45 @@ import { projectionId, normalizePlayerName } from "./identity";
 import Papa from "papaparse";
 import type { SkaterProjection } from "@/types/player";
 
-function normalizeTeam(team: string) {
+export function normalizeTeam(team: string) {
   const normalized = team
     .trim()
     .toUpperCase()
     .replace(/\./g, "");
 
   const map: Record<string, string> = {
+    'DUCKS': 'ANA',
+    'BRUINS': 'BOS',
+    'SABRES': 'BUF',
+    'FLAMES': 'CGY',
+    'HURRICANES': 'CAR',
+    'BLACKHAWKS': 'CHI',
+    'AVALANCHE': 'COL',
+    'BLUE JACKETS': 'CBJ',
+    'STARS': 'DAL',
+    'RED WINGS': 'DET',
+    'OILERS': 'EDM',
+    'PANTHERS': 'FLA',
+    'KINGS': 'LAK',
+    'WILD': 'MIN',
+    'CANADIENS': 'MTL',
+    'PREDATORS': 'NSH',
+    'DEVILS': 'NJD',
+    'ISLANDERS': 'NYI',
+    'RANGERS': 'NYR',
+    'SENATORS': 'OTT',
+    'FLYERS': 'PHI',
+    'PENGUINS': 'PIT',
+    'KRAKEN': 'SEA',
+    'SHARKS': 'SJS',
+    'BLUES': 'STL',
+    'LIGHTNING': 'TBL',
+    'MAPLE LEAFS': 'TOR',
+    'CANUCKS': 'VAN',
+    'KNIGHTS': 'VGK',
+    'GOLDEN KNIGHTS': 'VGK',
+    'CAPITALS': 'WSH',
+    'JETS': 'WPG',
     ANAHEIM: "ANA",
     ANA: "ANA",
 
@@ -135,34 +167,19 @@ type CsvValue =
   | undefined
   | null;
 
-type ProjectionRow = Record<string, CsvValue>;
+function text(value: CsvValue) { return value == null ? '' : String(value).trim(); }
+const headerKey = (value: string) => value.trim().toLowerCase().replace(/[\s_-]+/g, '');
+const unavailable = (value: CsvValue) => /^(?:|n\/?a|null|undefined|unavailable|not available|[-–—])$/i.test(text(value));
 
-function text(value: CsvValue) {
-  if (
-    value === undefined ||
-    value === null
-  ) {
-    return "";
-  }
-
-  return String(value).trim();
+/** Read all matching columns; never let duplicate headings overwrite a populated value. */
+function getValues(headers: string[], row: string[], aliases: string[]) {
+  const keys = new Set(aliases.map(headerKey));
+  return row.filter((value, index) => keys.has(headers[index]) && !unavailable(value));
 }
-
-function getValue(
-  row: ProjectionRow,
-  aliases: string[]
-) {
-  for (const alias of aliases) {
-    if (
-      row[alias] !== undefined &&
-      row[alias] !== null &&
-      text(row[alias]) !== ""
-    ) {
-      return row[alias];
-    }
-  }
-
-  return undefined;
+function getText(headers: string[], row: string[], aliases: string[], label: string) {
+  const values = getValues(headers, row, aliases).map(text);
+  if (new Set(values).size > 1) throw new Error(`Conflicting ${label} columns.`);
+  return values[0] ?? '';
 }
 
 function normalizePosition(position: string) {
@@ -214,23 +231,28 @@ const aliases: Record<ProjectionField, string[]> = {
   hits: ['Hits', 'HIT', 'HITS'], blocks: ['BLK', 'Blocks', 'Blocked Shots'],
 };
 
-export function parseSkaterCsv(file: File): Promise<SkaterProjection[]> {
+export function parseSkaterCsv(file: File | string): Promise<SkaterProjection[]> {
   return new Promise((resolve, reject) => {
-    Papa.parse<ProjectionRow>(file, {
-      header: true,
+    // Positional rows retain repeated GP and blank spacer headings without Papa's renaming.
+    Papa.parse<string[]>(file as File, {
+      header: false,
       skipEmptyLines: 'greedy',
-      transformHeader: header => header.trim(),
       complete(results) {
         try {
           if (results.errors.length) throw new Error(`CSV error: ${results.errors[0].message}`);
-          if (Object.keys(results.meta.renamedHeaders ?? {}).length) throw new Error('CSV contains duplicate column headers.');
+          const [rawHeaders, ...rows] = results.data;
+          if (!rawHeaders) throw new Error('CSV has no header row.');
+          const headers = rawHeaders.map(headerKey);
           const players: SkaterProjection[] = [];
-          for (const [index, row] of results.data.entries()) {
-            const name = text(getValue(row, ['Player', 'Name', 'NAME', 'Player Name', 'PLAYER', 'player', 'name']));
+          for (const [index, row] of rows.entries()) {
+            if (row.length !== headers.length) throw new Error(`CSV row ${index + 2}: expected ${headers.length} fields, found ${row.length}.`);
+            const name = getText(headers, row, ['Player', 'Name', 'Player Name'], 'player name');
             if (!name) throw new Error(`CSV row ${index + 2}: missing player name.`);
-            const team = normalizeTeam(text(getValue(row, ['Team', 'TEAM', 'Tm', 'team'])));
-            const positions = text(getValue(row, ['Pos', 'Position', 'POS', 'position']))
-              .split(/[,/|]/).map(normalizePosition).filter(Boolean);
+            const team = normalizeTeam(getText(headers, row, ['Team', 'Tm'], `${name} team`));
+            // Provider role F/D is less specific than explicit site eligibility.
+            const position = getText(headers, row, ['Site Pos', 'Yahoo Pos', 'Yahoo Position'], `${name} site position`)
+              || getText(headers, row, ['Pos', 'Position'], `${name} position`);
+            const positions = [...new Set(position.split(/[,/|]/).map(normalizePosition).filter(Boolean))];
             if (positions.includes('G')) continue;
             if (!positions.length || positions.some(pos => !['C', 'LW', 'RW', 'D', 'F', 'W'].includes(pos))) {
               throw new Error(`${name}: missing or unsupported skater position.`);
@@ -238,16 +260,16 @@ export function parseSkaterCsv(file: File): Promise<SkaterProjection[]> {
             const missingFields: ProjectionField[] = [];
             const values = {} as Record<ProjectionField, number>;
             for (const field of projectionFields) {
-              const raw = getValue(row, aliases[field]);
-              if (raw === undefined) { missingFields.push(field); values[field] = 0; continue; }
-              const value = Number(raw);
-              if (!Number.isFinite(value) || value < 0) throw new Error(`${name}: invalid ${field} value "${raw}".`);
-              values[field] = value;
+              const raw = getValues(headers, row, aliases[field]);
+              if (!raw.length) { missingFields.push(field); values[field] = 0; continue; }
+              const numbers = raw.map(value => Number(value));
+              if (numbers.some(value => !Number.isFinite(value) || value < 0)) throw new Error(`${name}: invalid ${field} value "${raw.join(', ')}".`);
+              if (new Set(numbers).size > 1) throw new Error(`${name}: conflicting ${field} columns; choose one projection column.`);
+              values[field] = numbers[0];
             }
             players.push({ id: projectionId(name), name, team, positions, missingFields, ...values });
           }
           const checked = inspectProjectionRows(players);
-          // Reject the upload atomically: keep the previous source and make the correction explicit.
           if (checked.warnings.length) throw new Error(checked.warnings.join(' '));
           resolve(checked.players);
         } catch (error) { reject(error); }

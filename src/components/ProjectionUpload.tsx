@@ -1,5 +1,6 @@
 "use client";
 
+import { hasProjectionValue, projectionAgeAdjustment, projectionStartMessage } from '@/lib/projections/quality';
 import {
   useEffect,
   useCallback,
@@ -272,40 +273,6 @@ function getMyTeamId(
   draftSlot: number
 ) {
   return `team-${draftSlot}`;
-}
-
-function calculateAgeRiskBonus(
-  age: number
-) {
-  if (
-    age <=
-    31
-  ) {
-    return 0;
-  }
-
-  if (
-    age <=
-    34
-  ) {
-    return -0.03;
-  }
-
-  if (
-    age <=
-    36
-  ) {
-    return -0.07;
-  }
-
-  if (
-    age <=
-    38
-  ) {
-    return -0.12;
-  }
-
-  return -0.18;
 }
 
 function getTeamSchedule(
@@ -2313,9 +2280,7 @@ if (
             );
 
           const ageRiskBonus =
-            calculateAgeRiskBonus(
-              player.age
-            );
+            projectionAgeAdjustment(player);
 
 
       if (
@@ -3690,7 +3655,7 @@ powerForwardBonus,
                           {
                             source.players.length
                           }{" "}
-                          players loaded
+                          skater rows parsed
                         </span>
                       )}
                     </div>
@@ -3737,7 +3702,7 @@ powerForwardBonus,
             </span>
 
             <span className="text-zinc-500">
-              Blended players:{" "}
+              Rankable players:{" "}
               <strong className="text-zinc-300">
                 {
                   players.length
@@ -3776,7 +3741,7 @@ powerForwardBonus,
               )}
           </div>
 
-          <p className="mt-3 text-xs text-zinc-400">Blank statistics are missing, not zero. Each field uses only providers that supply it. Players need age, GP and all seven categories before ranking; partial projections stay saved. Agreement measures point-projection spread, not calibrated accuracy. Re-upload older files if blanks were previously imported as zero.</p>
+          <p className="mt-3 text-xs text-zinc-400">Blank statistics are missing, not zero. Each field uses only providers that supply it. Ranking requires G, A, P, PPP, SOG, HIT and BLK. Age and GP are optional: unavailable age has no age adjustment. Rows with missing scoring categories stay saved but are not ranked. Agreement measures point-projection spread, not calibrated accuracy. Re-upload older files if blanks were previously imported as zero.</p>
           {projectionDiagnostics.warnings.length > 0 && <details className="mt-3 text-xs text-amber-300"><summary>Projection data issues ({projectionDiagnostics.warnings.length})</summary><ul className="mt-2 space-y-1">{projectionDiagnostics.warnings.map((message, index) => <li key={index}>{message}</li>)}</ul></details>}
 
           {projectionDiagnostics.activeSourceCount >
@@ -3904,7 +3869,7 @@ powerForwardBonus,
       </div>
 
       <div className="mt-3 text-[10px] text-zinc-600">
-        Matching currently uses normalized player name + NHL team.
+        Projection matching uses normalized player names; conflicting identities are excluded and team disagreements are flagged.
       </div>
     </div>
   </details>
@@ -3925,7 +3890,7 @@ powerForwardBonus,
             </h1>
 
             <p className="mt-2 text-sm text-zinc-400">
-              Upload at least one projection CSV above with a weight greater than 0%.
+              {projectionStartMessage(projectionSources, players.length)}
             </p>
           </div>
         ) : (
@@ -4664,14 +4629,12 @@ powerForwardBonus,
 
                                 <td
                                   className="p-2 text-zinc-500"
-                                  title={`Age risk modifier: ${calculateAgeRiskBonus(
-                                    player.age
-                                  ).toFixed(
+                                  title={!hasProjectionValue(player, 'age') ? 'Age unavailable; age adjustment omitted' : `Age risk modifier: ${projectionAgeAdjustment(player).toFixed(
                                     2
                                   )}`}
                                 >
                                   {
-                                    player.age
+                                    hasProjectionValue(player, 'age') ? player.age : '—'
                                   }
                                 </td>
 
