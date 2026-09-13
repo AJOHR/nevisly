@@ -9,6 +9,8 @@ import {
   type ChangeEvent,
 } from "react";
 
+import { applyYahooEligibility } from "@/lib/draft/yahooV2";
+import YahooBridgePanel from "@/components/YahooBridgePanel";
 import { applyYahooMessage } from "@/lib/draft/yahoo";
 import { getNextTurn } from "@/lib/draft/state";
 
@@ -515,11 +517,9 @@ export default function ProjectionUpload() {
           })
         );
 
-      return blendSkaterProjections(
-        sources
-      ); 
+      return applyYahooEligibility(blendSkaterProjections(sources),draftPicks);
     }, [
-      activeProjectionSources,
+      activeProjectionSources,draftPicks,
     ]);
 
   const totalProjectionWeight =
@@ -3542,13 +3542,15 @@ powerForwardBonus,
       </div>
 
       <div className="mx-auto max-w-[1900px] p-4 lg:p-6">
-        <div role="status" className="mb-3 rounded border border-zinc-700 p-3 text-sm">
-          Yahoo sync: <strong>{!session.data.sync ? "DISCONNECTED" : clock-session.data.sync.lastReceivedAt>30000 ? "STALE" : session.data.sync.status}</strong>
+        <YahooBridgePanel />
+        {!session.data.bridge && <div role="status" className="mb-3 rounded border border-zinc-700 p-3 text-sm">
+          Yahoo messages: <strong>{!session.data.sync?.health?.lastMessageAt ? "NONE" : clock-session.data.sync.health.lastMessageAt>30000 ? "NO RECENT MESSAGE" : "RECEIVED"}</strong>
+          <div>Extraction: {session.data.sync?.health?.extraction ?? "unverified"} · History coverage: {session.data.sync?.health?.history ?? "unverified"} · Projection matching: {draftPicks.filter(p=>p.resolution === "unresolved" || p.resolution === "ambiguous").length} unresolved</div>
           <span className="ml-3">{session.data.sync?.message ?? "Manual drafting available"}</span>
-          <div>Represented: {draftPicks.length} · Unmatched: {draftPicks.filter(p=>p.resolution === "unresolved" || p.resolution === "ambiguous").length} · Last complete snapshot: {session.data.sync?.lastSnapshotAt ? `${Math.max(0,Math.floor((clock-session.data.sync.lastSnapshotAt)/1000))}s ago` : "none"}</div>
+          <div>Represented: {draftPicks.length} · Unmatched: {draftPicks.filter(p=>p.resolution === "unresolved" || p.resolution === "ambiguous").length} · Last accepted v1 snapshot: {session.data.sync?.lastSnapshotAt ? `${Math.max(0,Math.floor((clock-session.data.sync.lastSnapshotAt)/1000))}s ago` : "none"}</div>
           <div>Next own selection: {getNextTurn(draftPicks,leagueTeams,myDraftSlot).nextMyPick} · {getNextTurn(draftPicks,leagueTeams,myDraftSlot).opponentTeamIds.length} opponent selections before it</div>
           <button onClick={()=>window.dispatchEvent(new CustomEvent("nevisly-yahoo-request-snapshot"))} className="mt-2 underline">Request fresh snapshot</button>
-        </div>
+        </div>}
         {session.warning && <p role="alert" className="mb-3 text-amber-300">{session.warning}</p>}
         <details className="mb-4 rounded border border-zinc-700 p-3">
           <summary>Draft history & manual fallback · {draftPicks.length} selections · next pick {currentPickNumber}</summary>
@@ -3558,9 +3560,9 @@ powerForwardBonus,
             <select aria-label="Manual pick owner" value={selectedDraftTeamId} onChange={e=>setSelectedDraftTeamId(e.target.value)} className="bg-zinc-900 p-2">{fantasyTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>
             <input aria-label="Pick number to correct" placeholder="Correction pick # (optional)" value={correctionNumber} onChange={e=>setCorrectionNumber(e.target.value)} className="bg-zinc-900 p-2" />
             <button onClick={recordManualSelection} className="border p-2">Record selection</button><button onClick={exportSession} className="border p-2">Export draft</button>
-            <button onClick={()=>{if(window.confirm("Start a new draft? Export your current draft first.")){session.recover();session.update(s=>({...s,id:crypto.randomUUID(),draftPicks:[],sync:undefined}));}}} className="border p-2">New draft</button>
+            <button onClick={()=>{if(window.confirm("Start a new draft? Export your current draft first.")){session.recover();session.update(s=>({...s,id:crypto.randomUUID(),draftPicks:[],sync:undefined,bridge:undefined}));}}} className="border p-2">New draft</button>
           </div>
-          <ol className="mt-3 max-h-52 overflow-auto">{draftPicks.map(p=><li key={p.pickNumber}>#{p.pickNumber} · {getTeamName(p.fantasyTeamId)} · {players.find(x=>x.id===p.playerId)?.name ?? p.playerName ?? "Unresolved selection"} · {p.resolution ?? "matched"} {(p.resolution === "unresolved" || p.resolution === "ambiguous") && <select aria-label={`Resolve pick ${p.pickNumber}`} value="" onChange={e=>{const candidate=players.find(x=>x.id===e.target.value);if(candidate)setDraftPicks(current=>draftReducer(current,{type:"correct",pick:{...p,playerId:candidate.id,manualProjectionId:candidate.id,resolution:"matched"}}));}} className="ml-2 bg-zinc-900"><option value="">Match to projection…</option>{players.filter(x=>!draftedIds.has(x.id)).map(x=><option key={x.id} value={x.id}>{x.name} · {x.team}</option>)}</select>} <button onClick={()=>undoDraftPlayer(p.playerId)} className="ml-2 text-red-300">Undo</button></li>)}</ol>
+          <ol className="mt-3 max-h-52 overflow-auto">{draftPicks.map(p=><li key={p.pickNumber}>#{p.pickNumber} · {p.ownerName || getTeamName(p.fantasyTeamId)} · {players.find(x=>x.id===p.playerId)?.name || p.playerName || "Unresolved selection"} · {p.resolution ?? "matched"} {(p.resolution === "unresolved" || p.resolution === "ambiguous") && <select aria-label={`Resolve pick ${p.pickNumber}`} value="" onChange={e=>{const candidate=players.find(x=>x.id===e.target.value);if(candidate)setDraftPicks(current=>draftReducer(current,{type:"correct",pick:{...p,playerId:candidate.id,projectionId:candidate.id,manualProjectionId:candidate.id,resolution:"matched"}}));}} className="ml-2 bg-zinc-900"><option value="">Match to projection…</option>{players.filter(x=>!draftedIds.has(x.id)).map(x=><option key={x.id} value={x.id}>{x.name} · {x.team}</option>)}</select>} <button onClick={()=>undoDraftPlayer(p.playerId)} className="ml-2 text-red-300">Undo</button></li>)}</ol>
         </details>
         <section className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">

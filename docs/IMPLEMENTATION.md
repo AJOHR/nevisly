@@ -59,3 +59,21 @@ Eight correctness regressions failed before changes: absent values versus zero, 
 Validation: final 43 tests, TypeScript, ESLint and production build passed. Each earlier stage also passed these gates independently. Additional tests cover zero GP, negative input, absent-provider normalization, metadata reload, duplicate source IDs and diagnostics.
 
 Assumptions/limits: all existing numeric score inputs are required before ranking, including age and GP. Correct duplicate rows in the CSV before uploading. Names remain provisional cross-provider identities; team disagreement may represent a trade and is flagged for review. Older imports cannot reveal which zeroes originally came from blanks; re-upload those files. No live Firefox/Yahoo end-to-end test was possible from this repository. Stage 5 decomposition, scenario comparisons and coefficient recommendations have not begun.
+
+## Yahoo receiver follow-up — extension evidence gate
+
+Implemented receiver fixes before extension work: stable local selectionId separate from projectionId; metadata-free ordinal records; collision-safe projection linkage; conservative legacy enrichment; equal-revision fingerprint checking and snapshot preservation; final represented-slot checks. Projection uploads relink Yahoo selections without requiring another event. Local persistence validates replay evidence and migrates old selection identities. Manual correction retains selection identity and later authoritative numbers.
+
+The UI separates recent message receipt, extraction/coverage status and projection matching. Legacy/v1 cannot establish independently verified coverage and no longer reports LIVE. Source ownership inference is explicitly labeled in the domain record. The compatibility playerId view key remains for existing recommendation consumers; no scoring terms changed.
+
+Validation: nine new regression cases failed before their fixes, plus a projection-refresh regression before its implementation. All 58 tests (43 existing + 15 new), TypeScript, ESLint and production build passed. Deterministic replay covers all 24 orderings of four observations, duplicating each delivery and reloading persisted state between deliveries. Added checks also cover manual correction, Yahoo owner retention, projection removal/restoration and corrupted replay evidence.
+
+Not complete: v2 runtime, extension changes, ready/ACK/replay/request routing, verified sender/session binding, DOM extraction, independently verified complete coverage, extension fixtures, and actual Firefox end-to-end tests. YAHOO_BRIDGE_V2_DRAFT.md is a versioned design document, not an activated protocol. YAHOO_CAPTURE_REQUEST.md specifies the actual evidence needed. Stop at this evidence gate as requested; Stage 5 remains paused.
+
+## Yahoo v2 from the supplied DOM fixture
+
+Implemented the captured history extractor in a separate Firefox source tree/archive, v2 receiver and explicit connection UI, source/destination isolation, browser-document validation, persistent capture replay, readiness/ACK/request routing, partial versus header-cross-checked coverage, owner-label mapping and Yahoo eligibility. No Stage 5 coefficient changes. No Yahoo owner key, server revision or reset identity is fabricated. See YAHOO_CAPTURE_EVIDENCE.md for verified evidence versus live-verification limits.
+
+Validation: TypeScript, ESLint, all 75 Nevisly tests and production build passed. Seventeen separate extension fixture/transport tests passed with JavaScript syntax validation. The integration tests execute the real extractor, Yahoo content script, background relay, destination content script and actual Nevisly reducer under a mocked browser; they do not claim actual Firefox execution. A synthetic 192-pick replay covers unknowns, goalies, snake rounds, repeated delivery, stale observations and persistence. The original capture is not committed; the retained fixture removes private owner labels and scripts/resources.
+
+Manual acceptance remains: load v2 in Firefox with the matching Nevisly branch; verify documentId availability, live roster/owner mapping, history updates across rounds, refresh/reload, manual fallback, correction review, and final draft screen. One captured layout does not establish support for other Yahoo rooms/layouts or reset lifecycle. Stage 5 remains paused.

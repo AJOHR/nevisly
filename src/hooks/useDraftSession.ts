@@ -1,4 +1,6 @@
 'use client';
+import { refreshProjectionLinks } from '@/lib/draft/yahoo';
+import { blendSkaterProjections } from '@/lib/projections/blendSkaterProjections';
 import { useSyncExternalStore } from 'react';
 import { createSessionStore, DEFAULT_SESSION, type Session } from '@/lib/session/session';
 const serverSnapshot={data:DEFAULT_SESSION,warning:''};
@@ -7,9 +9,13 @@ function getStore(){if(!store){let storage:Storage;try{storage=window.localStora
 const subscribe=(listener:()=>void)=>getStore().subscribe(listener);
 const getSnapshot=()=>getStore().getSnapshot();
 const getServerSnapshot=()=>serverSnapshot;
-function setField<K extends keyof Session>(key:K,value:Session[K]|((current:Session[K])=>Session[K])){getStore().update(s=>({...s,[key]:typeof value==='function'?(value as (v:Session[K])=>Session[K])(s[key]):value}));}
+function setField<K extends keyof Session>(key:K,value:Session[K]|((current:Session[K])=>Session[K])){getStore().update(s=>{
+ const next={...s,[key]:typeof value==='function'?(value as (v:Session[K])=>Session[K])(s[key]):value};
+ return key==='projectionSources' ? refreshProjectionLinks(next,blendSkaterProjections(next.projectionSources)) : next;
+});}
 function update(change:(s:Session)=>Session){getStore().update(change);}
 export function useDraftSession(){
  const snapshot=useSyncExternalStore(subscribe,getSnapshot,getServerSnapshot);
  return {...snapshot,setField,recover:()=>getStore().recover(),update};
 }
+export const getDraftSessionSnapshot = () => getStore().getSnapshot();

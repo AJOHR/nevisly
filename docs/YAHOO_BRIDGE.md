@@ -1,6 +1,6 @@
 # Firefox / Yahoo bridge contract (v1)
 
-The Firefox source is absent and has NOT been modified or verified. Existing DOM CustomEvent names remain supported:
+The Firefox source was subsequently audited. It is unchanged and sends legacy messages only. See YAHOO_BRIDGE_V2_DRAFT.md for the pending replacement contract and YAHOO_CAPTURE_REQUEST.md for the evidence gate. Legacy/v1 cannot establish independently verified extraction or coverage and the receiver no longer reports LIVE for them. Existing DOM CustomEvent names remain supported:
 
 - `nevisly-yahoo-pick`
 - `nevisly-yahoo-snapshot`
@@ -32,7 +32,7 @@ A new complete snapshot corrects covered pick identities and ownership. A shorte
 
 The first v1 message binds the local session. Another Yahoo draft ID is rejected until the user explicitly starts a new local draft. Legacy messages after v1 binding are rejected. Changing stream identity or resetting sequence numbers is not a transparent reconnect.
 
-Nevisly emits `nevisly-yahoo-request-snapshot` on mount and on user request. The extension should respond with a fresh complete snapshot. Nevisly displays STALE after 30 seconds without accepted/processed observations; extension should send periodic snapshots even between picks. No message listener alone establishes LIVE status. Errors/partial matching remain visible.
+Nevisly emits `nevisly-yahoo-request-snapshot` on mount and on user request. The extension should respond with a fresh complete snapshot. Nevisly displays NO RECENT MESSAGE after 30 seconds without received observations; extension should send periodic snapshots even between picks. No message listener alone establishes LIVE status. Errors/partial matching remain visible.
 
 ## Manual operation and matching
 
