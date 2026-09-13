@@ -1,8 +1,8 @@
 import { withSelectionIdentity } from '@/lib/draft/state';
-import type { DraftPick, SyncMetadata } from '@/types/draft';
+import type { DraftPick, SyncMetadata, YahooBridgeState } from '@/types/draft';
 import type { SkaterProjection } from '@/types/player';
 export type ProjectionSourceState = {id:string; name:string; weight:number; fileName:string; players:SkaterProjection[]};
-export type Session = {sync?:SyncMetadata;version:1; id:string; projectionSources:ProjectionSourceState[]; draftPicks:DraftPick[]; leagueTeams:number; myDraftSlot:number};
+export type Session = {bridge?:YahooBridgeState;sync?:SyncMetadata;version:1; id:string; projectionSources:ProjectionSourceState[]; draftPicks:DraftPick[]; leagueTeams:number; myDraftSlot:number};
 export const DEFAULT_SESSION:Session = {version:1,id:'manual',projectionSources:[{id:'source-1',name:'Primary Projection',weight:100,fileName:'',players:[]}],draftPicks:[],leagueTeams:12,myDraftSlot:1};
 export const SESSION_KEY='nevisly.session.v1';
 const record=(x:unknown):x is Record<string,unknown>=>!!x&&typeof x==='object'&&!Array.isArray(x);
@@ -10,13 +10,13 @@ export function parseSession(raw:string):Session {
  const x:unknown=JSON.parse(raw);
  if(!record(x)||x.version!==1||typeof x.id!=='string'||!Number.isInteger(x.leagueTeams)||!Number.isInteger(x.myDraftSlot)||Number(x.leagueTeams)<2||Number(x.leagueTeams)>32||Number(x.myDraftSlot)<1||Number(x.myDraftSlot)>Number(x.leagueTeams)||!Array.isArray(x.draftPicks)||!Array.isArray(x.projectionSources))throw new Error('Invalid saved session');
  const picks=new Set<number>();const players=new Set<string>();
- for(const p of x.draftPicks){if(!record(p)||typeof p.playerId!=='string'||!p.playerId||typeof p.fantasyTeamId!=='string'||!/^team-[1-9]\d*$/.test(p.fantasyTeamId)||Number(p.fantasyTeamId.slice(5))>Number(x.leagueTeams)||!Number.isSafeInteger(p.pickNumber)||Number(p.pickNumber)<1||picks.has(Number(p.pickNumber))||players.has(p.playerId))throw new Error('Invalid saved picks');picks.add(Number(p.pickNumber));players.add(p.playerId);}
+ for(const p of x.draftPicks){if(!record(p)||typeof p.playerId!=='string'||!p.playerId||typeof p.fantasyTeamId!=='string'||(p.fantasyTeamId!=='unassigned'&&!/^team-[1-9]\d*$/.test(p.fantasyTeamId))||Number(p.fantasyTeamId.slice(5))>Number(x.leagueTeams)||!Number.isSafeInteger(p.pickNumber)||Number(p.pickNumber)<1||picks.has(Number(p.pickNumber))||players.has(p.playerId))throw new Error('Invalid saved picks');picks.add(Number(p.pickNumber));players.add(p.playerId);}
  const sourceIds=new Set<string>();
  const numeric=['age','gp','goals','assists','points','ppp','sog','hits','blocks'];
  for(const s of x.projectionSources){if(!record(s)||typeof s.id!=='string'||typeof s.name!=='string'||typeof s.fileName!=='string'||typeof s.weight!=='number'||!Number.isFinite(s.weight)||s.weight<0||sourceIds.has(s.id)||!Array.isArray(s.players))throw new Error('Invalid saved projections');sourceIds.add(s.id);for(const p of s.players){if(!record(p)||typeof p.id!=='string'||typeof p.name!=='string'||typeof p.team!=='string'||!Array.isArray(p.positions)||!p.positions.every(v=>typeof v==='string')||!numeric.every(k=>typeof p[k]==='number'&&Number.isFinite(p[k])&&Number(p[k])>=0)||(p.missingFields!==undefined&&(!Array.isArray(p.missingFields)||!p.missingFields.every(k=>typeof k==='string'&&numeric.includes(k)))))throw new Error('Invalid saved player');}}
  const selectionIds=new Set<string>();
  for(const p of x.draftPicks){
-  for(const field of ['selectionId','projectionId','manualProjectionId','yahooPlayerId','playerName','nhlTeam']) {
+  for(const field of ['selectionId','projectionId','manualProjectionId','yahooPlayerId','playerName','nhlTeam','ownerName']) {
    if(p[field]!==undefined&&typeof p[field]!=='string')throw new Error('Invalid saved selection metadata');
   }
   if(p.positions!==undefined&&(!Array.isArray(p.positions)||!p.positions.every((v:unknown)=>typeof v==='string')))throw new Error('Invalid saved positions');
@@ -28,6 +28,10 @@ export function parseSession(raw:string):Session {
   if(m.pickFingerprints!==undefined&&(!record(m.pickFingerprints)||!Object.entries(m.pickFingerprints).every(([k,v])=>/^[1-9]\d*$/.test(k)&&typeof v==='string')))throw new Error('Invalid saved replay evidence');
   if(m.lastSnapshotFingerprint!==undefined&&typeof m.lastSnapshotFingerprint!=='string')throw new Error('Invalid saved snapshot evidence');
   if(m.health!==undefined){const h=m.health;if(!record(h)||h.extraction!=='unverified'||!['unverified','gaps','conflict'].includes(String(h.history))||!['lastMessageAt','unmatchedSelections','projectionCollisions'].every(k=>typeof h[k]==='number'&&Number.isFinite(h[k])&&Number(h[k])>=0)||!Array.isArray(h.missingPickNumbers)||!h.missingPickNumbers.every(v=>Number.isSafeInteger(v)&&Number(v)>0))throw new Error('Invalid saved sync health');}
+ }
+ if(x.bridge!==undefined){
+  const b=x.bridge;
+  if(!record(b)||typeof b.roomPath!=='string'||!/^\/draft\/hockey\/\d+\/\d+\/?$/.test(b.roomPath)||typeof b.stream!=='string'||!b.stream||!Number.isSafeInteger(b.sequence)||Number(b.sequence)<-1||typeof b.fingerprint!=='string'||!['lastReceivedAt','capturedAt'].every(k=>typeof b[k]==='number'&&Number.isFinite(b[k]))||!['ok','partial','unsupported'].includes(String(b.extraction))||!['unverified','partial','complete-through-header','conflict'].includes(String(b.coverage))||!Array.isArray(b.issues)||!b.issues.every(v=>typeof v==='string')||!record(b.ownerSlots)||!Object.values(b.ownerSlots).every(v=>Number.isInteger(v)&&Number(v)>0&&Number(v)<=Number(x.leagueTeams))||(b.pendingFrame!==undefined&&typeof b.pendingFrame!=='string'))throw new Error('Invalid saved bridge');
  }
  const session=x as Session;
  return {...session,draftPicks:session.draftPicks.map(p=>withSelectionIdentity(p,session.id))};

@@ -1,3 +1,7 @@
+# Superseded by YAHOO_BRIDGE_V2.md
+
+This historical design was refined using the supplied capture; see YAHOO_CAPTURE_EVIDENCE.md.
+
 # Yahoo bridge v2 — contract draft awaiting Yahoo DOM evidence
 
 Status: DESIGN ONLY. The current runtime accepts legacy/v1 and rejects schemaVersion 2. No extension changes, sender authentication, acknowledgements, or v2 completeness claims have been implemented. Do not deploy this as a completed integration. Stage 5 remains paused.

@@ -1,0 +1,210 @@
+{
+  "rows": [
+    {
+      "pickNumber": 1,
+      "round": 1,
+      "playerName": "D. Pastrnak",
+      "yahooPlayerId": "6391",
+      "positions": [
+        "RW"
+      ],
+      "nhlTeam": "BOS",
+      "ownerName": "Owner 1"
+    },
+    {
+      "pickNumber": 2,
+      "round": 1,
+      "playerName": "C. McDavid",
+      "yahooPlayerId": "6743",
+      "positions": [
+        "C"
+      ],
+      "nhlTeam": "EDM",
+      "ownerName": "Owner 2"
+    },
+    {
+      "pickNumber": 3,
+      "round": 1,
+      "playerName": "L. Draisaitl",
+      "yahooPlayerId": "6369",
+      "positions": [
+        "C",
+        "LW"
+      ],
+      "nhlTeam": "EDM",
+      "ownerName": "Owner 3"
+    },
+    {
+      "pickNumber": 4,
+      "round": 1,
+      "playerName": "N. MacKinnon",
+      "yahooPlayerId": "5980",
+      "positions": [
+        "C"
+      ],
+      "nhlTeam": "COL",
+      "ownerName": "Owner 4"
+    },
+    {
+      "pickNumber": 5,
+      "round": 1,
+      "playerName": "N. Kucherov",
+      "yahooPlayerId": "5425",
+      "positions": [
+        "RW"
+      ],
+      "nhlTeam": "TB",
+      "ownerName": "Owner 5"
+    },
+    {
+      "pickNumber": 6,
+      "round": 1,
+      "playerName": "M. Celebrini",
+      "yahooPlayerId": "32763",
+      "positions": [
+        "C"
+      ],
+      "nhlTeam": "SJ",
+      "ownerName": "Owner 6"
+    },
+    {
+      "pickNumber": 7,
+      "round": 1,
+      "playerName": "K. Kaprizov",
+      "yahooPlayerId": "6877",
+      "positions": [
+        "LW"
+      ],
+      "nhlTeam": "MIN",
+      "ownerName": "Owner 7"
+    },
+    {
+      "pickNumber": 8,
+      "round": 1,
+      "playerName": "C. Makar",
+      "yahooPlayerId": "7519",
+      "positions": [
+        "D"
+      ],
+      "nhlTeam": "COL",
+      "ownerName": "Owner 8"
+    },
+    {
+      "pickNumber": 9,
+      "round": 1,
+      "playerName": "A. Vasilevskiy",
+      "yahooPlayerId": "5699",
+      "positions": [
+        "G"
+      ],
+      "nhlTeam": "TB",
+      "ownerName": "Owner 9"
+    },
+    {
+      "pickNumber": 10,
+      "round": 1,
+      "playerName": "Q. Hughes",
+      "yahooPlayerId": "7905",
+      "positions": [
+        "D"
+      ],
+      "nhlTeam": "MIN",
+      "ownerName": "Owner 10"
+    },
+    {
+      "pickNumber": 11,
+      "round": 1,
+      "playerName": "Z. Werenski",
+      "yahooPlayerId": "6750",
+      "positions": [
+        "D"
+      ],
+      "nhlTeam": "CBJ",
+      "ownerName": "Owner 11"
+    },
+    {
+      "pickNumber": 12,
+      "round": 1,
+      "playerName": "M. Necas",
+      "yahooPlayerId": "7527",
+      "positions": [
+        "RW"
+      ],
+      "nhlTeam": "COL",
+      "ownerName": "Owner 12"
+    },
+    {
+      "pickNumber": 13,
+      "round": 2,
+      "playerName": "E. Bouchard",
+      "yahooPlayerId": "7908",
+      "positions": [
+        "D"
+      ],
+      "nhlTeam": "EDM",
+      "ownerName": "Owner 12"
+    },
+    {
+      "pickNumber": 14,
+      "round": 2,
+      "playerName": "J. Robertson",
+      "yahooPlayerId": "7554",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "nhlTeam": "DAL",
+      "ownerName": "Owner 11"
+    },
+    {
+      "pickNumber": 15,
+      "round": 2,
+      "playerName": "C. Caufield",
+      "yahooPlayerId": "8293",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "nhlTeam": "MTL",
+      "ownerName": "Owner 10"
+    },
+    {
+      "pickNumber": 16,
+      "round": 2,
+      "playerName": "N. Suzuki",
+      "yahooPlayerId": "7528",
+      "positions": [
+        "C"
+      ],
+      "nhlTeam": "MTL",
+      "ownerName": "Owner 9"
+    },
+    {
+      "pickNumber": 17,
+      "round": 2,
+      "playerName": "A. Matthews",
+      "yahooPlayerId": "7109",
+      "positions": [
+        "C"
+      ],
+      "nhlTeam": "TOR",
+      "ownerName": "Owner 8"
+    },
+    {
+      "pickNumber": 18,
+      "round": 2,
+      "playerName": "J. Eichel",
+      "yahooPlayerId": "6744",
+      "positions": [
+        "C"
+      ],
+      "nhlTeam": "VGK",
+      "ownerName": "Owner 7"
+    }
+  ],
+  "issues": [],
+  "coverage": "complete",
+  "currentPick": 19,
+  "round": 2,
+  "teamCount": 12
+}

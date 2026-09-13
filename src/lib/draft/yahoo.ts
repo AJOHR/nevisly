@@ -77,7 +77,7 @@ function resolve(p: YahooPick, players: Candidate[], session: Session, old?: Dra
     pickNumber: p.pickNumber,
     fantasyTeamId: p.fantasyTeamId ?? old?.fantasyTeamId ?? getSnakeTeamIdForPick(p.pickNumber, session.leagueTeams),
     ownershipSource: p.fantasyTeamId ? 'yahoo' : old?.ownershipSource ?? (old?.source === 'manual' ? 'manual' : 'snake-inferred'),
-    playerName, nhlTeam, positions,
+    playerName, nhlTeam, positions, ownerName: old?.ownerName,
     yahooPlayerId: p.yahooPlayerId ?? (compatible ? old.yahooPlayerId : undefined),
     source: 'yahoo',
     resolution: positions.includes('G') ? 'goalie' : projectionId ? 'matched' : match.ambiguous ? 'ambiguous' : 'unresolved',
@@ -107,6 +107,7 @@ const emptySync: SyncMetadata = {lastSnapshotSequence: -1, pickSequences: {}, st
 
 /** Compatibility receiver. Legacy/v1 cannot attest independent coverage or sender identity. */
 export function applyYahooMessage(session: Session, raw: unknown, kind: 'pick' | 'snapshot', players: Candidate[], now = Date.now()): Session {
+  if (session.bridge) return session; // Bound v2 sessions reject legacy/v1 ingress.
   const prior = session.sync ?? emptySync;
   const fail = (message: string): Session => ({...session, sync: {
     ...prior, status: 'ERROR', message,
@@ -195,3 +196,9 @@ export function applyYahooMessage(session: Session, raw: unknown, kind: 'pick' |
     }};
   } catch (error) { return fail(error instanceof Error ? error.message : 'Invalid Yahoo data'); }
 }
+
+export function linkYahooSelection(session: Session, raw: unknown, players: Candidate[]) {
+  const p=readPick(raw,session.leagueTeams);
+  return resolve(p,players,session,session.draftPicks.find(old=>old.pickNumber===p.pickNumber));
+}
+export const detachProjectionCollisions=unlinkCollisions;

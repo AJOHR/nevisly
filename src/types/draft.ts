@@ -5,7 +5,8 @@ export type DraftPick = {
     projectionId?: string;
     /** Compatibility view key for existing recommendation consumers. */
     playerId: string;
-    ownershipSource?: "yahoo" | "snake-inferred" | "manual";
+    ownershipSource?: "yahoo" | "snake-inferred" | "manual" | "history-derived" | "unassigned";
+    ownerName?: string;
     fantasyTeamId: string;
     pickNumber: number;
     playerName?: string;
@@ -41,4 +42,18 @@ export type SyncMetadata = {
  message:string;
  lastReceivedAt:number;
  lastSnapshotAt?:number;
+};
+
+export type YahooBridgeState = {
+  roomPath: string;
+  stream: string;
+  sequence: number;
+  fingerprint: string;
+  lastReceivedAt: number;
+  capturedAt: number;
+  extraction: 'ok' | 'partial' | 'unsupported';
+  coverage: 'unverified' | 'partial' | 'complete-through-header' | 'conflict';
+  issues: string[];
+  ownerSlots: Record<string, number>;
+  pendingFrame?: string;
 };
