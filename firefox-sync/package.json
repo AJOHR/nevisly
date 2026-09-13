@@ -1,0 +1,1 @@
+{"name":"nevisly-firefox-sync","version":"0.2.0","private":true,"scripts":{"test":"node --test tests/*.test.cjs","lint":"node --check extractor.js && node --check background.js && node --check yahoo.js && node --check nevisly.js"},"devDependencies":{"linkedom":"0.18.12"}}

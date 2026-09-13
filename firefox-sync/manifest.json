@@ -1,0 +1,46 @@
+{
+  "manifest_version": 2,
+  "name": "Nevisly Yahoo Draft Sync",
+  "version": "0.2.0",
+  "description": "Session-bound Yahoo NHL history observations with acknowledged recovery.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "https://sports-fantasy.media.yahoo.com/draft/hockey/*",
+    "https://nevisly.vercel.app/*",
+    "http://localhost:3000/*",
+    "webNavigation"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://sports-fantasy.media.yahoo.com/draft/hockey/*"
+      ],
+      "js": [
+        "extractor.js",
+        "yahoo.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://nevisly.vercel.app/*",
+        "http://localhost:3000/*"
+      ],
+      "js": [
+        "nevisly.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "nevisly-sync@nevisly.local"
+    }
+  }
+}
