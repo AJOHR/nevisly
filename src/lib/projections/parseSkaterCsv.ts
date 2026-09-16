@@ -240,14 +240,28 @@ export function parseSkaterCsv(file: File | string): Promise<SkaterProjection[]>
       complete(results) {
         try {
           if (results.errors.length) throw new Error(`CSV error: ${results.errors[0].message}`);
-          const [rawHeaders, ...rows] = results.data;
-          if (!rawHeaders) throw new Error('CSV has no header row.');
-          const headers = rawHeaders.map(headerKey);
+          // Standard exports put headings first. FreshSheets Rankings exports include
+          // title/configuration rows above the real PLAYER/TEAM/POS projection header.
+          // Detect the first plausible projection header instead of requiring row 1.
+          const headerIndex = results.data.findIndex(candidate => {
+            const keys = candidate.map(value => headerKey(text(value)));
+            const has = (names: string[]) => names.some(name => keys.includes(headerKey(name)));
+            return has(['Player', 'Name', 'Player Name'])
+              && has(['Team', 'Tm'])
+              && has(['Pos', 'Position', 'Site Pos', 'Yahoo Pos', 'Yahoo Position'])
+              && has(['G', 'Goals'])
+              && has(['A', 'Assists'])
+              && has(['PTS', 'Points', 'P']);
+          });
+          if (headerIndex < 0) throw new Error('CSV has no recognized projection header row.');
+          const rawHeaders = results.data[headerIndex];
+          const rows = results.data.slice(headerIndex + 1);
+          const headers = rawHeaders.map(value => headerKey(text(value)));
           const players: SkaterProjection[] = [];
           for (const [index, row] of rows.entries()) {
-            if (row.length !== headers.length) throw new Error(`CSV row ${index + 2}: expected ${headers.length} fields, found ${row.length}.`);
+            if (row.length !== headers.length) throw new Error(`CSV row ${index + headerIndex + 2}: expected ${headers.length} fields, found ${row.length}.`);
             const name = getText(headers, row, ['Player', 'Name', 'Player Name'], 'player name');
-            if (!name) throw new Error(`CSV row ${index + 2}: missing player name.`);
+            if (!name) throw new Error(`CSV row ${index + headerIndex + 2}: missing player name.`);
             const team = normalizeTeam(getText(headers, row, ['Team', 'Tm'], `${name} team`));
             // Provider role F/D is less specific than explicit site eligibility.
             const position = getText(headers, row, ['Site Pos', 'Yahoo Pos', 'Yahoo Position'], `${name} site position`)
