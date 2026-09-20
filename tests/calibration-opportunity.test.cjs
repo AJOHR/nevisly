@@ -54,7 +54,7 @@ test('schedule breaks a close decision but two games do not overcome a substanti
  assert.ok(find(scheduled,'superior').score>find(scheduled,'close-a').score);
  for(const p of scheduled){
   near(p.decision.playerValue.score,find(base,p.id).decision.playerValue.score);
-  near(p.score-find(base,p.id).score,p.contributions.schedule);
+  near(p.decision.teamFit.adjustment-find(base,p.id).decision.teamFit.adjustment,p.contributions.schedule);
  }
  assert.ok(find(scheduled,'close-a').explanations.some(r=>r.includes('Weeks 24–26')));
  assert.ok(!base.some(p=>p.explanations.some(r=>r.includes('Weeks 24–26'))));
@@ -62,7 +62,7 @@ test('schedule breaks a close decision but two games do not overcome a substanti
 test('replacement and positional economics enter recommendation score once, not as stacked VOR and fit rewards',()=>{
  for(const p of base){
   near(p.decision.playerValue.score,p.vor);
-  near(p.score,p.fit.starterImprovement?p.fit.rosterGain+p.fit.saturationAdjustment:p.vor);
+  near(p.score-p.decision.draftUrgency.adjustment,p.fit.starterImprovement?p.fit.rosterGain+p.fit.saturationAdjustment:p.vor);
   near(p.contributions.rosterOpportunity,p.fit.starterImprovement?p.fit.rosterGain-p.vor:0);
  }
  const changed={...market,ranked:market.ranked.map(p=>({...p,vor:p.vor+100}))};

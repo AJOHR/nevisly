@@ -1,5 +1,46 @@
 # Stage 5 model and validation
 
+## Next-pick opportunity correction (after PRs 7–8)
+
+The prior production engine ranked only Player Value + Team Fit. Its urgency
+label used VOR rank and snake distance, but neither future availability nor a
+cross-position two-pick comparison affected ordering. This verifies a missing
+mechanism, not that every defense-heavy board is wrong. The supplied ranking
+anecdote alone cannot establish the optimal pick without its full pool/state.
+
+Immediate value, PR7 normalization/schedule and PR8 league-size economics remain
+unchanged. Recommendation now adds an explicit Draft Urgency adjustment:
+`marginal next-pick upgrade after this selection − common next-pick baseline`.
+Consequently ordering compares immediate utility plus a complementary future
+upgrade, with the same baseline subtracted for all starter candidates. Deep
+replacement VOR is not added again. Player Value, current Team Fit and uncertainty
+are unchanged by turn distance. Equal totals prefer immediate utility, then ID.
+
+Assumptions and bounds:
+
+- Opponents remove the highest available intrinsic VOR players before our next
+  snake turn, excluding the player selected now. This is a deterministic scenario,
+  not ADP, a survival probability, or a prediction of actual opponents.
+- Precompute the two best surviving immediate options per eligible starter
+  position (at most eight identities). Evaluate each through the existing feasible
+  one-player exchange, retaining the current selection. Two D picks remain legal.
+  Multi-position identities cannot occupy two slots. No draft tree is searched.
+- Both marginal category utilities use the same opponent target and current
+  confidence. The second upgrade is measured after the first, preventing repeated
+  use of the same roster improvement. Schedule estimates remain fixed within this
+  short horizon; only a second starter upgrade receives its own schedule term.
+- The common baseline is the best nonnegative immediate starter opportunity
+  after the opponent cutoff, before removing our current choice. Bench timing,
+  goalie timing and unfillable starter comparisons retain their existing fallback.
+  Back-to-back selections and the final draft turn keep immediate ordering.
+- This is deliberately a two-selection approximation. Shortlisting can miss a
+  specialist, actual opponents may draft differently, and later-round balance is
+  not optimized. No rule limits early defense selections or favors forwards.
+
+Timing is shown in the decision panel, contribution breakdown and legend. Applied
+timing explanations identify the modeled next-pick alternative. Existing overall
+Player Pool ranks reuse the resulting order before filtering/search.
+
 ## Post-release calibration: roster reference and schedule opportunity
 
 The sections below record the original Stage 5 release. This correction changes only its normalization reference, schedule term, relevant explanations, and Player Pool rank display. Intrinsic Player Value is now VOR alone; the schedule term belongs to Team Fit. Recommendation = VOR + (feasible roster gain − VOR) + category fit + schedule opportunity, with the existing depth/insufficient-roster fallback. The cancellation proves replacement is not rewarded twice; a synthetic test shifts VOR by 100 and requires unchanged starter recommendations.

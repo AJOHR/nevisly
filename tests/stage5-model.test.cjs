@@ -2,9 +2,9 @@ const {load}=require('./load.cjs'),{test}=require('node:test'),assert=require('n
 const {rankRecommendations}=load('src/lib/model/engine.ts'),{replacementValues}=load('src/lib/model/replacement.ts');
 const {players,context}=require('./model-scenarios.cjs');
 function run(ps=players,n=0){const market=replacementValues(ps,12);return rankRecommendations(context(market.ranked,n),market);}
-test('new model exposes only intrinsic value plus roster/category fit in recommendation score',()=>{
+test('model exposes intrinsic value, roster/category fit and explicit timing in recommendation score',()=>{
  for(const p of run()){
-  assert.ok(Number.isFinite(p.score));assert.ok(Math.abs(p.score-p.decision.playerValue.score-p.decision.teamFit.adjustment)<1e-10);
+  assert.ok(Number.isFinite(p.score));assert.ok(Math.abs(p.score-p.decision.playerValue.score-p.decision.teamFit.adjustment-p.decision.draftUrgency.adjustment)<1e-10);
   assert.ok(Math.abs(p.score-Object.values(p.contributions).reduce((a,b)=>a+b,0))<1e-10);
   for(const term of ['age','breadth','powerForward','roundStrategy','scarcity','flexibility','h2h','categoryNeed'])assert.equal(term in p.contributions,false);
   assert.equal(p.decision.draftUrgency.calibrated,false);
@@ -37,11 +37,12 @@ test('strong single-category additions improve a close category more than a satu
  assert.ok(categoryUtilityGain(0,1,modelConfig.categoryWidth)>categoryUtilityGain(15,1,modelConfig.categoryWidth));
 });
 
-test('urgency changes with turn distance without altering Player Value or recommendation order',()=>{
+test('urgency changes with turn distance without altering Player Value or current Team Fit',()=>{
  const market=replacementValues(players,12),ctx=context(market.ranked,0);
  const a=rankRecommendations({...ctx,myDraftSlot:1},market),b=rankRecommendations({...ctx,myDraftSlot:12},market);
- assert.deepEqual(a.map(p=>[p.id,p.score,p.decision.playerValue.score]),b.map(p=>[p.id,p.score,p.decision.playerValue.score]));
- assert.ok(b.some((p,i)=>p.decision.draftUrgency.level!==a[i].decision.draftUrgency.level));
+ const values=rows=>rows.map(p=>[p.id,p.decision.playerValue.score,p.decision.teamFit.adjustment]).sort();
+ assert.deepEqual(values(a),values(b));
+ assert.ok(b.some(p=>p.decision.draftUrgency.level!==a.find(q=>q.id===p.id).decision.draftUrgency.level));
 });
 test('projection disagreement and archetype labels remain notes, never hidden score bonuses',()=>{
  const base=run(),metadata=run(players.map(p=>({...p,name:'Power forward',projectionSources:3,projectionVariance:99,projectionConfidence:'LOW'})));
