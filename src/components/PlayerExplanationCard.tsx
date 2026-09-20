@@ -2,7 +2,7 @@
 import type { Recommendation } from '@/lib/model/engine';
 import { categoryLabels, type Category } from '@/lib/model/config';
 
-const labels:Record<string,string>={replacementValue:'Value over feasible market replacement',schedule:'Playoff usable production (Team Fit)',rosterOpportunity:'Roster opportunity vs market baseline',categoryFit:'Incremental category fit'};
+const labels:Record<string,string>={replacementValue:'Value over feasible market replacement',schedule:'Playoff usable production (Team Fit)',rosterOpportunity:'Roster opportunity vs market baseline',categoryFit:'Incremental category fit',draftOpportunity:'Next-pick opportunity (Draft Urgency)'};
 const signed=(value:number)=>`${value>=0?'+':''}${value.toFixed(3)}`;
 export default function PlayerExplanationCard({player}:{player:Recommendation}) {
   return <section aria-label={`Score explanation for ${player.name}`} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
@@ -14,6 +14,7 @@ export default function PlayerExplanationCard({player}:{player:Recommendation}) 
       {Object.entries(player.contributions??{}).map(([name,value])=><div className="contents" key={name}><dt className="text-zinc-300">{labels[name]??name}</dt><dd className="text-right tabular-nums">{signed(value)}</dd></div>)}
       <dt className="border-t border-zinc-700 pt-2 font-bold">Player Value</dt><dd className="border-t border-zinc-700 pt-2 text-right tabular-nums">{signed(player.decision.playerValue.score)}</dd>
       <dt className="font-bold">Team Fit</dt><dd className="text-right tabular-nums">{signed(player.decision.teamFit.adjustment)}</dd>
+      <dt className="font-bold">Draft Urgency adjustment</dt><dd className="text-right tabular-nums">{signed(player.decision.draftUrgency.adjustment)}</dd>
     </dl>
     <details className="mt-4 text-xs text-zinc-400"><summary className="cursor-pointer">Category comparison</summary>
       <p className="my-2">Full projected lineups compared through feasible exchanges. Gains are in player-standard-deviation units; fit reduces the value of production in categories already far ahead or behind. These are utility scores, not probabilities.</p>

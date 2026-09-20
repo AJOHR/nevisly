@@ -59,9 +59,10 @@ export function prepareCategoryFit(input: {
   const baseIds=new Set([...base.values()].map(p=>p.id));
   const missingOwn=owned.filter(s=>!byId.has(s.projectionId)&&!s.positions.includes('G')).length;
   const confidence=own.length/(own.length+config.ownPriorSlots+missingOwn*config.unresolvedPriorSlots);
-  return (candidate:BaseRankedPlayer):CategoryFit => {
+  const lineups=new Map<string,BaseRankedPlayer[]>();
+  const evaluate=(candidate:BaseRankedPlayer, startingLineup?:BaseRankedPlayer[], retainId?:string):CategoryFit => {
     // A reserve candidate cannot appear on both sides of its own comparison.
-    const before=reserveIds.has(candidate.id)&&baseIds.has(candidate.id)?allocate([...own,...availableReserves.filter(p=>p.id!==candidate.id)],slots):base;
+    const before=startingLineup?allocate(startingLineup,slots):reserveIds.has(candidate.id)&&baseIds.has(candidate.id)?allocate([...own,...availableReserves.filter(p=>p.id!==candidate.id)],slots):base;
     const beforePlayers=[...before.values()].sort(compareIds);
     const candidateWarnings=[...warnings];
     if(before.size<count) {
@@ -92,6 +93,7 @@ export function prepareCategoryFit(input: {
     let best=assess(beforePlayers);
     for(const replacement of beforePlayers) {
       if(taken.has(candidate.id))break;
+      if(replacement.id===retainId||beforePlayers.some(p=>p.id===candidate.id))continue;
       const trialPlayers=[...beforePlayers.filter(p=>p.id!==replacement.id),candidate].sort(compareIds);
       const trial=allocate(trialPlayers,slots);
       if(trial.size!==count||![...trial.values()].some(p=>p.id===candidate.id))continue;
@@ -103,8 +105,13 @@ export function prepareCategoryFit(input: {
     const {linear,saturation,details}=best;
     const afterIds=new Set(afterPlayers.map(p=>p.id));
     const replacementNames=beforePlayers.filter(p=>!afterIds.has(p.id)).map(p=>p.name);
-    const starterImprovement=afterIds.has(candidate.id)&&!taken.has(candidate.id);
+    const starterImprovement=afterIds.has(candidate.id)&&!taken.has(candidate.id)&&!beforePlayers.some(p=>p.id===candidate.id);
     if(!starterImprovement)candidateWarnings.push('No projected starter upgrade. Bench deployment is unmodeled; assess depth separately.');
+    if(!startingLineup)lineups.set(candidate.id,afterPlayers);
     return {adjustment:linear-candidate.vor+saturation,rosterGain:linear,saturationAdjustment:saturation,categories:details,replacementNames,warnings:candidateWarnings,starterImprovement};
   };
+  return Object.assign(evaluate,{afterSelection:(candidate:BaseRankedPlayer,firstId:string)=>{
+    const lineup=lineups.get(firstId);
+    return lineup?evaluate(candidate,lineup,firstId):undefined;
+  }});
 }

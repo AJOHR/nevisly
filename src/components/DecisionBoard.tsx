@@ -10,7 +10,7 @@ export default function DecisionBoard({players,onInspect,onDraft,rosterFull}:Pro
     <header className="border-b border-zinc-800 px-4 py-3">
       <p className="text-xs font-bold uppercase tracking-wider text-emerald-400">Your next decision</p>
       <h2 className="text-lg font-bold">Best available skaters</h2>
-      <p className="mt-1 text-xs text-zinc-400">Player Value + Team Fit = recommendation score. Urgency is separate.</p>
+      <p className="mt-1 text-xs text-zinc-400">Player Value + Team Fit + Draft Urgency adjustment = recommendation score. Timing never changes Player Value.</p>
       <details className="mt-2 text-xs text-zinc-400"><summary className="cursor-pointer">Model scope &amp; assumptions</summary>
         <p className="mt-2">G, A, P, PPP, SOG, HIT, BLK · C2 / LW2 / RW2 / D4 / G2 / BN4. Replacement depth uses league starter slots. Bench options use intrinsic value without assumed playing time. Goalie value is unmodeled; these scores are not matchup or championship probabilities.</p>
       </details>
@@ -32,7 +32,7 @@ export default function DecisionBoard({players,onInspect,onDraft,rosterFull}:Pro
             <div><dt className="text-zinc-400">Team Fit</dt><dd className="mt-1 font-semibold tabular-nums">{signed(decision.teamFit.adjustment)}</dd></div>
             <div><dt className="text-zinc-400">Score</dt><dd className="mt-1 text-lg font-black tabular-nums text-emerald-400">{player.score.toFixed(2)}</dd></div>
           </dl>
-          <p className="mt-3 text-xs text-zinc-300" title={player.returnReason}>Draft urgency: <strong className={decision.draftUrgency.level==='HIGH'?'text-amber-300':'text-zinc-200'}>{decision.draftUrgency.level}</strong> · {decision.draftUrgency.opponentSelections} opponent picks before your next turn · heuristic</p>
+          <p className="mt-3 text-xs text-zinc-300" title={player.returnReason}>Draft urgency: <strong className={decision.draftUrgency.level==='HIGH'?'text-amber-300':'text-zinc-200'}>{decision.draftUrgency.level}</strong> · {signed(decision.draftUrgency.adjustment)} timing adjustment · {decision.draftUrgency.opponentSelections} opponent picks before your next turn · heuristic</p>
           <details className="mt-2 text-xs text-zinc-400"><summary className="cursor-pointer">Uncertainty · {decision.uncertainty.warnings.length} notes</summary><ul className="mt-2 list-disc space-y-1 pl-4">{decision.uncertainty.warnings.map(w=><li key={w}>{w}</li>)}</ul></details>
           <button type="button" onClick={()=>onInspect(player)} className="mt-2 text-xs text-emerald-400 underline underline-offset-2">Explain score</button>
         </li>;
