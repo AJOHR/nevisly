@@ -2,7 +2,7 @@
 import type { Recommendation } from '@/lib/model/engine';
 import { categoryLabels, type Category } from '@/lib/model/config';
 
-const labels:Record<string,string>={replacementValue:'Value over feasible market replacement',schedule:'Schedule adjustment',rosterOpportunity:'Roster opportunity vs market baseline',categoryFit:'Incremental category fit'};
+const labels:Record<string,string>={replacementValue:'Value over feasible market replacement',schedule:'Playoff usable production (Team Fit)',rosterOpportunity:'Roster opportunity vs market baseline',categoryFit:'Incremental category fit'};
 const signed=(value:number)=>`${value>=0?'+':''}${value.toFixed(3)}`;
 export default function PlayerExplanationCard({player}:{player:Recommendation}) {
   return <section aria-label={`Score explanation for ${player.name}`} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">

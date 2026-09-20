@@ -1,5 +1,5 @@
 "use client";
-import { rankRecommendations, compareRecommendations, type Recommendation } from "@/lib/model/engine";
+import { rankRecommendations, compareRecommendations, availableRecommendationRanks, type Recommendation } from "@/lib/model/engine";
 import { rosterSelectionCapacity } from "@/lib/model/config";
 import { initializeRankedPlayer } from "@/lib/model/player";
 import { replacementValues } from "@/lib/model/replacement";
@@ -1323,6 +1323,8 @@ const currentRound =
       myTeamPlayers,
     ]);
 
+  const overallRecommendationRanks = useMemo(() => availableRecommendationRanks(finalRankedPlayers, draftedIds), [finalRankedPlayers, draftedIds]);
+
   const bestAvailable =
     useMemo(() => {
       return [
@@ -2299,6 +2301,7 @@ const currentRound =
                     <table className="w-full min-w-[900px] text-xs">
                       <thead className="sticky top-0 z-20 bg-zinc-900 text-left text-zinc-400">
                         <tr>
+                          <th className="p-2" title="Current overall Nevisly rank among available players; unchanged by search or position filters">Rank</th>
                           <th className="p-2">
                             Pick
                           </th>
@@ -2507,6 +2510,9 @@ const currentRound =
   }`}
 
                               >
+                                <td className="p-2 tabular-nums" title={drafted ? "Drafted — not ranked among available players" : "Overall available recommendation rank"}>
+                                  {drafted ? "—" : `#${overallRecommendationRanks.get(player.id)}`}
+                                </td>
                                 <td className="p-2">
                                   {drafted ? (
                                     <button

@@ -25,6 +25,7 @@ export function allocate<T extends EligiblePlayer>(players: readonly T[], slots:
   const assigned = new Map<string, T>();
   const seen = new Set<string>();
   for (const player of [...players].sort((a, b) => b.rawScore - a.rawScore || compareIds(a,b))) {
+    if(assigned.size===slots.length)break; // A full maximum-weight basis cannot admit a later, lower-weight player.
     if (seen.has(player.id)) continue;
     seen.add(player.id);
     augment(player, slots, assigned);

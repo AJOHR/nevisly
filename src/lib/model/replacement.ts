@@ -7,7 +7,17 @@ import { categories, modelConfig, type CategoryValues, type ModelConfig } from '
 export function normalizeProjections(players: SkaterProjection[], config: ModelConfig = modelConfig) {
   const eligible = players.filter(p => !p.positions.includes('G') &&
     p.positions.some(pos => (config.starters[pos] ?? 0) > 0) && categories.every(c => hasProjectionValue(p,c)));
-  const pool = [...eligible].sort((a,b) => b.points-a.points || compareIds(a,b)).slice(0,config.normalizationPool);
+  // A points-only cutoff under-samples low-point roster roles (especially D),
+  // biasing the scale of BLK/HIT before replacement is even calculated. Keep
+  // the existing reference size, but sample feasible, unique roster slots.
+  const perRoster = Object.values(config.starters).reduce((sum,n)=>sum+n,0);
+  const quotas = Object.entries(config.starters).map(([position,n])=>({position,quota:config.normalizationPool*n/perRoster}));
+  const referenceCounts = Object.fromEntries(quotas.map(q=>[q.position,Math.floor(q.quota)]));
+  const remainder = config.normalizationPool-Object.values(referenceCounts).reduce((sum,n)=>sum+n,0);
+  quotas.sort((a,b)=>(b.quota%1)-(a.quota%1)||compareIds({id:a.position},{id:b.position}));
+  for(const q of quotas.slice(0,remainder))referenceCounts[q.position]++;
+  const referenceSlots = rosterSlots(referenceCounts);
+  const pool = [...allocate(eligible.map(p=>({...p,rawScore:p.points})),referenceSlots).values()].sort(compareIds);
   const means = {} as CategoryValues, deviations = {} as CategoryValues;
   for (const c of categories) {
     means[c] = pool.reduce((sum,p)=>sum+p[c],0)/(pool.length || 1);
