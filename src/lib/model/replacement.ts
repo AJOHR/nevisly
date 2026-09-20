@@ -1,19 +1,21 @@
 import type { SkaterProjection } from '@/types/player';
+import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league';
 import { hasProjectionValue } from '@/lib/projections/quality';
 import type { BaseRankedPlayer } from './legacy';
 import { allocate, augment, compareIds, rosterSlots } from './allocation';
 import { categories, modelConfig, type CategoryValues, type ModelConfig } from './config';
 
-export function normalizeProjections(players: SkaterProjection[], config: ModelConfig = modelConfig) {
+export function normalizeProjections(players: SkaterProjection[], config: ModelConfig = modelConfig, leagueTeams = DEFAULT_LEAGUE_TEAMS) {
   const eligible = players.filter(p => !p.positions.includes('G') &&
     p.positions.some(pos => (config.starters[pos] ?? 0) > 0) && categories.every(c => hasProjectionValue(p,c)));
   // A points-only cutoff under-samples low-point roster roles (especially D),
   // biasing the scale of BLK/HIT before replacement is even calculated. Keep
-  // the existing reference size, but sample feasible, unique roster slots.
+  // the historical reference depth per team, sampling feasible unique slots.
+  const referenceSize = Math.round(config.normalizationPool * leagueTeams / DEFAULT_LEAGUE_TEAMS);
   const perRoster = Object.values(config.starters).reduce((sum,n)=>sum+n,0);
-  const quotas = Object.entries(config.starters).map(([position,n])=>({position,quota:config.normalizationPool*n/perRoster}));
+  const quotas = Object.entries(config.starters).map(([position,n])=>({position,quota:referenceSize*n/perRoster}));
   const referenceCounts = Object.fromEntries(quotas.map(q=>[q.position,Math.floor(q.quota)]));
-  const remainder = config.normalizationPool-Object.values(referenceCounts).reduce((sum,n)=>sum+n,0);
+  const remainder = referenceSize-Object.values(referenceCounts).reduce((sum,n)=>sum+n,0);
   quotas.sort((a,b)=>(b.quota%1)-(a.quota%1)||compareIds({id:a.position},{id:b.position}));
   for(const q of quotas.slice(0,remainder))referenceCounts[q.position]++;
   const referenceSlots = rosterSlots(referenceCounts);
@@ -28,7 +30,7 @@ export function normalizeProjections(players: SkaterProjection[], config: ModelC
     for (const c of categories) zScores[c] = deviations[c] ? (p[c]-means[c])/deviations[c] : 0;
     return {...p, zScores, rawScore:categories.reduce((sum,c)=>sum+zScores[c],0)};
   });
-  return {ranked, means, deviations, excluded: players.length-eligible.length};
+  return {ranked, means, deviations, referenceSize:pool.length, excluded: players.length-eligible.length};
 }
 
 /** Replacement is an actual exchange in one league-wide allocated roster, not
@@ -36,7 +38,7 @@ export function normalizeProjections(players: SkaterProjection[], config: ModelC
  * own replacement. An undersized pool reports unavailable replacement explicitly.
  */
 export function replacementValues(players: SkaterProjection[], leagueTeams: number, config: ModelConfig = modelConfig) {
-  const normalized = normalizeProjections(players,config);
+  const normalized = normalizeProjections(players,config,leagueTeams);
   const slots = rosterSlots(config.starters,leagueTeams);
   const assigned = allocate(normalized.ranked,slots);
   const selected = [...assigned.values()];

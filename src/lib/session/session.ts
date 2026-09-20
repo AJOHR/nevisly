@@ -1,9 +1,10 @@
 import { withSelectionIdentity } from '@/lib/draft/state';
+import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league';
 import type { DraftPick, SyncMetadata, YahooBridgeState } from '@/types/draft';
 import type { SkaterProjection } from '@/types/player';
 export type ProjectionSourceState = {id:string; name:string; weight:number; fileName:string; players:SkaterProjection[]};
 export type Session = {bridge?:YahooBridgeState;sync?:SyncMetadata;version:1; id:string; projectionSources:ProjectionSourceState[]; draftPicks:DraftPick[]; leagueTeams:number; myDraftSlot:number};
-export const DEFAULT_SESSION:Session = {version:1,id:'manual',projectionSources:[{id:'source-1',name:'Primary Projection',weight:100,fileName:'',players:[]}],draftPicks:[],leagueTeams:12,myDraftSlot:1};
+export const DEFAULT_SESSION:Session = {version:1,id:'manual',projectionSources:[{id:'source-1',name:'Primary Projection',weight:100,fileName:'',players:[]}],draftPicks:[],leagueTeams:DEFAULT_LEAGUE_TEAMS,myDraftSlot:1};
 export const SESSION_KEY='nevisly.session.v1';
 const record=(x:unknown):x is Record<string,unknown>=>!!x&&typeof x==='object'&&!Array.isArray(x);
 export function parseSession(raw:string):Session {

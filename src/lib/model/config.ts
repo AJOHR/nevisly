@@ -5,6 +5,7 @@ export type ModelConfig = {
   starters: Readonly<Record<string, number>>;
   goalieSlots: number;
   sharedBenchSlots: number;
+  /** Reference depth at DEFAULT_LEAGUE_TEAMS; scales with configured league demand. */
   normalizationPool: number;
   fitWeight: number;
   /** Category saturation width, in one-player standard deviations. Not a probability. */
