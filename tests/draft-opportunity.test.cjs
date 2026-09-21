@@ -73,9 +73,9 @@ test('engine after two owned D prefers the forward opportunity, but retains genu
   const ranked=[...own,...reserves,make('choice-d','D',defenderValue),make('choice-f','LW',12),make('late-f','LW',2),
    ...Array.from({length:20},(_,i)=>make(`later-d${i}`,'D',11-i*.01))];
   const market={ranked,reserves,allocated:new Map(reserves.map(p=>[`${p.positions[0]}${p.id.slice(-1)}`,p])),deviations:Object.fromEntries(categories.map(c=>[c,10]))};
-  const ctx={...context(ranked),leagueTeams:8,myDraftSlot:8,fantasyTeams:Array.from({length:8},(_,i)=>({id:`team-${i+1}`,isMyTeam:i===7})),
-   draftPicks:[{playerId:'own-a',pickNumber:8,fantasyTeamId:'team-8'},{playerId:'own-b',pickNumber:9,fantasyTeamId:'team-8'},
-    {playerId:'unprojected',pickNumber:22,fantasyTeamId:'team-6'}]};
+  const ctx={...context(ranked),leagueTeams:10,myDraftSlot:9,fantasyTeams:Array.from({length:10},(_,i)=>({id:`team-${i+1}`,isMyTeam:i===8})),
+   draftPicks:[{playerId:'own-a',pickNumber:9,fantasyTeamId:'team-9'},{playerId:'own-b',pickNumber:12,fantasyTeamId:'team-9'},
+    {playerId:'unprojected',pickNumber:28,fantasyTeamId:'team-8'}]};
   const output=rankRecommendations(ctx,market).filter(p=>!own.some(o=>o.id===p.id));
   return output;
  }

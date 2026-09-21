@@ -80,8 +80,10 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
       playoffWeekGames:['24','25','26'].map(w=>schedule?.playoffByWeek[w]?.games??0) as [number,number,number],
       playoffWeekOffNights:['24','25','26'].map(w=>schedule?.playoffByWeek[w]?.offNightGames??0) as [number,number,number]};
   });
+  // Candidate-now planning requires our current pick. Off clock, the same turn
+  // count describes opponents BEFORE our selection, not after a candidate pick.
   // No next-turn skater plan at the final selection or for unmodeled bench use.
-  if(turn.nextMyPick<=context.leagueTeams*rosterSelectionCapacity&&opponentSelections>0) {
+  if(turn.onClock&&turn.nextMyPick<=context.leagueTeams*rosterSelectionCapacity&&opponentSelections>0) {
     const plan=prepareDraftOpportunity(recommendations.filter(p=>!taken.has(p.id)),opponentSelections,p=>p.fit.starterImprovement);
     for(const player of recommendations) {
       if(taken.has(player.id)||!player.fit.starterImprovement)continue;
