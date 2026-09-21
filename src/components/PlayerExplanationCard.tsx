@@ -17,8 +17,8 @@ export default function PlayerExplanationCard({player}:{player:Recommendation}) 
       <dt className="font-bold">Draft Urgency adjustment</dt><dd className="text-right tabular-nums">{signed(player.decision.draftUrgency.adjustment)}</dd>
     </dl>
     <details className="mt-4 text-xs text-zinc-400"><summary className="cursor-pointer">Category comparison</summary>
-      <p className="my-2">Full projected lineups compared through feasible exchanges. Gains are in player-standard-deviation units; fit reduces the value of production in categories already far ahead or behind. These are utility scores, not probabilities.</p>
-      <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr><th>Category</th><th>Production gain</th><th>Fit adjustment</th></tr></thead><tbody>{Object.entries(player.fit.categories).map(([c,v])=><tr key={c}><th className="py-1">{categoryLabels[c as Category]}</th><td className="tabular-nums">{signed(v.productionGain)}</td><td className="tabular-nums">{signed(v.adjustment)}</td></tr>)}</tbody></table></div>
+      <p className="my-2">Full projected lineups compared through feasible exchanges. Production gain is in player-standard-deviation units. A bounded neutral gain prevents extreme categories dominating; fit adjusts for your roster evidence. These are utility scores, not probabilities.</p>
+      <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr><th>Category</th><th>Production gain</th><th>Neutral gain</th><th>Fit adjustment</th></tr></thead><tbody>{Object.entries(player.fit.categories).map(([c,v])=><tr key={c}><th className="py-1">{categoryLabels[c as Category]}</th><td className="tabular-nums">{signed(v.productionGain)}</td><td className="tabular-nums">{signed(v.neutralGain)}</td><td className="tabular-nums">{signed(v.adjustment)}</td></tr>)}</tbody></table></div>
     </details>
     <p className="mt-4 text-xs text-zinc-300">Draft Urgency: <strong>{player.decision.draftUrgency.level}</strong>. {player.returnReason}</p>
     <h4 className="mt-4 text-xs font-bold text-amber-300">Uncertainty</h4>

@@ -4,6 +4,7 @@ import { hasProjectionValue } from '@/lib/projections/quality';
 import type { BaseRankedPlayer } from './legacy';
 import { allocate, augment, compareIds, rosterSlots } from './allocation';
 import { categories, modelConfig, type CategoryValues, type ModelConfig } from './config';
+import { categoryUtilityGain } from './categoryUtility';
 
 export function normalizeProjections(players: SkaterProjection[], config: ModelConfig = modelConfig, leagueTeams = DEFAULT_LEAGUE_TEAMS) {
   const eligible = players.filter(p => !p.positions.includes('G') &&
@@ -67,7 +68,9 @@ export function replacementValues(players: SkaterProjection[], leagueTeams: numb
         }
       }
     }
-    return {...player,vor:replacement ? player.rawScore-replacement.rawScore : 0,
+    const valueContributions=Object.fromEntries(categories.map(c=>[c,replacement&&normalized.deviations[c]?
+      categoryUtilityGain(0,(player[c]-replacement[c])/normalized.deviations[c],config.categoryWidth):0])) as CategoryValues;
+    return {...player,vor:categories.reduce((sum,c)=>sum+valueContributions[c],0),valueContributions,
       replacementPosition:position,replacementId:replacement?.id,replacementAvailable:!!replacement};
   });
   return {...normalized, ranked, allocated:assigned, reserves};

@@ -52,9 +52,12 @@ test('second selection uses actual feasible allocation, preserves first pick, an
  const evaluate=prepareCategoryFit({players:all,reserves,deviations:Object.fromEntries(categories.map(c=>[c,1])),
   market:new Map(reserves.map(p=>[p.id,p])),selections:own.map((p,i)=>({id:`s${i}`,projectionId:p.id,teamId:'me',ordinal:i+1,positions:p.positions})),
   teams:[{id:'me',isMyTeam:true}],config:{...modelConfig,fitWeight:0}});
- evaluate(first);const b=evaluate.afterSelection(second,first.id),f=evaluate.afterSelection(forward,first.id);
+ const firstFit=evaluate(first);const b=evaluate.afterSelection(second,first.id),f=evaluate.afterSelection(forward,first.id);
  assert.ok(b.starterImprovement);assert.ok(f.starterImprovement);
- assert.equal(b.rosterGain,70); // 7 categories × (11 − 1), not the first D's gain again.
+ const {categoryUtilityGain}=load('src/lib/model/categoryUtility.ts');
+ const expected=7*categoryUtilityGain(11,10,modelConfig.categoryWidth);
+ assert.ok(Math.abs(b.rosterGain-expected)<1e-10); // Same origin after the first +11, then +10.
+ assert.ok(Math.abs(firstFit.rosterGain+b.rosterGain-7*categoryUtilityGain(0,21,modelConfig.categoryWidth))<1e-10);
  assert.ok(!b.replacementNames.includes(first.name));
  const flex=make('flex',['D','LW'],11);
  assert.equal(evaluate.afterSelection(flex,first.id).rosterGain,f.rosterGain);
@@ -62,13 +65,14 @@ test('second selection uses actual feasible allocation, preserves first pick, an
  assert.equal(evaluate.afterSelection(first,first.id).starterImprovement,false);
 });
 test('engine after two owned D prefers the forward opportunity, but retains genuinely dominant D',()=>{
- const make=(id,pos,value)=>({...players[0],id,name:id,positions:[pos],vor:7*(value-1),rawScore:7*value,replacementAvailable:true,zScores:{},...Object.fromEntries(categories.map(c=>[c,value]))});
+ const {categoryUtilityGain}=load('src/lib/model/categoryUtility.ts');
+ const make=(id,pos,value)=>({...players[0],id,name:id,positions:[pos],vor:7*categoryUtilityGain(0,(value-1)/10,modelConfig.categoryWidth),rawScore:7*value,replacementAvailable:true,zScores:{},...Object.fromEntries(categories.map(c=>[c,value]))});
  function run(defenderValue){
   const own=[make('own-a','D',40),make('own-b','D',40)];
   const reserves=Object.entries(modelConfig.starters).flatMap(([p,n])=>Array.from({length:n},(_,i)=>make(`r${p}${i}`,p,p==='D'&&i===0?9:1)));
   const ranked=[...own,...reserves,make('choice-d','D',defenderValue),make('choice-f','LW',12),make('late-f','LW',2),
    ...Array.from({length:20},(_,i)=>make(`later-d${i}`,'D',11-i*.01))];
-  const market={ranked,reserves,allocated:new Map(reserves.map(p=>[`${p.positions[0]}${p.id.slice(-1)}`,p])),deviations:Object.fromEntries(categories.map(c=>[c,1]))};
+  const market={ranked,reserves,allocated:new Map(reserves.map(p=>[`${p.positions[0]}${p.id.slice(-1)}`,p])),deviations:Object.fromEntries(categories.map(c=>[c,10]))};
   const ctx={...context(ranked),leagueTeams:8,myDraftSlot:8,fantasyTeams:Array.from({length:8},(_,i)=>({id:`team-${i+1}`,isMyTeam:i===7})),
    draftPicks:[{playerId:'own-a',pickNumber:8,fantasyTeamId:'team-8'},{playerId:'own-b',pickNumber:9,fantasyTeamId:'team-8'},
     {playerId:'unprojected',pickNumber:22,fantasyTeamId:'team-6'}]};
