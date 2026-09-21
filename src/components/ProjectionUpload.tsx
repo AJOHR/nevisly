@@ -32,6 +32,8 @@ import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 
 import DecisionBoard from "@/components/DecisionBoard";
 import PlayerExplanationCard from "@/components/PlayerExplanationCard";
+import PowerPlayBadge from "@/components/PowerPlayBadge";
+import { powerPlayKey, type PowerPlayAssignment } from "@/lib/nhl/powerPlay";
 
 import {
     blendSkaterProjections,
@@ -219,6 +221,11 @@ export default function ProjectionUpload() {
         injuries,
         setInjuries,
       ] = useState<InjuryStatus[]>([]);
+
+  const [
+    powerPlayAssignments,
+    setPowerPlayAssignments,
+  ] = useState<PowerPlayAssignment[]>([]);
 
   const [
     error,
@@ -576,6 +583,20 @@ export default function ProjectionUpload() {
     injuries,
   ]);
 
+  const powerPlayByPlayer =
+    useMemo(() => {
+      const map = new Map<string, PowerPlayAssignment>();
+
+      for (const assignment of powerPlayAssignments) {
+        map.set(
+          powerPlayKey(assignment.name, assignment.team),
+          assignment
+        );
+      }
+
+      return map;
+    }, [powerPlayAssignments]);
+
   function removeProjectionSource(
     sourceId: string
   ) {
@@ -632,6 +653,25 @@ export default function ProjectionUpload() {
     }
   
     loadInjuries();
+  }, []);
+
+  useEffect(() => {
+    async function loadPowerPlay() {
+      try {
+        const response = await fetch("/api/nhl/power-play");
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        setPowerPlayAssignments(data.players ?? []);
+      } catch {
+        /* Power-play deployment is supplemental and never blocks drafting. */
+      }
+    }
+
+    loadPowerPlay();
   }, []);
 
   useEffect(() => {
@@ -2207,7 +2247,7 @@ const currentRound =
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
               <div className="min-w-0">
-                <DecisionBoard players={bestAvailable} onInspect={setSelectedPlayer} onDraft={id=>draftPlayer(id,myTeamId)} rosterFull={draftPicks.filter(p=>p.fantasyTeamId===myTeamId).length>=rosterSelectionCapacity} />
+                <DecisionBoard players={bestAvailable} onInspect={setSelectedPlayer} onDraft={id=>draftPlayer(id,myTeamId)} rosterFull={draftPicks.filter(p=>p.fantasyTeamId===myTeamId).length>=rosterSelectionCapacity} powerPlayByPlayer={powerPlayByPlayer} />
 
                 <section className="sticky top-[72px] z-30 mb-3 rounded-xl border border-zinc-800 bg-zinc-900/95 p-3 backdrop-blur">
                   <div className="flex flex-col gap-2 lg:flex-row">
@@ -2329,6 +2369,10 @@ const currentRound =
                               "team"
                             )}
                           />
+
+                          <th className="p-2" title="Current projected power-play unit from Daily Faceoff; informational only">
+                            PP
+                          </th>
 
                           <SortableHeader
                             label="Nevisly"
@@ -2490,6 +2534,14 @@ const currentRound =
           .toUpperCase()}`
       );
 
+    const powerPlay =
+      powerPlayByPlayer.get(
+        powerPlayKey(
+          player.name,
+          player.team
+        )
+      );
+
     return (
       <tr
         key={
@@ -2575,6 +2627,10 @@ const currentRound =
                                   {
                                     player.team
                                   }
+                                </td>
+
+                                <td className="p-2">
+                                  <PowerPlayBadge assignment={powerPlay} />
                                 </td>
 
                                 <td className="p-2 font-black text-emerald-400">
@@ -2743,6 +2799,7 @@ const currentRound =
   <section className="mb-4">
     <PlayerExplanationCard
       player={finalRankedPlayers.find(p=>p.id===selectedPlayer.id)??selectedPlayer}
+      powerPlayAssignment={powerPlayByPlayer.get(powerPlayKey(selectedPlayer.name,selectedPlayer.team))}
     />
   </section>
 )}
