@@ -1,13 +1,15 @@
 "use client";
 import type { Recommendation } from '@/lib/model/engine';
 import { categoryLabels, type Category } from '@/lib/model/config';
+import PowerPlayBadge from '@/components/PowerPlayBadge';
+import type { PowerPlayAssignment } from '@/lib/nhl/powerPlay';
 
 const labels:Record<string,string>={replacementValue:'Value over feasible market replacement',schedule:'Playoff usable production (Team Fit)',rosterOpportunity:'Roster opportunity vs market baseline',categoryFit:'Incremental category fit',draftOpportunity:'Next-pick opportunity (Draft Urgency)'};
 const signed=(value:number)=>`${value>=0?'+':''}${value.toFixed(3)}`;
-export default function PlayerExplanationCard({player}:{player:Recommendation}) {
+export default function PlayerExplanationCard({player,powerPlayAssignment}:{player:Recommendation;powerPlayAssignment?:PowerPlayAssignment}) {
   return <section aria-label={`Score explanation for ${player.name}`} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
     <h3 className="text-lg font-bold">{player.name}</h3>
-    <p className="text-xs text-zinc-400">{player.positions.join('/')} · {player.team}</p>
+    <p className="flex items-center gap-2 text-xs text-zinc-400">{player.positions.join('/')} · {player.team} <PowerPlayBadge assignment={powerPlayAssignment} /></p>
     <p className="mt-3 text-2xl font-black text-emerald-400">{player.score.toFixed(2)} <span className="text-xs font-normal text-zinc-400">recommendation score</span></p>
     <p className="mt-2 text-sm text-zinc-300">{player.explanations.join(' · ')}</p>
     <dl className="mt-4 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-xs">
