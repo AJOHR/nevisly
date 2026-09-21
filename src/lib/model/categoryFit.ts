@@ -3,6 +3,8 @@ import type { SkaterProjection } from '@/types/player';
 import type { DraftPick, FantasyTeam } from '@/types/draft';
 import { allocate, compareIds, rosterSlots } from './allocation';
 import { categories, modelConfig, type CategoryValues, type ModelConfig } from './config';
+import { categoryUtilityGain } from './categoryUtility';
+export { categoryUtilityGain } from './categoryUtility';
 
 /** Only canonical identity, ownership and selection ordinals enter the model.
  * Transport revisions, DOM captures and Yahoo player keys never enter scoring.
@@ -13,13 +15,9 @@ export function canonicalSelections(picks: readonly DraftPick[]): ModelSelection
     teamId:p.fantasyTeamId,ordinal:p.pickNumber,positions:p.positions ?? []}))
     .sort((a,b)=>a.ordinal-b.ordinal || compareIds(a,b));
 }
-export type FitCategory = {beforeMargin: number; afterMargin: number; productionGain: number; adjustment: number};
+export type FitCategory = {beforeMargin: number; afterMargin: number; productionGain: number; neutralGain:number; adjustment: number};
 export type CategoryFit = {adjustment: number; rosterGain: number; saturationAdjustment: number; categories: Record<string,FitCategory>; replacementNames: string[]; warnings: string[]; starterImprovement:boolean};
 const totals=(players: readonly BaseRankedPlayer[]) => Object.fromEntries(categories.map(c=>[c,players.reduce((sum,p)=>sum+p[c],0)])) as CategoryValues;
-
-export function categoryUtilityGain(beforeMargin:number, productionGain:number, width:number) {
-  return width*(Math.tanh((beforeMargin+productionGain)/width)-Math.tanh(beforeMargin/width));
-}
 
 export function prepareCategoryFit(input: {
   players: BaseRankedPlayer[]; reserves: BaseRankedPlayer[]; deviations: CategoryValues;
@@ -59,8 +57,8 @@ export function prepareCategoryFit(input: {
   const baseIds=new Set([...base.values()].map(p=>p.id));
   const missingOwn=owned.filter(s=>!byId.has(s.projectionId)&&!s.positions.includes('G')).length;
   const confidence=own.length/(own.length+config.ownPriorSlots+missingOwn*config.unresolvedPriorSlots);
-  const lineups=new Map<string,BaseRankedPlayer[]>();
-  const evaluate=(candidate:BaseRankedPlayer, startingLineup?:BaseRankedPlayer[], retainId?:string):CategoryFit => {
+  const lineups=new Map<string,{players:BaseRankedPlayer[]; origin:CategoryValues}>();
+  const evaluate=(candidate:BaseRankedPlayer, startingLineup?:BaseRankedPlayer[], retainId?:string, neutralOrigin?:CategoryValues):CategoryFit => {
     // A reserve candidate cannot appear on both sides of its own comparison.
     const before=startingLineup?allocate(startingLineup,slots):reserveIds.has(candidate.id)&&baseIds.has(candidate.id)?allocate([...own,...availableReserves.filter(p=>p.id!==candidate.id)],slots):base;
     const beforePlayers=[...before.values()].sort(compareIds);
@@ -72,19 +70,23 @@ export function prepareCategoryFit(input: {
     const a=totals(beforePlayers);
     const assess=(afterPlayers:BaseRankedPlayer[])=>{
       const b=totals(afterPlayers);
-      let linear=0,saturation=0;
+      let neutral=0,saturation=0;
       const details:Record<string,FitCategory>={};
       for(const c of categories) {
         const scale=deviations[c];
         const beforeMargin=scale?(a[c]-target[c])/scale:0;
         const afterMargin=scale?(b[c]-target[c])/scale:0;
         const productionGain=scale?(b[c]-a[c])/scale:0;
+        // Keep the same neutral origin across PR9's two selections, so category
+        // utility telescopes rather than awarding saturation headroom twice.
+        const neutralMargin=scale&&neutralOrigin?(a[c]-neutralOrigin[c])/scale:0;
+        const neutralGain=categoryUtilityGain(neutralMargin,productionGain,config.categoryWidth);
         const utilityGain=categoryUtilityGain(beforeMargin,productionGain,config.categoryWidth);
-        const adjustment=confidence*(utilityGain-productionGain)*config.fitWeight;
-        linear+=productionGain;saturation+=adjustment;
-        details[c]={beforeMargin,afterMargin,productionGain,adjustment};
+        const adjustment=confidence*(utilityGain-neutralGain)*config.fitWeight;
+        neutral+=neutralGain;saturation+=adjustment;
+        details[c]={beforeMargin,afterMargin,productionGain,neutralGain,adjustment};
       }
-      return {linear,saturation,details};
+      return {neutral,saturation,details};
     };
     // Evaluate every feasible one-player exchange, including keeping the lineup.
     // Raw-score allocation alone would reject specialists before category fit
@@ -98,20 +100,20 @@ export function prepareCategoryFit(input: {
       const trial=allocate(trialPlayers,slots);
       if(trial.size!==count||![...trial.values()].some(p=>p.id===candidate.id))continue;
       const assessment=assess(trialPlayers);
-      if(assessment.linear+assessment.saturation>best.linear+best.saturation+1e-10) {
+      if(assessment.neutral+assessment.saturation>best.neutral+best.saturation+1e-10) {
         afterPlayers=trialPlayers;best=assessment;
       }
     }
-    const {linear,saturation,details}=best;
+    const {neutral,saturation,details}=best;
     const afterIds=new Set(afterPlayers.map(p=>p.id));
     const replacementNames=beforePlayers.filter(p=>!afterIds.has(p.id)).map(p=>p.name);
     const starterImprovement=afterIds.has(candidate.id)&&!taken.has(candidate.id)&&!beforePlayers.some(p=>p.id===candidate.id);
     if(!starterImprovement)candidateWarnings.push('No projected starter upgrade. Bench deployment is unmodeled; assess depth separately.');
-    if(!startingLineup)lineups.set(candidate.id,afterPlayers);
-    return {adjustment:linear-candidate.vor+saturation,rosterGain:linear,saturationAdjustment:saturation,categories:details,replacementNames,warnings:candidateWarnings,starterImprovement};
+    if(!startingLineup)lineups.set(candidate.id,{players:afterPlayers,origin:a});
+    return {adjustment:neutral-candidate.vor+saturation,rosterGain:neutral,saturationAdjustment:saturation,categories:details,replacementNames,warnings:candidateWarnings,starterImprovement};
   };
   return Object.assign(evaluate,{afterSelection:(candidate:BaseRankedPlayer,firstId:string)=>{
     const lineup=lineups.get(firstId);
-    return lineup?evaluate(candidate,lineup,firstId):undefined;
+    return lineup?evaluate(candidate,lineup.players,firstId,lineup.origin):undefined;
   }});
 }

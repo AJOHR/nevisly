@@ -1,5 +1,66 @@
 # Stage 5 model and validation
 
+## Category-economics correction (after PR9)
+
+Before: intrinsic Player Value was `sum((player[c] − feasibleReplacement[c]) / SD[c])`.
+Reference means cancel. Position enters through the single feasible replacement;
+there is no separate position/normalization bonus. For starter recommendations,
+Team Fit subtracts that VOR and substitutes the feasible own-roster gain. PR9
+then adds a separate two-pick adjustment. Intrinsic VOR is not counted twice,
+though it also determines the explicitly assumed opponent selection order.
+
+Verified defect: linear standardized differences are unbounded. An out-of-reference
+synthetic player with 1,000 BLK against a nearly constant 30-BLK population had
+roughly 1.98 million linear value points. Roster-proportional sampling fixes role
+composition, but cannot guarantee a non-narrow category distribution. Empty-roster
+category fit previously retained the same unbounded linear term. This does not
+establish that the user's actual four-source BLK/HIT distributions are pathological.
+
+Correction: use the existing Stage5 utility `U(x) = w * tanh(x/w)`, with the existing
+`w = sqrt(10)`, for each neutral replacement gain. Player Value is now
+`sum(U((player[c] − replacement[c])/SD[c]))`. Each category has the same slope of
+one at zero and limit ±w. No category-specific coefficient, position multiplier,
+or new tuning constant is introduced. Values remain utility units, not category
+win counts or calibrated probabilities. The reference population, SDs, raw-score
+allocation, selected replacements, categories, and league-size inputs are unchanged.
+Allocation remains a standardized-production allocation; it is not a global nonlinear
+matchup optimizer. A zero reference SD retains the existing zero-contribution policy.
+
+The neutral own-roster gain uses the same bounded function. Existing category fit
+still blends neutral and roster-context utility with unchanged evidence confidence;
+it is not an increased positional penalty. Raw production deltas remain visible,
+alongside neutral utility and fit adjustments. For PR9's second selection the neutral
+origin stays at the first comparison's starting roster: `U(a+b) − U(a)` rather than
+`U(b)`. Thus both neutral and context gains telescope across the two selections.
+No PR9 shortlist, opponent order rule, snake logic, or fallback was redesigned.
+
+Reproducible 8-team diagnostics (`tests/category-economics.test.cjs`): synthetic
+market from the existing 300-player fixture scaled to 65% production, plus profiles
+A (multi-category C/LW) and B (two-way D). The same actual replacements are retained.
+
+| Category | A old | A corrected | B old | B corrected |
+| --- | ---: | ---: | ---: | ---: |
+| G | 0.474 | 0.470 | 0.440 | 0.437 |
+| A | -0.496 | -0.492 | 2.156 | 1.874 |
+| P | -0.046 | -0.046 | 1.452 | 1.358 |
+| PPP | -0.574 | -0.568 | 1.922 | 1.716 |
+| SOG | 2.785 | 2.235 | 1.511 | 1.406 |
+| HIT | 4.048 | 2.708 | 1.626 | 1.497 |
+| BLK | 0.192 | 0.191 | 3.637 | 2.586 |
+| Total | 6.383 | 4.500 | 12.744 | 10.873 |
+
+The defense-type profile retains its lead: it beats its replacement across all seven
+categories, while A's gains concentrate in SOG/HIT and it trails its stronger offensive
+replacement in A/P/PPP. BLK and HIT contribute on both sides; neither is specially
+discounted. The exact reported 8.52/3.88 live values cannot be reconstructed from two
+players alone: the complete blend/reference/replacement pool is required. This fixture
+explains the mechanism, not an asserted reproduction of that missing state.
+
+Injury/status, import, Yahoo/extension, schedule formula, goalies, and uncertainty
+behavior are unchanged. Eight-team economics derive from the existing team-count
+input; the same formula is tested at ten and twelve teams. The remainder of this
+document records earlier releases and their historical formulas.
+
 ## Next-pick opportunity correction (after PRs 7–8)
 
 The prior production engine ranked only Player Value + Team Fit. Its urgency
