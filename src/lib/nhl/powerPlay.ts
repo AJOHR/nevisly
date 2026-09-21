@@ -6,6 +6,8 @@ export type PowerPlayAssignment = {
   unit: PowerPlayUnit;
   updatedAt: string | null;
   source: "Daily Faceoff";
+  delivery?: "live" | "snapshot";
+  capturedAt?: string;
 };
 
 export type PowerPlayTeamResult = {
@@ -230,6 +232,7 @@ export function parseDailyFaceoffPowerPlayPage(
       unit: "PP1" as const,
       updatedAt,
       source: "Daily Faceoff" as const,
+      delivery: "live" as const,
     })),
     ...pp2.map((name) => ({
       name,
@@ -237,6 +240,7 @@ export function parseDailyFaceoffPowerPlayPage(
       unit: "PP2" as const,
       updatedAt,
       source: "Daily Faceoff" as const,
+      delivery: "live" as const,
     })),
   ];
 
