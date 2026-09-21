@@ -32,6 +32,7 @@ async function loadTeam(
         slug,
         updatedAt: null,
         status: "unknown",
+        reason: `http-${response.status}`,
         players: [],
       };
     }
@@ -43,6 +44,7 @@ async function loadTeam(
       slug,
       updatedAt: null,
       status: "unknown",
+      reason: "fetch-error",
       players: [],
     };
   }
@@ -54,11 +56,14 @@ export async function GET() {
   );
 
   const players = teams.flatMap((team) => team.players);
+  const successfulTeams = teams.filter((team) => team.status === "ok").length;
 
   return NextResponse.json({
     source: "Daily Faceoff",
     informationalOnly: true,
     fetchedAt: new Date().toISOString(),
+    successfulTeams,
+    unknownTeams: teams.length - successfulTeams,
     teams,
     players,
   });
