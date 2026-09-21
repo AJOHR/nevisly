@@ -33,9 +33,9 @@ export default function PowerPlayBadge({
       className={`whitespace-nowrap text-[10px] font-black ${
         assignment.unit === "PP1" ? "text-fuchsia-300" : "text-sky-300"
       }`}
-      title={`${assignment.source} · updated ${formatFreshness(
+      title={`${assignment.source} · source updated ${formatFreshness(
         assignment.updatedAt
-      )} · informational only; not used in Nevisly scoring`}
+      )}${assignment.delivery === "snapshot" && assignment.capturedAt ? ` · snapshot checked ${formatFreshness(assignment.capturedAt)}` : ""} · informational only; not used in Nevisly scoring`}
     >
       {assignment.unit}
     </span>
