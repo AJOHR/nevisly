@@ -6,6 +6,10 @@ const {
   powerPlayKey,
   normalizePowerPlayTeam,
 }=load('src/lib/nhl/powerPlay.ts');
+const {
+  powerPlaySnapshotTeam,
+  POWER_PLAY_SNAPSHOT_TEAMS,
+}=load('src/data/powerPlaySnapshot.ts');
 
 const html=`
 <html><body>
@@ -52,4 +56,27 @@ test('missing power-play sections degrade to unknown without guessing',()=>{
   assert.equal(result.status,'unknown');
   assert.equal(result.reason,'no-pp-data-parsed');
   assert.deepEqual(result.players,[]);
+});
+
+
+test('verified PP snapshot covers all 32 teams with ten assignments each',()=>{
+  assert.equal(POWER_PLAY_SNAPSHOT_TEAMS.length,32);
+  for(const team of POWER_PLAY_SNAPSHOT_TEAMS){
+    const result=powerPlaySnapshotTeam(team);
+    assert.equal(result.status,'ok',team);
+    assert.equal(result.players.length,10,team);
+    assert.equal(result.players.filter(p=>p.unit==='PP1').length,5,team);
+    assert.equal(result.players.filter(p=>p.unit==='PP2').length,5,team);
+    assert.ok(result.players.every(p=>p.delivery==='snapshot'),team);
+  }
+});
+
+test('snapshot includes obvious current PP1 anchors used for acceptance',()=>{
+  const col=powerPlaySnapshotTeam('COL');
+  const edm=powerPlaySnapshotTeam('EDM');
+  const tbl=powerPlaySnapshotTeam('TBL');
+  assert.equal(col.players.find(p=>p.name==='Nathan MacKinnon')?.unit,'PP1');
+  assert.equal(col.players.find(p=>p.name==='Cale Makar')?.unit,'PP1');
+  assert.equal(edm.players.find(p=>p.name==='Connor McDavid')?.unit,'PP1');
+  assert.equal(tbl.players.find(p=>p.name==='Nikita Kucherov')?.unit,'PP1');
 });
