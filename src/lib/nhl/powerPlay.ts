@@ -13,6 +13,7 @@ export type PowerPlayTeamResult = {
   slug: string;
   updatedAt: string | null;
   status: "ok" | "unknown";
+  reason?: string;
   players: PowerPlayAssignment[];
 };
 
@@ -118,21 +119,44 @@ function decodeHtml(value: string) {
     );
 }
 
+function stripScriptsAndStyles(html: string) {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ");
+}
+
 function plainText(html: string) {
   return decodeHtml(
-    html
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
+    stripScriptsAndStyles(html).replace(/<[^>]+>/g, " ")
   ).replace(/\s+/g, " ");
 }
 
-function anchorLabels(html: string) {
+function annotatedText(html: string) {
+  const links: string[] = [];
+  const withoutScripts = stripScriptsAndStyles(html);
+
+  const withMarkers = withoutScripts.replace(
+    /<a\b[^>]*>([\s\S]*?)<\/a>/gi,
+    (_match, inner: string) => {
+      const label = plainText(inner).trim();
+      const index = links.push(label) - 1;
+      return ` __DFO_LINK_${index}__ `;
+    }
+  );
+
+  return {
+    text: decodeHtml(withMarkers.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " "),
+    links,
+  };
+}
+
+function playerLinksFromSection(section: string, links: string[]) {
   const labels: string[] = [];
   const seen = new Set<string>();
 
-  for (const match of html.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi)) {
-    const label = plainText(match[1]).trim();
+  for (const match of section.matchAll(/__DFO_LINK_(\d+)__/g)) {
+    const label = links[Number(match[1])]?.trim() ?? "";
+
     if (!label || label.length > 60 || /click player jersey/i.test(label)) {
       continue;
     }
@@ -144,34 +168,34 @@ function anchorLabels(html: string) {
 
     seen.add(key);
     labels.push(label);
+
+    if (labels.length === 5) {
+      break;
+    }
   }
 
   return labels;
 }
 
 function extractUnitPlayers(
-  html: string,
-  startHeading: string,
-  endHeading: string
+  text: string,
+  links: string[],
+  startHeading: RegExp,
+  endHeading: RegExp
 ) {
-  const startPattern = new RegExp(startHeading, "ig");
-  let startMatch: RegExpExecArray | null;
-
-  while ((startMatch = startPattern.exec(html))) {
-    const start = startMatch.index + startMatch[0].length;
-    const remaining = html.slice(start);
-    const endMatch = new RegExp(endHeading, "i").exec(remaining);
-    if (!endMatch) {
-      continue;
-    }
-
-    const labels = anchorLabels(remaining.slice(0, endMatch.index));
-    if (labels.length >= 3) {
-      return labels.slice(0, 5);
-    }
+  const startMatch = startHeading.exec(text);
+  if (!startMatch) {
+    return [];
   }
 
-  return [];
+  const start = startMatch.index + startMatch[0].length;
+  const remaining = text.slice(start);
+  const endMatch = endHeading.exec(remaining);
+  if (!endMatch) {
+    return [];
+  }
+
+  return playerLinksFromSection(remaining.slice(0, endMatch.index), links);
 }
 
 export function parseDailyFaceoffPowerPlayPage(
@@ -179,24 +203,26 @@ export function parseDailyFaceoffPowerPlayPage(
   team: string,
   slug = ""
 ): PowerPlayTeamResult {
-  const text = plainText(html);
+  const normalizedTeam = normalizePowerPlayTeam(team);
+  const { text, links } = annotatedText(html);
   const updatedMatch = text.match(
     /Last updated:\s*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)/i
   );
   const updatedAt = updatedMatch?.[1] ?? null;
 
   const pp1 = extractUnitPlayers(
-    html,
-    "1st\\s*Powerplay\\s*Unit",
-    "2nd\\s*Powerplay\\s*Unit"
+    text,
+    links,
+    /1st\s+Power\s*play\s+Unit/i,
+    /2nd\s+Power\s*play\s+Unit/i
   );
   const pp2 = extractUnitPlayers(
-    html,
-    "2nd\\s*Powerplay\\s*Unit",
-    "1st\\s*Penalty\\s*Kill\\s*Unit"
+    text,
+    links,
+    /2nd\s+Power\s*play\s+Unit/i,
+    /1st\s+Penalty\s+Kill\s+Unit/i
   );
 
-  const normalizedTeam = normalizePowerPlayTeam(team);
   const players: PowerPlayAssignment[] = [
     ...pp1.map((name) => ({
       name,
@@ -219,6 +245,7 @@ export function parseDailyFaceoffPowerPlayPage(
     slug,
     updatedAt,
     status: players.length > 0 ? "ok" : "unknown",
+    reason: players.length > 0 ? undefined : "no-pp-data-parsed",
     players,
   };
 }
