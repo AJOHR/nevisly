@@ -1,11 +1,13 @@
 "use client";
 
 import type { Recommendation } from '@/lib/model/engine';
+import PowerPlayBadge from '@/components/PowerPlayBadge';
+import { powerPlayKey, type PowerPlayAssignment } from '@/lib/nhl/powerPlay';
 
-type Props = {players:Recommendation[]; onInspect:(player:Recommendation)=>void; onDraft:(id:string)=>void; rosterFull:boolean};
+type Props = {players:Recommendation[]; onInspect:(player:Recommendation)=>void; onDraft:(id:string)=>void; rosterFull:boolean; powerPlayByPlayer?:ReadonlyMap<string,PowerPlayAssignment>};
 const signed=(value:number)=>`${value>=0?'+':''}${value.toFixed(2)}`;
 
-export default function DecisionBoard({players,onInspect,onDraft,rosterFull}:Props) {
+export default function DecisionBoard({players,onInspect,onDraft,rosterFull,powerPlayByPlayer}:Props) {
   return <section aria-label="Draft recommendations" className="mb-5 overflow-hidden rounded-xl border border-emerald-800/60 bg-zinc-900">
     <header className="border-b border-zinc-800 px-4 py-3">
       <p className="text-xs font-bold uppercase tracking-wider text-emerald-400">Your next decision</p>
@@ -22,7 +24,7 @@ export default function DecisionBoard({players,onInspect,onDraft,rosterFull}:Pro
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <button type="button" onClick={()=>onInspect(player)} className="text-left font-bold hover:text-emerald-300 focus-visible:outline-emerald-400"><span className="mr-2 text-emerald-400">{index+1}.</span>{player.name}</button>
-              <p className="mt-1 text-xs text-zinc-400">{player.positions.join('/')} · {player.team}</p>
+              <p className="mt-1 flex items-center gap-2 text-xs text-zinc-400">{player.positions.join('/')} · {player.team} <PowerPlayBadge assignment={powerPlayByPlayer?.get(powerPlayKey(player.name,player.team))} /></p>
               <p className="mt-2 text-sm text-zinc-300">{player.explanations.slice(0,2).join(' · ')}</p>
             </div>
             <button type="button" aria-label={`Draft ${player.name} to my team`} onClick={()=>onDraft(player.id)} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-black hover:bg-emerald-400">MY PICK</button>
