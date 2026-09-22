@@ -9,7 +9,7 @@ import { categories, categoryLabels } from './config';
 import { allocate, rosterSlots, compareIds } from './allocation';
 import { modelConfig } from './config';
 import { rosterSelectionCapacity } from './config';
-import { prepareDraftOpportunity, prepareThreePickOpportunity } from './draftOpportunity';
+import { prepareDraftOpportunity, prepareNearTermScarcity, prepareThreePickOpportunity } from './draftOpportunity';
 import { defaultMarketSnapshot, prepareMarketDemand, marketTiming, type MarketSnapshot } from './marketDemand';
 
 export type Recommendation = RankedPlayer & {decision: DecisionAssessment; fit: CategoryFit; explanations:string[]};
@@ -73,8 +73,11 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     const strongest=categories.map(c=>({c,gain:fit.categories[c]?.productionGain??0})).sort((a,b)=>b.gain-a.gain).filter(x=>x.gain>0).slice(0,2);
     if(strongest.length)explanations.push(`Adds ${strongest.map(x=>categoryLabels[x.c]).join(' + ')} versus the feasible replacement`);
     if(!fit.starterImprovement)explanations.push('Depth option; no projected starter upgrade');
-    if(Math.abs(scheduleBonus)>=0.01)explanations.unshift(
-      `${scheduleValue.games} games in Yahoo playoff Weeks 24–26; ${scheduleValue.usableStarts} modeled usable starts; ${scheduleBonus>=0?'+':''}${scheduleBonus.toFixed(2)} lineup opportunity versus the feasible starter exchange`
+    if(Math.abs(scheduleValue.playoffAdjustment)>=0.01)explanations.unshift(
+      `${scheduleValue.games} games in Yahoo playoff Weeks 24–26; ${scheduleValue.usableStarts} modeled usable starts; ${scheduleValue.playoffAdjustment>=0?'+':''}${scheduleValue.playoffAdjustment.toFixed(2)} playoff lineup opportunity`
+    );
+    if(Math.abs(scheduleValue.seasonOffNightAdjustment)>=0.01)explanations.unshift(
+      `${scheduleValue.seasonOffNightGames} season off-night games; ${scheduleValue.seasonOffNightAdjustment>=0?'+':''}${scheduleValue.seasonOffNightAdjustment.toFixed(2)} regular-season lineup access`
     );
     if(!explanations.length)explanations.push('Compare projected value and uncertainty');
     const decision:DecisionAssessment={playerValue:{score:playerValue},teamFit:{adjustment:teamFit},draftUrgency:{opponentSelections,level:urgency,calibrated:false,adjustment:0},uncertainty:{warnings}};
@@ -92,6 +95,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
   // to the established two-pick planner near the end of the draft.
   if(turn.onClock&&turn.nextMyPick<=context.leagueTeams*rosterSelectionCapacity&&opponentSelections>0) {
     const available=recommendations.filter(p=>!taken.has(p.id));
+    const nearTermScarcity=prepareNearTermScarcity(available,opponentSelections,demand.ids);
     const futureTurns=getFutureOwnTurns(context.draftPicks,context.leagueTeams,context.myDraftSlot,2);
     const thirdTurn=futureTurns[1];
     if(thirdTurn&&thirdTurn.pickNumber<=context.leagueTeams*rosterSelectionCapacity) {
@@ -106,9 +110,14 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
           const futureSchedule=evaluateSchedule(future,next.beforeRosterIds,next.rosterIds);
           return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment;
         });
-        player.decision.draftUrgency.adjustment=timing.adjustment;
-        player.contributions={...player.contributions,draftOpportunity:timing.adjustment};
-        player.score+=timing.adjustment;
+        const scarcity=nearTermScarcity(player);
+        const urgencyAdjustment=timing.adjustment+scarcity.adjustment;
+        player.decision.draftUrgency.adjustment=urgencyAdjustment;
+        player.contributions={...player.contributions,draftOpportunity:timing.adjustment,nearTermScarcity:scarcity.adjustment};
+        player.score+=urgencyAdjustment;
+        if(scarcity.adjustment>=0.01&&scarcity.alternative)player.explanations.unshift(
+          `Near-term ${player.positions.join('/')} tier drop: ${player.name} → ${scarcity.alternative.name} if waiting one turn (+${scarcity.adjustment.toFixed(2)})`
+        );
         if(Math.abs(timing.adjustment)>=0.01)player.explanations.unshift(
           timing.alternatives.length
             ? `Three-pick plan: ${timing.alternatives.map(p=>`${p.name} (${p.positions.join('/')})`).join(' → ')} remain in the modeled path`
@@ -125,9 +134,14 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
           const futureSchedule=evaluateSchedule(future,next.beforeRosterIds,next.rosterIds);
           return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment;
         });
-        player.decision.draftUrgency.adjustment=timing.adjustment;
-        player.contributions={...player.contributions,draftOpportunity:timing.adjustment};
-        player.score+=timing.adjustment;
+        const scarcity=nearTermScarcity(player);
+        const urgencyAdjustment=timing.adjustment+scarcity.adjustment;
+        player.decision.draftUrgency.adjustment=urgencyAdjustment;
+        player.contributions={...player.contributions,draftOpportunity:timing.adjustment,nearTermScarcity:scarcity.adjustment};
+        player.score+=urgencyAdjustment;
+        if(scarcity.adjustment>=0.01&&scarcity.alternative)player.explanations.unshift(
+          `Near-term ${player.positions.join('/')} tier drop: ${player.name} → ${scarcity.alternative.name} if waiting one turn (+${scarcity.adjustment.toFixed(2)})`
+        );
         if(Math.abs(timing.adjustment)>=0.01)player.explanations.unshift(timing.alternative?
           `Next-pick plan: ${timing.alternative.name} (${timing.alternative.positions.join('/')}) remains in the modeled pool`:
           'No complementary starter upgrade remains in the modeled next-pick shortlist');
