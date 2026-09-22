@@ -39,7 +39,8 @@ test('strong single-category additions improve a close category more than a satu
 
 test('urgency changes with turn distance without altering Player Value or current Team Fit',()=>{
  const market=replacementValues(players,12),ctx=context(market.ranked,0);
- const a=rankRecommendations({...ctx,myDraftSlot:1},market),b=rankRecommendations({...ctx,myDraftSlot:12},market);
+ const snapshot=require('./market-fixture.cjs').snapshotFor(market.ranked);
+ const a=rankRecommendations({...ctx,myDraftSlot:1},market,snapshot),b=rankRecommendations({...ctx,myDraftSlot:12},market,snapshot);
  const values=rows=>rows.map(p=>[p.id,p.decision.playerValue.score,p.decision.teamFit.adjustment]).sort();
  assert.deepEqual(values(a),values(b));
  assert.ok(b.some(p=>p.decision.draftUrgency.level!==a.find(q=>q.id===p.id).decision.draftUrgency.level));

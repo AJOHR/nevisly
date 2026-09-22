@@ -1,6 +1,8 @@
 "use client";
 import { LEAGUE_TEAM_OPTIONS } from '@/lib/league';
 import { rankRecommendations, compareRecommendations, availableRecommendationRanks, type Recommendation } from "@/lib/model/engine";
+import { defaultMarketSnapshot } from '@/lib/model/marketDemand';
+import MarketTimingSettings from '@/components/MarketTimingSettings';
 import { rosterSelectionCapacity } from "@/lib/model/config";
 import { initializeRankedPlayer } from "@/lib/model/player";
 import { replacementValues } from "@/lib/model/replacement";
@@ -208,6 +210,7 @@ function getMyTeamId(
 
 
 export default function ProjectionUpload() {
+  const [marketSnapshot,setMarketSnapshot]=useState(defaultMarketSnapshot);
   const session = useDraftSession();
   const { projectionSources, draftPicks, leagueTeams, myDraftSlot } = session.data;
   const setProjectionSources = (value: ProjectionSourceState[] | ((s:ProjectionSourceState[])=>ProjectionSourceState[])) => session.setField("projectionSources", value);
@@ -1348,7 +1351,8 @@ const currentRound =
   const finalRankedPlayers =
     useMemo<
       Recommendation[]
-    >(() => rankRecommendations({rankedPlayers, draftedIds, fantasyTeams, leagueTeamPlayers, draftPicks, leagueTeams, myDraftSlot, openStarterPositions, playoffSchedule, scheduleAverages, currentRound, myTeamPlayers}, projectionMarket), [
+    >(() => rankRecommendations({rankedPlayers, draftedIds, fantasyTeams, leagueTeamPlayers, draftPicks, leagueTeams, myDraftSlot, openStarterPositions, playoffSchedule, scheduleAverages, currentRound, myTeamPlayers}, projectionMarket, marketSnapshot), [
+      marketSnapshot,
       projectionMarket,
       rankedPlayers,
       draftedIds,
@@ -2142,6 +2146,7 @@ const currentRound =
           </div>
         ) : (
           <>
+            <MarketTimingSettings snapshot={marketSnapshot} onChange={setMarketSnapshot} />
             <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-zinc-500">
@@ -2641,6 +2646,7 @@ const currentRound =
 
                                 <td className="p-2">
                                   <GoneRiskBadge
+                                    reason={player.returnReason}
                                     level={
                                       player.returnRisk
                                     }
@@ -3026,8 +3032,10 @@ const currentRound =
 
 function GoneRiskBadge({
   level,
+  reason,
 }: {
   level: ReturnRiskLevel;
+  reason: string;
   probability: number;
 }) {
   let className =
@@ -3057,7 +3065,7 @@ function GoneRiskBadge({
     <span
       className={`whitespace-nowrap text-[9px] font-bold ${className}`}
       title={
-        level
+        reason
       }
     >
       {level}

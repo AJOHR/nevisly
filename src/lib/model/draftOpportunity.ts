@@ -3,21 +3,24 @@ import { modelConfig } from './config';
 
 type Option = {id:string; positions:string[]; vor:number; score:number};
 /** Bounded two-selection planning, not a forecast of Yahoo drafting behavior.
- * Opponents take the highest intrinsic VOR options, excluding our current pick.
+ * Opponents follow a supplied market order, excluding our current pick.
  * Search only the top two surviving current-roster options per starter position
  * (at most eight unique players). The callback checks a feasible second upgrade,
  * retaining the first pick, against the same category target/prior.
  * Subtract a common next-pick baseline: this centers timing without counting
  * either deep replacement value or the second player's full VOR twice.
  */
-export function prepareDraftOpportunity<T extends Option>(available:readonly T[], opponentSelections:number, eligibleFuture:(p:T)=>boolean=()=>true) {
-  const demand=[...available].sort((a,b)=>b.vor-a.vor||compareIds(a,b));
-  const order=new Map(demand.map((p,i)=>[p.id,i]));
-  const baseline=Math.max(0,...demand.slice(opponentSelections).filter(eligibleFuture).map(p=>p.score));
+export function prepareDraftOpportunity<T extends Option>(available:readonly T[], opponentSelections:number, eligibleFuture:(p:T)=>boolean=()=>true, demandIds?:readonly string[]) {
+  // Legacy order retained only for explicit callers without market data. The live
+  // engine always supplies Yahoo order; absent matches are not assumed survivors.
+  const ids=demandIds??[...available].sort((a,b)=>b.vor-a.vor||compareIds(a,b)).map(p=>p.id);
+  const order=new Map(ids.map((id,i)=>[id,i]));
+  const survivors=(start:number)=>available.filter(p=>order.has(p.id)&&order.get(p.id)!>=start&&eligibleFuture(p));
+  const baseline=Math.max(0,...survivors(opponentSelections).map(p=>p.score));
   const shortlist=(start:number)=>{
-    const survivors=demand.slice(start).filter(eligibleFuture).sort((a,b)=>b.score-a.score||compareIds(a,b));
+    const remaining=survivors(start).sort((a,b)=>b.score-a.score||compareIds(a,b));
     // Keep one spare because the current selection must be excluded first.
-    return Object.keys(modelConfig.starters).map(position=>survivors.filter(p=>p.positions.includes(position)).slice(0,3));
+    return Object.keys(modelConfig.starters).map(position=>remaining.filter(p=>p.positions.includes(position)).slice(0,3));
   };
   const lists=[shortlist(opponentSelections),shortlist(opponentSelections+1)];
   return (candidate:T, gain:(future:T)=>number)=>{

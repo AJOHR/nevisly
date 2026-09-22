@@ -32,6 +32,7 @@ type FantasyTeam = {
 };
 
 export type ReturnRiskLevel =
+  | "UNKNOWN"
   | "SAFE"
   | "POSSIBLE"
   | "RISKY"
