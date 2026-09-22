@@ -39,6 +39,25 @@ test('exact daily allocation gives multi-position eligibility value only when it
  assert.ok(result.adjustment>0);
 });
 
+test('multi-position eligibility gets no flat bonus when daily access is unchanged',()=>{
+ const before=[
+  player('c1','T1',['C']),player('replace','T2',['C']),
+  player('lw1','T3',['LW']),player('lw2','T4',['LW']),
+  player('rw1','T5',['RW']),player('rw2','T6',['RW']),
+  player('d1','T7',['D']),player('d2','T8',['D']),player('d3','T9',['D']),player('d4','T10',['D']),
+  player('bench-c','B1',['C']),player('bench-lw','B2',['LW']),player('bench-rw','B3',['RW']),player('bench-d','B4',['D']),
+ ];
+ const flex=player('flex','T2',['C','LW','RW']);
+ const players=[...before,flex];
+ const schedules=Object.fromEntries([...new Set(players.map(p=>p.team))].map((team,i)=>[
+  team,schedule(team,[i%2?'2027-03-15':'2027-03-16'])
+ ]));
+ const evaluate=prepareScheduleOpportunity(players,schedules,deviations);
+ const result=evaluate(flex,before.map(p=>p.id),before.map(p=>p.id==='replace'?'flex':p.id));
+ assert.equal(result.extraStarts,0);
+ assert.ok(Math.abs(result.adjustment)<1e-10);
+});
+
 test('same-production nine-game player is penalized against an eleven-game feasible starter',()=>{
  const eleven=allDates, nine=allDates.slice(0,9);
  const before=[
