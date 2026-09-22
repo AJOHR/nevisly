@@ -104,10 +104,14 @@ export function normalizeTeam(team: string) {
 
     NEW_YORK_ISLANDERS: "NYI",
     "NEW YORK ISLANDERS": "NYI",
+    "NY ISLANDERS": "NYI",
+    "N Y ISLANDERS": "NYI",
     NYI: "NYI",
 
     NEW_YORK_RANGERS: "NYR",
     "NEW YORK RANGERS": "NYR",
+    "NY RANGERS": "NYR",
+    "N Y RANGERS": "NYR",
     NYR: "NYR",
 
     OTTAWA: "OTT",
