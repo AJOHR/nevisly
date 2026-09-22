@@ -18,13 +18,18 @@ function schedule(team,dates){
 
 test('exact daily allocation gives multi-position eligibility value only when it opens a real lineup slot',()=>{
  const before=[
-  player('c1','T1',['C']),player('c2','T2',['C']),player('replace','T3',['C']),
-  player('lw1','T4',['LW']),player('rw1','T5',['RW']),player('rw2','T6',['RW']),
+  player('c1','T1',['C']),player('c2','T2',['C']),
+  player('lw1','T3',['LW']),player('lw2','T4',['LW']),
+  player('rw1','T5',['RW']),player('rw2','T6',['RW']),
   player('d1','T7',['D']),player('d2','T8',['D']),player('d3','T9',['D']),player('d4','T10',['D']),
+  player('replace','TB1',['C']),player('bench-lw','TB2',['LW']),player('bench-rw','TB3',['RW']),player('bench-d','TB4',['D']),
  ];
- const flex=player('flex','T3',['C','LW']);
+ const flex=player('flex','TB1',['C','LW']);
  const players=[...before,flex];
- const schedules=Object.fromEntries(players.map(p=>[p.team,schedule(p.team,['2027-03-15'])]));
+ const early=new Set(['T1','T2','T3','T7','T8','T9','T10','TB1']);
+ const schedules=Object.fromEntries([...new Set(players.map(p=>p.team))].map(team=>[
+  team,schedule(team,[early.has(team)?'2027-03-15':'2027-03-16'])
+ ]));
  const evaluate=prepareScheduleOpportunity(players,schedules,deviations);
  const result=evaluate(flex,before.map(p=>p.id),before.map(p=>p.id==='replace'?'flex':p.id));
  assert.equal(result.exact,true);
