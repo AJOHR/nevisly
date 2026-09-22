@@ -116,3 +116,39 @@ export function prepareThreePickOpportunity<T extends Option>(
     };
   };
 }
+
+
+/** Near-term tier scarcity at the candidate's eligible positions.
+ * This deliberately ignores the eventual league-wide positional fringe.
+ * It asks only how much intrinsic value is lost if we wait until our next turn,
+ * after the modeled Yahoo market removes opponent selections.
+ *
+ * Multi-position players use the best surviving option across any eligible
+ * position, so extra eligibility never creates an artificial scarcity bonus.
+ */
+export function prepareNearTermScarcity<T extends Option>(
+  available:readonly T[],
+  opponentSelections:number,
+  demandIds?:readonly string[]
+) {
+  const ids=demandIds??[...available].sort((a,b)=>b.vor-a.vor||compareIds(a,b)).map(p=>p.id);
+  const byId=new Map(available.map(p=>[p.id,p]));
+
+  return (candidate:T)=>{
+    if(opponentSelections<=0)return {adjustment:0,alternative:undefined as T|undefined};
+    let remaining=opponentSelections;
+    const survivors:T[]=[];
+    for(const id of ids){
+      if(id===candidate.id)continue;
+      if(remaining>0){remaining--;continue;}
+      const player=byId.get(id);
+      if(player)survivors.push(player);
+    }
+    const samePosition=survivors
+      .filter(p=>p.positions.some(pos=>candidate.positions.includes(pos)))
+      .sort((a,b)=>b.vor-a.vor||compareIds(a,b));
+    const alternative=samePosition[0];
+    if(!alternative)return {adjustment:0,alternative:undefined as T|undefined};
+    return {adjustment:Math.max(0,candidate.vor-alternative.vor),alternative};
+  };
+}
