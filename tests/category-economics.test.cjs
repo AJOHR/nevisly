@@ -36,7 +36,7 @@ test('8-team profile decomposition explains raw category scaling, real replaceme
 test('empty-roster recommendation uses the same blended replacement value as Player Value',()=>{
  const market=replacementValues([...pool,...profiles],8);
  const base=context(market.ranked);
- const ctx={...base,leagueTeams:8,fantasyTeams:base.fantasyTeams.slice(0,8),draftPicks:[],draftedIds:new Set(),myTeamPlayers:[]};
+ const ctx={...base,leagueTeams:8,myDraftSlot:2,fantasyTeams:base.fantasyTeams.slice(0,8),draftPicks:[],draftedIds:new Set(),myTeamPlayers:[]};
  const out=rankRecommendations(ctx,market);
  for(const id of ['profile-a','profile-b']){
   const p=out.find(p=>p.id===id);
