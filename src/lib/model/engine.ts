@@ -32,7 +32,9 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
   const ownSelections=selections.filter(s=>s.teamId===context.fantasyTeams.find(t=>t.isMyTeam)?.id);
   const ownPlayers=ownSelections.flatMap(s=>byId.get(s.projectionId)?[byId.get(s.projectionId)!]:[]);
   const evaluateSchedule=prepareScheduleOpportunity(market.ranked.filter(p=>!taken.has(p.id)),ownPlayers,context.playoffSchedule,market.deviations);
-  const knownStarters=allocate(ownPlayers,rosterSlots(modelConfig.starters)).size;
+  const starterSlots=rosterSlots(modelConfig.starters);
+  const knownStarters=allocate(ownPlayers,starterSlots).size;
+  const starterVacancies=Math.max(0,starterSlots.length-knownStarters);
   const goalieCount=ownSelections.filter(s=>s.positions.includes('G')).length;
   const unknownCount=ownSelections.filter(s=>!byId.has(s.projectionId)&&!s.positions.includes('G')).length;
   const benchUsed=ownPlayers.length-knownStarters+Math.max(0,goalieCount-modelConfig.goalieSlots)+unknownCount;
@@ -57,10 +59,12 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
       categoryFit:drafted?0:fit.saturationAdjustment};
     // Unavailable comparable rosters fall back to intrinsic value with a warning.
     if(!drafted&&fit.categories && Object.keys(fit.categories).length===0)contributions.rosterOpportunity=0;
-    if(!drafted&&!fit.starterImprovement&&benchAvailable) {
+    if(!drafted&&!fit.starterImprovement&&benchAvailable&&starterVacancies===0) {
       contributions.rosterOpportunity=0;
       contributions.categoryFit=0;
-      warnings.push('Bench depth ranked by intrinsic VOR; no bench playing-time estimate is assumed.');
+      warnings.push('Bench depth ranked by intrinsic VOR after all skater starter slots are filled; no bench playing-time estimate is assumed.');
+    } else if(!drafted&&!fit.starterImprovement&&benchAvailable&&starterVacancies>0) {
+      warnings.push(`No projected starter upgrade while ${starterVacancies} skater starter slot${starterVacancies===1?' is':'s are'} still open; intrinsic bench value is deferred until the starting lineup is complete.`);
     }
     const playerValue=base.vor;
     const teamFit=contributions.rosterOpportunity+contributions.categoryFit+scheduleBonus;
