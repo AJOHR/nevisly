@@ -246,7 +246,10 @@ export function parseSkaterCsv(file: File | string): Promise<SkaterProjection[]>
           const players: SkaterProjection[] = [];
           for (const [index, row] of rows.entries()) {
             if (row.length !== headers.length) throw new Error(`CSV row ${index + 2}: expected ${headers.length} fields, found ${row.length}.`);
-            const name = getText(headers, row, ['Player', 'Name', 'Player Name'], 'player name');
+            const name = getText(headers, row, ['Player', 'Name', 'Player Name'], 'player name')
+              .replace(/&#x27;|&#39;|&apos;/gi, "'")
+              .replace(/&quot;/gi, '"')
+              .replace(/&amp;/gi, '&');
             if (!name) throw new Error(`CSV row ${index + 2}: missing player name.`);
             const team = normalizeTeam(getText(headers, row, ['Team', 'Tm'], `${name} team`));
             // Provider role F/D is less specific than explicit site eligibility.

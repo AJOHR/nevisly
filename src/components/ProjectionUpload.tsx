@@ -270,6 +270,8 @@ export default function ProjectionUpload() {
   ] =
     useState(false);
 
+  const [projectionSourcesCollapsed,setProjectionSourcesCollapsed]=useState(false);
+
     const [
         selectedPlayer,
         setSelectedPlayer,
@@ -1759,14 +1761,19 @@ const currentRound =
 
       <div className="mx-auto max-w-[1900px] p-4 lg:p-6">
         <YahooBridgePanel />
-        {!session.data.bridge && <div role="status" className="mb-3 rounded border border-zinc-700 p-3 text-sm">
-          Yahoo messages: <strong>{!session.data.sync?.health?.lastMessageAt ? "NONE" : clock-session.data.sync.health.lastMessageAt>30000 ? "NO RECENT MESSAGE" : "RECEIVED"}</strong>
-          <div>Extraction: {session.data.sync?.health?.extraction ?? "unverified"} · History coverage: {session.data.sync?.health?.history ?? "unverified"} · Projection matching: {draftPicks.filter(p=>p.resolution === "unresolved" || p.resolution === "ambiguous").length} unresolved</div>
-          <span className="ml-3">{session.data.sync?.message ?? "Manual drafting available"}</span>
-          <div>Represented: {draftPicks.length} · Unmatched: {draftPicks.filter(p=>p.resolution === "unresolved" || p.resolution === "ambiguous").length} · Last accepted v1 snapshot: {session.data.sync?.lastSnapshotAt ? `${Math.max(0,Math.floor((clock-session.data.sync.lastSnapshotAt)/1000))}s ago` : "none"}</div>
-          <div>Next own selection: {getNextTurn(draftPicks,leagueTeams,myDraftSlot).nextMyPick} · {getNextTurn(draftPicks,leagueTeams,myDraftSlot).opponentTeamIds.length} opponent selections before it</div>
-          <button onClick={()=>window.dispatchEvent(new CustomEvent("nevisly-yahoo-request-snapshot"))} className="mt-2 underline">Request fresh snapshot</button>
-        </div>}
+        {!session.data.bridge && <details className="mb-3 rounded border border-zinc-700 bg-zinc-950/40 px-3 py-2 text-sm">
+          <summary className="cursor-pointer select-none text-zinc-300">
+            Yahoo sync · <strong>{!session.data.sync?.health?.lastMessageAt ? "NONE" : clock-session.data.sync.health.lastMessageAt>30000 ? "NO RECENT MESSAGE" : "RECEIVED"}</strong>
+            <span className="ml-2 text-xs text-zinc-500">next own #{getNextTurn(draftPicks,leagueTeams,myDraftSlot).nextMyPick}</span>
+          </summary>
+          <div role="status" className="mt-2 border-t border-zinc-800 pt-2 text-xs text-zinc-400">
+            <div>Extraction: {session.data.sync?.health?.extraction ?? "unverified"} · History coverage: {session.data.sync?.health?.history ?? "unverified"} · Projection matching: {draftPicks.filter(p=>p.resolution === "unresolved" || p.resolution === "ambiguous").length} unresolved</div>
+            <div className="mt-1">{session.data.sync?.message ?? "Manual drafting available"}</div>
+            <div className="mt-1">Represented: {draftPicks.length} · Unmatched: {draftPicks.filter(p=>p.resolution === "unresolved" || p.resolution === "ambiguous").length} · Last accepted v1 snapshot: {session.data.sync?.lastSnapshotAt ? `${Math.max(0,Math.floor((clock-session.data.sync.lastSnapshotAt)/1000))}s ago` : "none"}</div>
+            <div className="mt-1">Next own selection: {getNextTurn(draftPicks,leagueTeams,myDraftSlot).nextMyPick} · {getNextTurn(draftPicks,leagueTeams,myDraftSlot).opponentTeamIds.length} opponent selections before it</div>
+            <button onClick={()=>window.dispatchEvent(new CustomEvent("nevisly-yahoo-request-snapshot"))} className="mt-2 underline">Request fresh snapshot</button>
+          </div>
+        </details>}
         {session.warning && <p role="alert" className="mb-3 text-amber-300">{session.warning}</p>}
         <details className="mb-4 rounded border border-zinc-700 p-3">
           <summary>Draft history & manual fallback · {draftPicks.length} selections · next pick {currentPickNumber}</summary>
@@ -1792,21 +1799,33 @@ const currentRound =
               </h2>
 
               <p className="mt-1 text-xs text-zinc-500">
-                Upload any compatible projection CSV and choose how much influence each source has.
+                {projectionSourcesCollapsed
+                  ? `${loadedSourceCount} sources · ${players.length} rankable players · ${totalProjectionWeight.toFixed(0)}% total weight`
+                  : "Upload compatible raw projection CSVs and choose how much influence each source has."}
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={
-                addProjectionSource
-              }
-              className="rounded-lg border border-blue-800 px-3 py-2 text-xs font-bold text-blue-300 hover:bg-blue-950/40"
-            >
-              + Add Source
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={()=>setProjectionSourcesCollapsed(current=>!current)}
+                className="rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800/70"
+              >
+                {projectionSourcesCollapsed ? "Expand" : "Collapse"}
+              </button>
+              <button
+                type="button"
+                onClick={
+                  addProjectionSource
+                }
+                className="rounded-lg border border-blue-800 px-3 py-2 text-xs font-bold text-blue-300 hover:bg-blue-950/40"
+              >
+                + Add Source
+              </button>
+            </div>
           </div>
 
+          <div className={projectionSourcesCollapsed ? "hidden" : ""}>
           <div className="mt-4 space-y-2">
             {projectionSources.map(
               (
@@ -2125,6 +2144,7 @@ const currentRound =
     </div>
   </details>
 )}
+          </div>
 
           {error && (
             <p className="mt-3 text-xs text-red-400">

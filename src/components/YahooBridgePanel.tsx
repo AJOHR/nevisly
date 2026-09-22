@@ -35,22 +35,37 @@ export default function YahooBridgePanel(){
     }catch(e){setError(e instanceof Error?e.message:'Connection failed');}
   }
   const bridge=session.data.bridge;
-  return <div className="mb-3 rounded border border-blue-900 p-3 text-sm">
-    <strong>Yahoo bridge v2</strong>
-    {!bridge&&<><p>Open Yahoo Results → Round by Round, then connect the intended room. Manual drafting remains available.</p>{offers.map(o=><button className="mr-2 mt-2 border p-2" key={o.sourceTab} onClick={()=>connect(o)}>Connect {o.roomPath} · {o.capture.rows.length} observed picks</button>)}</>}
-    {bridge&&<>
-      <div>Room: {bridge.roomPath}</div>
-      <div>Transport: {clock-bridge.lastReceivedAt>6000?'no recent delivery':'receiving'} · Capture age: {bridge.capturedAt?Math.max(0,Math.floor((clock-bridge.capturedAt)/1000))+'s':'unknown'} · Extraction: {bridge.extraction}</div>
-      <div>History: {bridge.coverage} · Matching: {session.data.draftPicks.filter(p=>p.resolution==='unresolved'||p.resolution==='ambiguous').length} unresolved · Owner mapping: {session.data.draftPicks.filter(p=>p.fantasyTeamId==='unassigned').length} unresolved</div>
-      <p className="text-xs text-zinc-400">Coverage is cross-checked against the observed Yahoo header. It is not a server revision or proof that Yahoo has not changed.</p>
-      {bridge.issues.length>0&&<details><summary>{bridge.issues.length} extraction/reconciliation issues</summary><ul>{bridge.issues.map((issue,i)=><li key={i}>{issue}</li>)}</ul></details>}
-      <button className="mr-3 mt-2 underline" onClick={()=>request({type:'REQUEST_V2',sessionId:id})}>Request fresh history</button>
-      <button className="mr-3 underline" onClick={()=>{request({type:'DISCONNECT_V2',sessionId:id});update(s=>({...s,bridge:undefined}));}}>Disconnect</button>
-      {bridge.pendingFrame&&<button className="text-amber-300 underline" onClick={()=>{
-        if(!window.confirm('Replace retained history with this pending Yahoo observation? Verify the current Yahoo history first. Later selections absent from it will be removed.'))return;
-        update(current=>{const frame=current.bridge?.pendingFrame;if(!frame)return current;const r=receiveYahooV2(current,JSON.parse(frame),blendSkaterProjections(current.projectionSources),Date.now(),true);if(r.reason)setError(r.reason);return r.session;});
-      }}>Reviewed Yahoo correction: apply</button>}
-    </>}
-    {error&&<p role="alert" className="text-amber-300">{error}</p>}
-  </div>;
+  const unresolved=session.data.draftPicks.filter(p=>p.resolution==='unresolved'||p.resolution==='ambiguous').length;
+  const ownerUnresolved=session.data.draftPicks.filter(p=>p.fantasyTeamId==='unassigned').length;
+  const transport=bridge?(clock-bridge.lastReceivedAt>6000?'no recent delivery':'receiving'):'not connected';
+  return <details className="mb-3 rounded border border-blue-900/70 bg-blue-950/10 px-3 py-2 text-sm">
+    <summary className="cursor-pointer select-none">
+      <strong>Yahoo bridge</strong>
+      <span className="ml-2 text-xs text-zinc-400">
+        {bridge?`${transport} · ${bridge.coverage} · ${unresolved} unresolved`:offers.length?`${offers.length} room${offers.length===1?'':'s'} found`:'not connected'}
+      </span>
+    </summary>
+    <div className="mt-2 border-t border-blue-950 pt-2 text-xs text-zinc-300">
+      {!bridge&&<>
+        <p className="text-zinc-400">Open Yahoo Results → Round by Round, then connect the intended room. Manual drafting remains available.</p>
+        {offers.map(o=><button className="mr-2 mt-2 rounded border border-blue-800 px-3 py-2" key={o.sourceTab} onClick={()=>connect(o)}>Connect {o.roomPath} · {o.capture.rows.length} observed picks</button>)}
+      </>}
+      {bridge&&<>
+        <div>Room: {bridge.roomPath}</div>
+        <div className="mt-1">Transport: {transport} · Capture age: {bridge.capturedAt?Math.max(0,Math.floor((clock-bridge.capturedAt)/1000))+'s':'unknown'} · Extraction: {bridge.extraction}</div>
+        <div className="mt-1">History: {bridge.coverage} · Matching: {unresolved} unresolved · Owner mapping: {ownerUnresolved} unresolved</div>
+        <p className="mt-1 text-zinc-500">Coverage is cross-checked against the observed Yahoo header. It is not a server revision or proof that Yahoo has not changed.</p>
+        {bridge.issues.length>0&&<details className="mt-2"><summary>{bridge.issues.length} extraction/reconciliation issues</summary><ul className="mt-1 list-disc pl-5">{bridge.issues.map((issue,i)=><li key={i}>{issue}</li>)}</ul></details>}
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+          <button className="underline" onClick={()=>request({type:'REQUEST_V2',sessionId:id})}>Request fresh history</button>
+          <button className="underline" onClick={()=>{request({type:'DISCONNECT_V2',sessionId:id});update(s=>({...s,bridge:undefined}));}}>Disconnect</button>
+          {bridge.pendingFrame&&<button className="text-amber-300 underline" onClick={()=>{
+            if(!window.confirm('Replace retained history with this pending Yahoo observation? Verify the current Yahoo history first. Later selections absent from it will be removed.'))return;
+            update(current=>{const frame=current.bridge?.pendingFrame;if(!frame)return current;const r=receiveYahooV2(current,JSON.parse(frame),blendSkaterProjections(current.projectionSources),Date.now(),true);if(r.reason)setError(r.reason);return r.session;});
+          }}>Reviewed Yahoo correction: apply</button>}
+        </div>
+      </>}
+      {error&&<p role="alert" className="mt-2 text-amber-300">{error}</p>}
+    </div>
+  </details>;
 }
