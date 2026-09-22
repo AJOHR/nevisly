@@ -1,5 +1,43 @@
 # Stage 5 model and validation
 
+## Position-neutral intrinsic value and goalie sidecar
+
+Live 10-team mocks after the three-pick/schedule release still showed a specific
+early-round failure: with an empty or lightly formed roster, high-end defensemen
+could rank as if the eventual D40 fringe were already the relevant alternative.
+The planner itself often labeled those defensemen SAFE, yet the fixed positional
+premium embedded in Player Value was large enough to dominate elite forwards.
+
+Player Value is now position-neutral. It uses the same bounded seven-category
+utility against the overall league starter cutoff, not the eventual feasible
+positional fringe. Feasible positional replacement is still computed and exposed,
+but positional scarcity enters Team Fit progressively through the existing roster
+evidence confidence:
+
+`own known skaters / (own known skaters + own prior slots + unresolved prior slots)`.
+
+An empty roster therefore receives zero fixed positional scarcity premium. As the
+actual roster develops, feasible positional replacement matters more; once a player
+does not improve any starter, the existing starter-vacancy/bench protections still
+apply. Yahoo ADP and bounded three-own-pick planning continue to model market
+availability separately. This removes the fixed 55/45 replacement coefficient rather
+than retuning it to particular player names.
+
+On the user's five-source 10-team blend, a local diagnostic of the new intrinsic
+layer placed Makar and Bouchard in the elite mix while moving Seider, Dahlin,
+Werenski and Quinn Hughes behind the top forward tier. This is a mechanism check,
+not a claim that those exact ranks must survive Team Fit, playoff schedule and
+on-clock Yahoo timing.
+
+Goalies remain a separate model. One goalie CSV can be persisted with PLAYER, TEAM,
+GP, W, SV% and SO. Goalie Value uses exactly W, SV% and SO with equal bounded
+standardized utility. GP is not a fourth scoring category; it only informs the
+projection-based role label. A clear STARTER requires a projected team lead and a
+material No. 1 workload; close splits are labeled TANDEM and smaller workloads
+BACKUP. The goalie tab defaults to clear starters because the configured roster
+requires two goalie slots. These labels describe the uploaded projection, not an
+official NHL depth chart.
+
 ## Three-pick and daily-lineup opportunity after live mock validation
 
 Two live 10-team mocks exposed limitations that were distinct from replacement
