@@ -6,6 +6,8 @@ function stats(values:number[]){
   return {mean,sd};
 }
 const z=(value:number,s:{mean:number;sd:number})=>s.sd?(value-s.mean)/s.sd:0;
+const width=Math.sqrt(10);
+const bounded=(value:number)=>width*Math.tanh(value/width);
 
 export function rankGoalies(players:readonly GoalieProjection[]):RankedGoalie[]{
   const winStats=stats(players.map(p=>p.wins));
@@ -27,7 +29,7 @@ export function rankGoalies(players:readonly GoalieProjection[]):RankedGoalie[]{
     else if(p.gp>=35 && (p.id===leader?.id || workloadShare>=0.42))role='TANDEM';
 
     const zWins=z(p.wins,winStats),zSvPct=z(p.svPct,svStats),zShutouts=z(p.shutouts,soStats);
-    return {...p,zWins,zSvPct,zShutouts,score:zWins+zSvPct+zShutouts,role,workloadShare,teamLeadGp,teamGapGp};
+    return {...p,zWins,zSvPct,zShutouts,score:bounded(zWins)+bounded(zSvPct)+bounded(zShutouts),role,workloadShare,teamLeadGp,teamGapGp};
   }).sort((a,b)=>b.score-a.score||b.gp-a.gp||a.name.localeCompare(b.name));
 }
 
