@@ -11,6 +11,11 @@ export type WeekSchedule = {
   
     playoffGames: number;
     playoffOffNightGames: number;
+
+    /** Exact Yahoo Weeks 24-26 NHL game dates when available.
+     * Older cached schedule payloads may omit this and fall back to aggregate modeling.
+     */
+    playoffDates?: string[];
   
     playoffByWeek: Record<
       string,
