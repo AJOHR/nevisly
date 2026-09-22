@@ -12,6 +12,7 @@ export function scheduleFor(team:string, schedules:PlayoffScheduleMap) {
 type ScheduleOpportunity = {
   games:number;
   seasonGames:number;
+  regularOffNightGames:number;
   dates:string[]|null;
 };
 
@@ -24,12 +25,15 @@ function opportunity(schedule:TeamSchedule|undefined):ScheduleOpportunity|null {
   const dates=Array.isArray(schedule.playoffDates)
     ? [...new Set(schedule.playoffDates.filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)))].sort()
     : [];
-  return {games,seasonGames:schedule.seasonGames,dates:dates.length===games?dates:null};
+  const regularOffNightGames=Math.max(0,schedule.seasonOffNightGames-schedule.playoffOffNightGames);
+  return {games,seasonGames:schedule.seasonGames,regularOffNightGames,dates:dates.length===games?dates:null};
 }
 
 type SchedulePlayer = SkaterProjection & {rawScore?:number};
 type RosterOpportunity = {
   score:number;
+  playoffScore:number;
+  seasonOffNightScore:number;
   totalStarts:number;
   starts:Map<string,number>;
   exact:boolean;
@@ -56,6 +60,9 @@ export function prepareScheduleOpportunity(
   const averageGames=validSchedules.length
     ? validSchedules.reduce((n,s)=>n+s.games,0)/validSchedules.length
     : 0;
+  const averageRegularOffNights=validSchedules.length
+    ? validSchedules.reduce((n,s)=>n+s.regularOffNightGames,0)/validSchedules.length
+    : 0;
   const slots=rosterSlots(modelConfig.starters);
   const perGameCache=new Map<string,number>();
   const rosterCache=new Map<string,RosterOpportunity>();
@@ -73,12 +80,12 @@ export function prepareScheduleOpportunity(
     const cached=rosterCache.get(key);if(cached)return cached;
     const roster=[...new Set(ids)].flatMap(id=>byId.get(id)?[byId.get(id)!]:[]);
     if(!averageGames || roster.length!==new Set(ids).size) {
-      const unavailable={score:0,totalStarts:0,starts:new Map<string,number>(),exact:false,available:false};
+      const unavailable={score:0,playoffScore:0,seasonOffNightScore:0,totalStarts:0,starts:new Map<string,number>(),exact:false,available:false};
       rosterCache.set(key,unavailable);return unavailable;
     }
     const schedulesForRoster=roster.map(p=>opportunity(scheduleFor(p.team,schedules)));
     if(schedulesForRoster.some(s=>!s)) {
-      const unavailable={score:0,totalStarts:0,starts:new Map<string,number>(),exact:false,available:false};
+      const unavailable={score:0,playoffScore:0,seasonOffNightScore:0,totalStarts:0,starts:new Map<string,number>(),exact:false,available:false};
       rosterCache.set(key,unavailable);return unavailable;
     }
 
@@ -100,25 +107,39 @@ export function prepareScheduleOpportunity(
       roster.forEach((player,index)=>starts.set(player.id,schedulesForRoster[index]!.games));
     }
 
-    let score=0,totalStarts=0;
-    for(const player of roster) {
+    let playoffScore=0,seasonOffNightScore=0,totalStarts=0;
+    for(let index=0;index<roster.length;index++) {
+      const player=roster[index];
+      const schedule=schedulesForRoster[index]!;
       const playerStarts=starts.get(player.id)??0;
       totalStarts+=playerStarts;
-      score+=(playerStarts-averageGames)*perGame(player);
+      playoffScore+=(playerStarts-averageGames)*perGame(player);
+      // Regular-season off nights are highly usable daily-lineup opportunities.
+      // Playoff off nights are excluded here because exact playoff dates are
+      // already modeled above, avoiding double counting Weeks 24-26.
+      seasonOffNightScore+=(schedule.regularOffNightGames-averageRegularOffNights)*perGame(player);
     }
-    const result={score,totalStarts,starts,exact,available:true};
+    const score=playoffScore+seasonOffNightScore;
+    const result={score,playoffScore,seasonOffNightScore,totalStarts,starts,exact,available:true};
     rosterCache.set(key,result);return result;
   };
 
   return (player:SchedulePlayer,beforeStarterIds:readonly string[],afterStarterIds:readonly string[])=>{
     const current=opportunity(scheduleFor(player.team,schedules));
-    const neutral={adjustment:0,games:current?.games,extraStarts:0,usableStarts:0,available:false,exact:false};
+    const neutral={adjustment:0,playoffAdjustment:0,seasonOffNightAdjustment:0,games:current?.games,
+      seasonOffNightGames:scheduleFor(player.team,schedules)?.seasonOffNightGames??0,
+      extraStarts:0,usableStarts:0,available:false,exact:false};
     if(!current || !beforeStarterIds.length || !afterStarterIds.length)return neutral;
     const before=rosterOpportunity(beforeStarterIds),after=rosterOpportunity(afterStarterIds);
     if(!before.available||!after.available)return neutral;
+    const playoffAdjustment=after.playoffScore-before.playoffScore;
+    const seasonOffNightAdjustment=after.seasonOffNightScore-before.seasonOffNightScore;
     return {
-      adjustment:after.score-before.score,
+      adjustment:playoffAdjustment+seasonOffNightAdjustment,
+      playoffAdjustment,
+      seasonOffNightAdjustment,
       games:current.games,
+      seasonOffNightGames:scheduleFor(player.team,schedules)?.seasonOffNightGames??0,
       extraStarts:after.totalStarts-before.totalStarts,
       usableStarts:after.starts.get(player.id)??0,
       available:true,

@@ -89,6 +89,7 @@ const CATEGORY_LABELS: Record<CategoryKey, string> = {
 
 
 type SortKey =
+  | "rank"
   | "name"
   | "age"
   | "team"
@@ -1483,6 +1484,13 @@ const currentRound =
             a,
             b
           ) => {
+            if (sortKey === "rank") {
+              const aRank = overallRecommendationRanks.get(a.id) ?? Number.POSITIVE_INFINITY;
+              const bRank = overallRecommendationRanks.get(b.id) ?? Number.POSITIVE_INFINITY;
+              const result = aRank - bRank;
+              return sortDirection === "asc" ? result : -result;
+            }
+
             const aValue =
               a[
                 sortKey
@@ -1532,6 +1540,7 @@ const currentRound =
       sortDirection,
       draftedIds,
       showDrafted,
+      overallRecommendationRanks,
     ]);
 
   function draftGoalie(goalie:RankedGoalie,fantasyTeamId:string) {
@@ -2416,7 +2425,11 @@ const currentRound =
                     <table className="w-full min-w-[900px] text-xs">
                       <thead className="sticky top-0 z-20 bg-zinc-900 text-left text-zinc-400">
                         <tr>
-                          <th className="p-2" title="Current overall Nevisly rank among available players; unchanged by search or position filters">Rank</th>
+                          <SortableHeader
+                            label="Rank"
+                            onClick={() => handleSort("rank")}
+                            indicator={sortIndicator("rank")}
+                          />
                           <th className="p-2">
                             Pick
                           </th>
