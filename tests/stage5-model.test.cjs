@@ -66,3 +66,28 @@ test('early category fit is zero for an empty roster and shrunk to 20 percent wi
   for(const player of market.ranked)for(const c of Object.values(evaluate(player).categories))assert.ok(Math.abs(c.adjustment)<=count*.2*Math.abs(c.productionGain)+1e-9);
  }
 });
+
+
+test('bench-only players pay roster opportunity cost while starter vacancies remain',()=>{
+ const market=replacementValues(players,12),base=context(market.ranked,0);
+ const ownedIds=['p003','p007','p011','p015','p019','p004','p001'];
+ const draftPicks=ownedIds.map((id,i)=>({playerId:id,fantasyTeamId:'team-1',pickNumber:i+1}));
+ const out=rankRecommendations({...base,draftPicks,draftedIds:new Set(ownedIds)},market);
+ const depthD=out.find(p=>p.positions.length===1&&p.positions[0]==='D'&&!ownedIds.includes(p.id)&&!p.fit.starterImprovement);
+ assert.ok(depthD,'expected a defense-only depth candidate');
+ assert.ok(depthD.contributions.rosterOpportunity<0,'bench-only candidate must keep the starter-vacancy opportunity cost');
+ assert.ok(depthD.decision.uncertainty.warnings.some(w=>w.includes('starter slot')&&w.includes('still open')));
+ assert.ok(!depthD.decision.uncertainty.warnings.some(w=>w.includes('Bench depth ranked by intrinsic VOR after all skater starter slots are filled')));
+});
+
+test('intrinsic bench fallback returns once every skater starter slot is occupied',()=>{
+ const market=replacementValues(players,12),base=context(market.ranked,0);
+ const ownedIds=['p004','p008','p001','p005','p002','p006','p003','p007','p011','p015'];
+ const draftPicks=ownedIds.map((id,i)=>({playerId:id,fantasyTeamId:'team-1',pickNumber:i+1}));
+ const out=rankRecommendations({...base,draftPicks,draftedIds:new Set(ownedIds)},market);
+ const depthD=out.find(p=>p.positions.length===1&&p.positions[0]==='D'&&!ownedIds.includes(p.id)&&!p.fit.starterImprovement);
+ assert.ok(depthD,'expected a defense-only depth candidate');
+ assert.equal(depthD.contributions.rosterOpportunity,0);
+ assert.equal(depthD.contributions.categoryFit,0);
+ assert.ok(depthD.decision.uncertainty.warnings.some(w=>w.includes('Bench depth ranked by intrinsic VOR after all skater starter slots are filled')));
+});
