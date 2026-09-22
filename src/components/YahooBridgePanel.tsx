@@ -38,7 +38,7 @@ export default function YahooBridgePanel(){
   const unresolved=session.data.draftPicks.filter(p=>p.resolution==='unresolved'||p.resolution==='ambiguous').length;
   const ownerUnresolved=session.data.draftPicks.filter(p=>p.fantasyTeamId==='unassigned').length;
   const transport=bridge?(clock-bridge.lastReceivedAt>6000?'no recent delivery':'receiving'):'not connected';
-  return <details defaultOpen={Boolean(error||offers.length||bridge?.pendingFrame)} className="mb-3 rounded border border-blue-900/70 bg-blue-950/10 px-3 py-2 text-sm">
+  return <details className="mb-3 rounded border border-blue-900/70 bg-blue-950/10 px-3 py-2 text-sm">
     <summary className="cursor-pointer select-none">
       <strong>Yahoo bridge</strong>
       <span className="ml-2 text-xs text-zinc-400">
