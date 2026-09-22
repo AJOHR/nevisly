@@ -50,7 +50,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     const urgency=timing.level;
     const warnings=[...fit.warnings];
     if(!scheduleValue.available)warnings.push('Complete playoff schedule unavailable; no schedule adjustment applied.');
-    if(!base.replacementAvailable)warnings.push('Market replacement unavailable; VOR is not estimated.');
+    if(!base.replacementAvailable)warnings.push('Feasible positional replacement unavailable; intrinsic overall-skater value is still estimated, but roster scarcity is less certain.');
     if(!hasProjectionValue(player,'age'))warnings.push('Age unknown.');
     else if(player.age>=35)warnings.push('Age 35+: review projection and injury uncertainty; no additional age penalty.');
     if((player.projectionSources??1)<2)warnings.push('Single projection source; agreement cannot be measured.');
