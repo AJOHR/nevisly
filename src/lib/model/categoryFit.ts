@@ -2,7 +2,7 @@ import type { BaseRankedPlayer } from './legacy';
 import type { SkaterProjection } from '@/types/player';
 import type { DraftPick, FantasyTeam } from '@/types/draft';
 import { allocate, compareIds, rosterSlots } from './allocation';
-import { categories, modelConfig, positionalReplacementWeight, type CategoryValues, type ModelConfig } from './config';
+import { categories, modelConfig, type CategoryValues, type ModelConfig } from './config';
 import { categoryUtilityGain } from './categoryUtility';
 export { categoryUtilityGain } from './categoryUtility';
 
@@ -105,9 +105,13 @@ export function prepareCategoryFit(input: {
         const neutralMargin=scale&&neutralOrigin?(a[c]-neutralOrigin[c])/scale:0;
         const positionalNeutralGain=categoryUtilityGain(neutralMargin,productionGain,config.categoryWidth);
         const overallNeutralGain=candidateAdded?(candidate.overallValueContributions?.[c]??positionalNeutralGain):0;
+        // Intrinsic Player Value is position-neutral. Let positional scarcity
+        // enter progressively as our real roster provides evidence that a
+        // particular feasible slot matters. With an empty roster confidence=0;
+        // early picks therefore cannot be dominated by eventual D40-style depth.
         const neutralGain=
-          positionalReplacementWeight*positionalNeutralGain+
-          (1-positionalReplacementWeight)*overallNeutralGain;
+          confidence*positionalNeutralGain+
+          (1-confidence)*overallNeutralGain;
         const utilityGain=categoryUtilityGain(beforeMargin,productionGain,config.categoryWidth);
         // Contextual saturation still measures the real feasible roster exchange.
         // The overall component only damps deep positional replacement scarcity.

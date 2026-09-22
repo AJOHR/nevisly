@@ -31,6 +31,9 @@ import { SESSION_KEY, type ProjectionSourceState } from "@/lib/session/session";
 import { nextPickNumber, getSnakeTeamIdForPick, draftReducer } from "@/lib/draft/state";
 
 import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
+import { parseGoalieCsv } from "@/lib/projections/parseGoalieCsv";
+import GoalieBoard from "@/components/GoalieBoard";
+import type { RankedGoalie } from "@/types/goalie";
 
 import DecisionBoard from "@/components/DecisionBoard";
 import PlayerExplanationCard from "@/components/PlayerExplanationCard";
@@ -213,6 +216,7 @@ export default function ProjectionUpload() {
   const [marketSnapshot,setMarketSnapshot]=useState(defaultMarketSnapshot);
   const session = useDraftSession();
   const { projectionSources, draftPicks, leagueTeams, myDraftSlot } = session.data;
+  const goalieProjection = session.data.goalieProjection ?? {fileName:"",players:[]};
   const setProjectionSources = (value: ProjectionSourceState[] | ((s:ProjectionSourceState[])=>ProjectionSourceState[])) => session.setField("projectionSources", value);
   const {setField} = session;
   const setDraftPicks = useCallback((value: DraftPick[] | ((s:DraftPick[])=>DraftPick[])) => setField("draftPicks", value), [setField]);
@@ -271,6 +275,7 @@ export default function ProjectionUpload() {
     useState(false);
 
   const [projectionSourcesCollapsed,setProjectionSourcesCollapsed]=useState(false);
+  const [activePool,setActivePool]=useState<"skaters"|"goalies">("skaters");
 
     const [
         selectedPlayer,
@@ -400,6 +405,16 @@ export default function ProjectionUpload() {
 
   function resetDraftForProjectionChange() {
     // Intentionally preserve selections; missing projections remain represented in draft history.
+  }
+
+  async function handleGoalieProjectionFile(file:File) {
+    try {
+      setError("");
+      const parsedPlayers=await parseGoalieCsv(file);
+      session.setField("goalieProjection",{fileName:file.name,players:parsedPlayers});
+    } catch(cause) {
+      setError(`Could not read ${file.name}: ${cause instanceof Error ? cause.message : "invalid goalie CSV"}`);
+    }
   }
 
   async function handleProjectionFile(
@@ -934,6 +949,9 @@ const currentRound =
     }, [
       rankedPlayers,
     ]);
+
+  const myGoalieCount =
+    draftPicks.filter(p=>p.fantasyTeamId===myTeamId&&(p.positions?.includes("G")||p.resolution==="goalie")).length;
 
   const myTeamPlayers =
     useMemo(() => {
@@ -1516,6 +1534,23 @@ const currentRound =
       showDrafted,
     ]);
 
+  function draftGoalie(goalie:RankedGoalie,fantasyTeamId:string) {
+    setDraftPicks(current=>{
+      const next=draftReducer(current,{type:"record",pick:{
+        playerId:goalie.id,
+        playerName:goalie.name,
+        nhlTeam:goalie.team,
+        positions:["G"],
+        resolution:"goalie",
+        source:"manual",
+        fantasyTeamId,
+        pickNumber:nextPickNumber(current),
+      }});
+      setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(next),leagueTeams));
+      return next;
+    });
+  }
+
   function draftPlayer(playerId: string, fantasyTeamId: string) {
     setDraftPicks(current => {
       const next = draftReducer(current, {type: "record", pick: {playerId, fantasyTeamId, pickNumber: nextPickNumber(current), source: "manual", playerName: players.find(p=>p.id===playerId)?.name, resolution: "matched"}});
@@ -1642,6 +1677,7 @@ const currentRound =
           lastPick.playerId
         )
       : undefined;
+  const lastPickName = lastPickPlayer?.name ?? lastPick?.playerName;
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -1722,7 +1758,7 @@ const currentRound =
 
               <div className="ml-auto flex items-center gap-3">
                 {lastPick &&
-                  lastPickPlayer && (
+                  lastPickName && (
                     <div className="hidden text-right lg:block">
                       <div className="text-[9px] uppercase text-zinc-500">
                         Last Pick
@@ -1730,7 +1766,7 @@ const currentRound =
 
                       <div className="text-xs">
                         {
-                          lastPickPlayer.name
+                          lastPickName
                         }
                         {" → "}
                         {getTeamName(
@@ -2270,8 +2306,26 @@ const currentRound =
               </span>
             </div>
 
+            <div className="mb-3 flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900 p-1">
+              <button type="button" onClick={()=>setActivePool("skaters")} className={`rounded-lg px-4 py-2 text-xs font-bold ${activePool==="skaters"?"bg-white text-black":"text-zinc-400 hover:bg-zinc-800"}`}>Skaters</button>
+              <button type="button" onClick={()=>setActivePool("goalies")} className={`rounded-lg px-4 py-2 text-xs font-bold ${activePool==="goalies"?"bg-white text-black":"text-zinc-400 hover:bg-zinc-800"}`}>Goalies <span className="ml-1 text-[10px] opacity-60">W · SV% · SO</span></button>
+            </div>
+
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
               <div className="min-w-0">
+                {activePool==="goalies" ? (
+                  <GoalieBoard
+                    goalies={goalieProjection.players}
+                    fileName={goalieProjection.fileName}
+                    draftPicks={draftPicks}
+                    myTeamId={myTeamId}
+                    selectedDraftTeamId={selectedDraftTeamId}
+                    onUpload={handleGoalieProjectionFile}
+                    onDraft={draftGoalie}
+                    onUndo={pick=>setDraftPicks(current=>draftReducer(current,{type:"remove",pickNumber:pick.pickNumber}))}
+                  />
+                ) : (
+                  <>
                 <DecisionBoard players={bestAvailable} onInspect={setSelectedPlayer} onDraft={id=>draftPlayer(id,myTeamId)} rosterFull={draftPicks.filter(p=>p.fantasyTeamId===myTeamId).length>=rosterSelectionCapacity} powerPlayByPlayer={powerPlayByPlayer} />
 
                 <section className="sticky top-[72px] z-30 mb-3 rounded-xl border border-zinc-800 bg-zinc-900/95 p-3 backdrop-blur">
@@ -2818,10 +2872,12 @@ const currentRound =
                     </table>
                   </div>
                 </section>
+                  </>
+                )}
               </div>
 
               <aside className="xl:sticky xl:top-[84px] xl:self-start">
-              {selectedPlayer && (
+              {activePool==="skaters" && selectedPlayer && (
   <section className="mb-4">
     <PlayerExplanationCard
       player={finalRankedPlayers.find(p=>p.id===selectedPlayer.id)??selectedPlayer}
@@ -2840,7 +2896,7 @@ const currentRound =
                         {
                           myTeamPlayers.length
                         }{" "}
-                        skaters
+                        skaters · {myGoalieCount}/2 goalies
                       </span>
                     </div>
 

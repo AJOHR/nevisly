@@ -3,7 +3,7 @@ import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league';
 import { hasProjectionValue } from '@/lib/projections/quality';
 import type { BaseRankedPlayer } from './legacy';
 import { allocate, augment, compareIds, rosterSlots } from './allocation';
-import { categories, modelConfig, positionalReplacementWeight, type CategoryValues, type ModelConfig } from './config';
+import { categories, modelConfig, type CategoryValues, type ModelConfig } from './config';
 import { categoryUtilityGain } from './categoryUtility';
 
 export function normalizeProjections(players: SkaterProjection[], config: ModelConfig = modelConfig, leagueTeams = DEFAULT_LEAGUE_TEAMS) {
@@ -46,10 +46,10 @@ export function replacementValues(players: SkaterProjection[], leagueTeams: numb
   const selectedIds = new Set(selected.map(p=>p.id));
   const reserves = normalized.ranked.filter(p=>!selectedIds.has(p.id)).sort((a,b)=>b.rawScore-a.rawScore || compareIds(a,b));
   const thresholds = [...selected].sort((a,b)=>a.rawScore-b.rawScore || compareIds(a,b));
-  // The feasible positional replacement is real roster economics, but using it
-  // alone makes a weak positional fringe (notably D40 in a 10-team league) act
-  // like the only alternative to an elite early pick. Restore the historical
-  // 55/45 positional/overall blend while keeping the Stage-5 bounded utility.
+  // Intrinsic Player Value is position-neutral. Deep positional scarcity belongs
+  // in roster fit and draft timing, where the actual roster and future market
+  // are known, rather than in a fixed preseason value that can make D40 define
+  // the worth of an elite early-round defenseman.
   const overallOrder=[...normalized.ranked].sort((a,b)=>b.rawScore-a.rawScore || compareIds(a,b));
   const overallIndex=Math.max(0,Math.min(slots.length-1,overallOrder.length-1));
   const overallReplacementScore=overallOrder[overallIndex]?.rawScore ?? 0;
@@ -83,15 +83,14 @@ export function replacementValues(players: SkaterProjection[], leagueTeams: numb
     }
     const positionalValueContributions=Object.fromEntries(categories.map(c=>[c,replacement&&normalized.deviations[c]?
       categoryUtilityGain(0,(player[c]-replacement[c])/normalized.deviations[c],config.categoryWidth):0])) as CategoryValues;
-    const overallValueContributions=Object.fromEntries(categories.map(c=>[c,replacement&&normalized.deviations[c]?
+    const overallValueContributions=Object.fromEntries(categories.map(c=>[c,normalized.deviations[c]?
       categoryUtilityGain(0,(player[c]-overallBaseline[c])/normalized.deviations[c],config.categoryWidth):0])) as CategoryValues;
-    const valueContributions=Object.fromEntries(categories.map(c=>[c,
-      positionalReplacementWeight*positionalValueContributions[c]+
-      (1-positionalReplacementWeight)*overallValueContributions[c]
-    ])) as CategoryValues;
     const positionalVor=categories.reduce((sum,c)=>sum+positionalValueContributions[c],0);
     const overallVor=categories.reduce((sum,c)=>sum+overallValueContributions[c],0);
-    return {...player,vor:categories.reduce((sum,c)=>sum+valueContributions[c],0),
+    // Player Value is intentionally the overall-skater value. The feasible
+    // positional replacement remains exposed for roster-aware marginal scarcity.
+    const valueContributions=overallValueContributions;
+    return {...player,vor:overallVor,
       positionalVor,overallVor,valueContributions,positionalValueContributions,overallValueContributions,
       replacementPosition:position,replacementId:replacement?.id,replacementAvailable:!!replacement};
   });

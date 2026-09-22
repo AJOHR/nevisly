@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {load}=require('./load.cjs'),{players,context}=require('./model-scenarios.cjs');
 const {replacementValues}=load('src/lib/model/replacement.ts');
-const {categories,modelConfig,positionalReplacementWeight}=load('src/lib/model/config.ts');
+const {categories,modelConfig}=load('src/lib/model/config.ts');
 const {categoryUtilityGain}=load('src/lib/model/categoryUtility.ts');
 const {rankRecommendations}=load('src/lib/model/engine.ts');
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
@@ -19,21 +19,18 @@ test('8-team profile decomposition explains raw category scaling, real replaceme
   near(Object.values(p.overallValueContributions).reduce((a,b)=>a+b,0),p.overallVor);
   for(const c of categories){
    near(p.positionalValueContributions[c],categoryUtilityGain(0,old[c],modelConfig.categoryWidth));
-   near(p.valueContributions[c],
-    positionalReplacementWeight*p.positionalValueContributions[c]+
-    (1-positionalReplacementWeight)*p.overallValueContributions[c]);
+   near(p.valueContributions[c],p.overallValueContributions[c]);
   }
-  near(p.vor,positionalReplacementWeight*p.positionalVor+(1-positionalReplacementWeight)*p.overallVor);
+  near(p.vor,p.overallVor);
   t.diagnostic(JSON.stringify({profile:p.id,replacement:r.id,old,oldTotal:p.rawScore-r.rawScore,
-   positional:p.positionalVor,overall:p.overallVor,blended:p.vor}));
+   positional:p.positionalVor,overall:p.overallVor,intrinsic:p.vor}));
  }
  const reversed=replacementValues([...pool,...profiles].reverse(),8);
  assert.deepEqual(m.ranked.map(p=>[p.id,p.vor,p.valueContributions]),reversed.ranked.map(p=>[p.id,p.vor,p.valueContributions]));
  const defender=m.ranked.find(p=>p.id==='profile-b');
- assert.ok(defender.positionalVor>defender.vor,'overall replacement should damp a weak positional fringe');
- assert.ok(defender.vor>defender.overallVor,'real positional scarcity must still retain weight');
+ assert.ok(defender.positionalVor>defender.vor,'deep positional scarcity must not inflate intrinsic Player Value');
 });
-test('empty-roster recommendation uses the same blended replacement value as Player Value',()=>{
+test('empty-roster recommendation uses position-neutral Player Value with zero positional Team Fit',()=>{
  const market=replacementValues([...pool,...profiles],8);
  const base=context(market.ranked);
  const ctx={...base,leagueTeams:8,myDraftSlot:2,fantasyTeams:base.fantasyTeams.slice(0,8),draftPicks:[],draftedIds:new Set(),myTeamPlayers:[]};
@@ -44,6 +41,20 @@ test('empty-roster recommendation uses the same blended replacement value as Pla
   near(p.decision.teamFit.adjustment,0);
   near(p.score,p.vor);
  }
+});
+
+test('positional scarcity enters Team Fit gradually as own-roster evidence grows',()=>{
+ const market=replacementValues([...pool,...profiles],8);
+ const base=context(market.ranked);
+ const defender=market.ranked.find(p=>p.id==='profile-b');
+ const emptyCtx={...base,leagueTeams:8,myDraftSlot:2,fantasyTeams:base.fantasyTeams.slice(0,8),draftPicks:[],draftedIds:new Set(),myTeamPlayers:[]};
+ const empty=rankRecommendations(emptyCtx,market).find(p=>p.id==='profile-b');
+ near(empty.decision.teamFit.adjustment,0);
+ const own=market.ranked.find(p=>p.positions.includes('C')&&!['profile-a','profile-b'].includes(p.id));
+ const picks=[{playerId:own.id,projectionId:own.id,positions:own.positions,pickNumber:1,fantasyTeamId:'team-1'}];
+ const one=rankRecommendations({...emptyCtx,myDraftSlot:2,draftPicks:picks,draftedIds:new Set([own.id]),myTeamPlayers:[own]},market).find(p=>p.id==='profile-b');
+ assert.ok(Number.isFinite(one.decision.teamFit.adjustment));
+ assert.notEqual(one.decision.teamFit.adjustment,0);
 });
 
 test('narrow reference category cannot create millions of utility points in value or empty-roster fit',()=>{
