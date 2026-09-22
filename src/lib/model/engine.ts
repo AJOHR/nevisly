@@ -1,7 +1,7 @@
 import type { DecisionAssessment } from '@/types/decision';
 import type { FinalContext, RankedPlayer } from './legacy';
 import { prepareScheduleOpportunity, scheduleFor } from './schedule';
-import { getNextTurn } from '@/lib/draft/state';
+import { getFutureOwnTurns, getNextTurn } from '@/lib/draft/state';
 import { hasProjectionValue } from '@/lib/projections/quality';
 import { replacementValues } from './replacement';
 import { canonicalSelections, prepareCategoryFit, type CategoryFit } from './categoryFit';
@@ -9,7 +9,7 @@ import { categories, categoryLabels } from './config';
 import { allocate, rosterSlots, compareIds } from './allocation';
 import { modelConfig } from './config';
 import { rosterSelectionCapacity } from './config';
-import { prepareDraftOpportunity } from './draftOpportunity';
+import { prepareDraftOpportunity, prepareThreePickOpportunity } from './draftOpportunity';
 import { defaultMarketSnapshot, prepareMarketDemand, marketTiming, type MarketSnapshot } from './marketDemand';
 
 export type Recommendation = RankedPlayer & {decision: DecisionAssessment; fit: CategoryFit; explanations:string[]};
@@ -31,7 +31,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
   const opponentSelections=turn.opponentTeamIds.length;
   const ownSelections=selections.filter(s=>s.teamId===context.fantasyTeams.find(t=>t.isMyTeam)?.id);
   const ownPlayers=ownSelections.flatMap(s=>byId.get(s.projectionId)?[byId.get(s.projectionId)!]:[]);
-  const evaluateSchedule=prepareScheduleOpportunity(market.ranked.filter(p=>!taken.has(p.id)),ownPlayers,context.playoffSchedule,market.deviations);
+  const evaluateSchedule=prepareScheduleOpportunity(market.ranked,context.playoffSchedule,market.deviations);
   const starterSlots=rosterSlots(modelConfig.starters);
   const knownStarters=allocate(ownPlayers,starterSlots).size;
   const starterVacancies=Math.max(0,starterSlots.length-knownStarters);
@@ -44,7 +44,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     const fit=evaluate(base);
     const drafted=taken.has(base.id);
     const schedule=scheduleFor(player.team,context.playoffSchedule);
-    const scheduleValue=evaluateSchedule(player);
+    const scheduleValue=evaluateSchedule(player,fit.beforeStarterIds,fit.starterIds);
     const scheduleBonus=drafted?0:scheduleValue.adjustment;
     const timing=marketTiming(demand.matches.get(player.id)?.adp,demand.ranks.get(player.id),opponentSelections,turn.nextMyPick);
     const urgency=timing.level;
@@ -73,7 +73,9 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     const strongest=categories.map(c=>({c,gain:fit.categories[c]?.productionGain??0})).sort((a,b)=>b.gain-a.gain).filter(x=>x.gain>0).slice(0,2);
     if(strongest.length)explanations.push(`Adds ${strongest.map(x=>categoryLabels[x.c]).join(' + ')} versus the feasible replacement`);
     if(!fit.starterImprovement)explanations.push('Depth option; no projected starter upgrade');
-    if(Math.abs(scheduleBonus)>=0.01)explanations.unshift(`${scheduleValue.games} games in Yahoo playoff Weeks 24–26; ${Math.abs(scheduleValue.extraStarts).toFixed(1)} ${scheduleValue.extraStarts>0?'more':'fewer'} estimated usable starts than available eligible alternatives`);
+    if(Math.abs(scheduleBonus)>=0.01)explanations.unshift(
+      `${scheduleValue.games} games in Yahoo playoff Weeks 24–26; ${scheduleValue.usableStarts} modeled usable starts; ${scheduleBonus>=0?'+':''}${scheduleBonus.toFixed(2)} lineup opportunity versus the feasible starter exchange`
+    );
     if(!explanations.length)explanations.push('Compare projected value and uncertainty');
     const decision:DecisionAssessment={playerValue:{score:playerValue},teamFit:{adjustment:teamFit},draftUrgency:{opponentSelections,level:urgency,calibrated:false,adjustment:0},uncertainty:{warnings}};
     return {...player,...base,score:playerValue+teamFit,contributions,decision,fit,explanations,
@@ -86,21 +88,50 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
   });
   // Candidate-now planning requires our current pick. Off clock, the same turn
   // count describes opponents BEFORE our selection, not after a candidate pick.
-  // No next-turn skater plan at the final selection or for unmodeled bench use.
+  // Prefer a bounded three-own-pick path when two future turns remain; fall back
+  // to the established two-pick planner near the end of the draft.
   if(turn.onClock&&turn.nextMyPick<=context.leagueTeams*rosterSelectionCapacity&&opponentSelections>0) {
-    const plan=prepareDraftOpportunity(recommendations.filter(p=>!taken.has(p.id)),opponentSelections,p=>p.fit.starterImprovement,demand.ids);
-    for(const player of recommendations) {
-      if(taken.has(player.id)||!player.fit.starterImprovement)continue;
-      const timing=plan(player,future=>{
-        const next=evaluate.afterSelection(future,player.id);
-        return next?.starterImprovement?next.rosterGain+next.saturationAdjustment+future.scheduleBonus:0;
-      });
-      player.decision.draftUrgency.adjustment=timing.adjustment;
-      player.contributions={...player.contributions,draftOpportunity:timing.adjustment};
-      player.score+=timing.adjustment;
-      if(Math.abs(timing.adjustment)>=0.01)player.explanations.unshift(timing.alternative?
-        `Next-pick plan: ${timing.alternative.name} (${timing.alternative.positions.join('/')}) remains in the modeled pool`:
-        'No complementary starter upgrade remains in the modeled next-pick shortlist');
+    const available=recommendations.filter(p=>!taken.has(p.id));
+    const futureTurns=getFutureOwnTurns(context.draftPicks,context.leagueTeams,context.myDraftSlot,2);
+    const thirdTurn=futureTurns[1];
+    if(thirdTurn&&thirdTurn.pickNumber<=context.leagueTeams*rosterSelectionCapacity) {
+      const plan=prepareThreePickOpportunity(available,opponentSelections,thirdTurn.opponentSelections,p=>p.fit.starterImprovement,demand.ids);
+      for(const player of recommendations) {
+        if(taken.has(player.id)||!player.fit.starterImprovement)continue;
+        const timing=plan(player,(future,path)=>{
+          const next=path.length===1
+            ? evaluate.afterSelection(future,path[0].id)
+            : evaluate.afterSelections(future,path[0].id,path[1].id);
+          if(!next?.starterImprovement)return 0;
+          const futureSchedule=evaluateSchedule(future,next.beforeStarterIds,next.starterIds);
+          return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment;
+        });
+        player.decision.draftUrgency.adjustment=timing.adjustment;
+        player.contributions={...player.contributions,draftOpportunity:timing.adjustment};
+        player.score+=timing.adjustment;
+        if(Math.abs(timing.adjustment)>=0.01)player.explanations.unshift(
+          timing.alternatives.length
+            ? `Three-pick plan: ${timing.alternatives.map(p=>`${p.name} (${p.positions.join('/')})`).join(' → ')} remain in the modeled path`
+            : 'No complementary starter upgrades remain in the modeled three-pick shortlist'
+        );
+      }
+    } else {
+      const plan=prepareDraftOpportunity(available,opponentSelections,p=>p.fit.starterImprovement,demand.ids);
+      for(const player of recommendations) {
+        if(taken.has(player.id)||!player.fit.starterImprovement)continue;
+        const timing=plan(player,future=>{
+          const next=evaluate.afterSelection(future,player.id);
+          if(!next?.starterImprovement)return 0;
+          const futureSchedule=evaluateSchedule(future,next.beforeStarterIds,next.starterIds);
+          return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment;
+        });
+        player.decision.draftUrgency.adjustment=timing.adjustment;
+        player.contributions={...player.contributions,draftOpportunity:timing.adjustment};
+        player.score+=timing.adjustment;
+        if(Math.abs(timing.adjustment)>=0.01)player.explanations.unshift(timing.alternative?
+          `Next-pick plan: ${timing.alternative.name} (${timing.alternative.positions.join('/')}) remains in the modeled pool`:
+          'No complementary starter upgrade remains in the modeled next-pick shortlist');
+      }
     }
   }
   return recommendations.sort(compareRecommendations);
