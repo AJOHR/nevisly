@@ -1,5 +1,32 @@
 # Stage 5 model and validation
 
+## Near-term tier scarcity and regular-season lineup access
+
+After making intrinsic Player Value position-neutral, the empty-roster board stopped
+overvaluing the eventual D40 fringe, but an elite defenseman could become slightly
+undervalued relative to a similarly elite forward. The missing quantity was not
+deep positional replacement; it was the near-term quality lost by waiting one turn.
+
+Draft Urgency now includes a position-aware tier-drop term. For each current
+candidate, Yahoo market order removes the modeled opponent selections before the
+next own turn. Nevisly then finds the best surviving player who can fill any of the
+candidate's eligible positions and measures the bounded intrinsic-value drop from
+the current player to that survivor. Multi-position players use the best surviving
+eligible alternative, so extra eligibility cannot manufacture a scarcity premium.
+This is deliberately next-turn scarcity only and never references the eventual
+league-wide positional fringe.
+
+Schedule value now has two non-overlapping components. Yahoo Weeks 24-26 retain the
+exact-date projected-lineup simulation. Regular-season off-night access uses each
+team's off-night count before the playoff window, multiplied by projected per-game
+category value and centered on league average. Playoff off nights are removed from
+the regular-season term so the championship weeks are not double counted. This
+allows a 40-off-night / 11-playoff-game profile to earn more usable-lineup value than
+a 29-off-night / 9-playoff-game profile without altering intrinsic Player Value.
+
+The Player Pool Rank column is also sortable ascending/descending. Rank remains the
+canonical overall available recommendation rank; filtering does not renumber it.
+
 ## Position-neutral intrinsic value and goalie sidecar
 
 Live 10-team mocks after the three-pick/schedule release still showed a specific
