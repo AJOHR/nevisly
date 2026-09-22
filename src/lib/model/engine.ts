@@ -44,7 +44,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     const fit=evaluate(base);
     const drafted=taken.has(base.id);
     const schedule=scheduleFor(player.team,context.playoffSchedule);
-    const scheduleValue=evaluateSchedule(player,fit.beforeStarterIds,fit.starterIds);
+    const scheduleValue=evaluateSchedule(player,fit.beforeRosterIds,fit.rosterIds);
     const scheduleBonus=drafted?0:scheduleValue.adjustment;
     const timing=marketTiming(demand.matches.get(player.id)?.adp,demand.ranks.get(player.id),opponentSelections,turn.nextMyPick);
     const urgency=timing.level;
@@ -103,7 +103,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
             ? evaluate.afterSelection(future,path[0].id)
             : evaluate.afterSelections(future,path[0].id,path[1].id);
           if(!next?.starterImprovement)return 0;
-          const futureSchedule=evaluateSchedule(future,next.beforeStarterIds,next.starterIds);
+          const futureSchedule=evaluateSchedule(future,next.beforeRosterIds,next.rosterIds);
           return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment;
         });
         player.decision.draftUrgency.adjustment=timing.adjustment;
@@ -122,7 +122,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
         const timing=plan(player,future=>{
           const next=evaluate.afterSelection(future,player.id);
           if(!next?.starterImprovement)return 0;
-          const futureSchedule=evaluateSchedule(future,next.beforeStarterIds,next.starterIds);
+          const futureSchedule=evaluateSchedule(future,next.beforeRosterIds,next.rosterIds);
           return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment;
         });
         player.decision.draftUrgency.adjustment=timing.adjustment;
