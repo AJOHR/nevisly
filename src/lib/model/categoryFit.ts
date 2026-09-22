@@ -2,7 +2,7 @@ import type { BaseRankedPlayer } from './legacy';
 import type { SkaterProjection } from '@/types/player';
 import type { DraftPick, FantasyTeam } from '@/types/draft';
 import { allocate, compareIds, rosterSlots } from './allocation';
-import { categories, modelConfig, type CategoryValues, type ModelConfig } from './config';
+import { categories, modelConfig, positionalReplacementWeight, type CategoryValues, type ModelConfig } from './config';
 import { categoryUtilityGain } from './categoryUtility';
 export { categoryUtilityGain } from './categoryUtility';
 
@@ -15,7 +15,7 @@ export function canonicalSelections(picks: readonly DraftPick[]): ModelSelection
     teamId:p.fantasyTeamId,ordinal:p.pickNumber,positions:p.positions ?? []}))
     .sort((a,b)=>a.ordinal-b.ordinal || compareIds(a,b));
 }
-export type FitCategory = {beforeMargin: number; afterMargin: number; productionGain: number; neutralGain:number; adjustment: number};
+export type FitCategory = {beforeMargin: number; afterMargin: number; productionGain: number; neutralGain:number; positionalNeutralGain:number; overallNeutralGain:number; adjustment: number};
 export type CategoryFit = {adjustment: number; rosterGain: number; saturationAdjustment: number; categories: Record<string,FitCategory>; replacementNames: string[]; warnings: string[]; starterImprovement:boolean};
 const totals=(players: readonly BaseRankedPlayer[]) => Object.fromEntries(categories.map(c=>[c,players.reduce((sum,p)=>sum+p[c],0)])) as CategoryValues;
 
@@ -70,6 +70,7 @@ export function prepareCategoryFit(input: {
     const a=totals(beforePlayers);
     const assess=(afterPlayers:BaseRankedPlayer[])=>{
       const b=totals(afterPlayers);
+      const candidateAdded=afterPlayers.some(p=>p.id===candidate.id)&&!beforePlayers.some(p=>p.id===candidate.id);
       let neutral=0,saturation=0;
       const details:Record<string,FitCategory>={};
       for(const c of categories) {
@@ -80,11 +81,17 @@ export function prepareCategoryFit(input: {
         // Keep the same neutral origin across PR9's two selections, so category
         // utility telescopes rather than awarding saturation headroom twice.
         const neutralMargin=scale&&neutralOrigin?(a[c]-neutralOrigin[c])/scale:0;
-        const neutralGain=categoryUtilityGain(neutralMargin,productionGain,config.categoryWidth);
+        const positionalNeutralGain=categoryUtilityGain(neutralMargin,productionGain,config.categoryWidth);
+        const overallNeutralGain=candidateAdded?(candidate.overallValueContributions?.[c]??positionalNeutralGain):0;
+        const neutralGain=
+          positionalReplacementWeight*positionalNeutralGain+
+          (1-positionalReplacementWeight)*overallNeutralGain;
         const utilityGain=categoryUtilityGain(beforeMargin,productionGain,config.categoryWidth);
-        const adjustment=confidence*(utilityGain-neutralGain)*config.fitWeight;
+        // Contextual saturation still measures the real feasible roster exchange.
+        // The overall component only damps deep positional replacement scarcity.
+        const adjustment=confidence*(utilityGain-positionalNeutralGain)*config.fitWeight;
         neutral+=neutralGain;saturation+=adjustment;
-        details[c]={beforeMargin,afterMargin,productionGain,neutralGain,adjustment};
+        details[c]={beforeMargin,afterMargin,productionGain,neutralGain,positionalNeutralGain,overallNeutralGain,adjustment};
       }
       return {neutral,saturation,details};
     };
