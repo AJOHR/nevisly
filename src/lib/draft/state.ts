@@ -21,6 +21,26 @@ export function getNextTurn(picks: readonly DraftPick[], teams: number, slot: nu
   for (let pick = currentPick + (onClock ? 1 : 0); pick < nextMyPick; pick++) opponentTeamIds.push(getSnakeTeamIdForPick(pick, teams));
   return { currentPick, currentRound: Math.floor((currentPick - 1) / teams) + 1, onClock, nextMyPick, opponentTeamIds };
 }
+
+/** Future own selections from the current draft ordinal.
+ * Each gap counts only opponent selections between our own turns.
+ * Used by bounded lookahead; it does not predict who opponents select.
+ */
+export function getFutureOwnTurns(picks: readonly DraftPick[], teams: number, slot: number, count = 2) {
+  const current=getNextTurn(picks,teams,slot);
+  if(!current.onClock || count<=0)return [];
+  const mine=`team-${slot}`;
+  const turns:{pickNumber:number;opponentSelections:number}[]=[];
+  let from=current.currentPick;
+  for(let i=0;i<count;i++){
+    let pick=from+1;
+    let opponents=0;
+    while(getSnakeTeamIdForPick(pick,teams)!==mine){opponents++;pick++;}
+    turns.push({pickNumber:pick,opponentSelections:opponents});
+    from=pick;
+  }
+  return turns;
+}
 /** Migrate the legacy view key without inventing external Yahoo identifiers. */
 export function withSelectionIdentity(p: DraftPick, sessionId: string): DraftPick {
   const selectionId = p.selectionId ?? `local:${encodeURIComponent(sessionId)}:pick:${p.pickNumber}`;
