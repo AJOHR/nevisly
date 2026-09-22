@@ -31,6 +31,9 @@ import { SESSION_KEY, type ProjectionSourceState } from "@/lib/session/session";
 import { nextPickNumber, getSnakeTeamIdForPick, draftReducer } from "@/lib/draft/state";
 
 import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
+import { parseGoalieCsv } from "@/lib/projections/parseGoalieCsv";
+import GoalieBoard from "@/components/GoalieBoard";
+import type { RankedGoalie } from "@/types/goalie";
 
 import DecisionBoard from "@/components/DecisionBoard";
 import PlayerExplanationCard from "@/components/PlayerExplanationCard";
@@ -213,6 +216,7 @@ export default function ProjectionUpload() {
   const [marketSnapshot,setMarketSnapshot]=useState(defaultMarketSnapshot);
   const session = useDraftSession();
   const { projectionSources, draftPicks, leagueTeams, myDraftSlot } = session.data;
+  const goalieProjection = session.data.goalieProjection ?? {fileName:"",players:[]};
   const setProjectionSources = (value: ProjectionSourceState[] | ((s:ProjectionSourceState[])=>ProjectionSourceState[])) => session.setField("projectionSources", value);
   const {setField} = session;
   const setDraftPicks = useCallback((value: DraftPick[] | ((s:DraftPick[])=>DraftPick[])) => setField("draftPicks", value), [setField]);
@@ -271,6 +275,7 @@ export default function ProjectionUpload() {
     useState(false);
 
   const [projectionSourcesCollapsed,setProjectionSourcesCollapsed]=useState(false);
+  const [activePool,setActivePool]=useState<"skaters"|"goalies">("skaters");
 
     const [
         selectedPlayer,
@@ -400,6 +405,16 @@ export default function ProjectionUpload() {
 
   function resetDraftForProjectionChange() {
     // Intentionally preserve selections; missing projections remain represented in draft history.
+  }
+
+  async function handleGoalieProjectionFile(file:File) {
+    try {
+      setError("");
+      const parsedPlayers=await parseGoalieCsv(file);
+      session.setField("goalieProjection",{fileName:file.name,players:parsedPlayers});
+    } catch(cause) {
+      setError(`Could not read ${file.name}: ${cause instanceof Error ? cause.message : "invalid goalie CSV"}`);
+    }
   }
 
   async function handleProjectionFile(
@@ -1515,6 +1530,23 @@ const currentRound =
       draftedIds,
       showDrafted,
     ]);
+
+  function draftGoalie(goalie:RankedGoalie,fantasyTeamId:string) {
+    setDraftPicks(current=>{
+      const next=draftReducer(current,{type:"record",pick:{
+        playerId:goalie.id,
+        playerName:goalie.name,
+        nhlTeam:goalie.team,
+        positions:["G"],
+        resolution:"goalie",
+        source:"manual",
+        fantasyTeamId,
+        pickNumber:nextPickNumber(current),
+      }});
+      setSelectedDraftTeamId(getSnakeTeamIdForPick(nextPickNumber(next),leagueTeams));
+      return next;
+    });
+  }
 
   function draftPlayer(playerId: string, fantasyTeamId: string) {
     setDraftPicks(current => {
