@@ -38,3 +38,81 @@ export function prepareDraftOpportunity<T extends Option>(available:readonly T[]
     return {adjustment:value-baseline,alternative};
   };
 }
+
+
+/** Bounded three-own-pick planning.
+ * Yahoo market order removes opponents between each own turn. Our selected
+ * players are removed before opponent depletion, so taking an early-market
+ * player correctly pushes the removal window one player deeper.
+ *
+ * The second-pick shortlist keeps at most two candidates per starter position;
+ * the third keeps one per position. This bounds the search to at most 32
+ * second/third paths per current candidate while preserving cross-position
+ * alternatives. The supplied gain callback evaluates the real sequential
+ * roster state and is responsible for retaining earlier selections.
+ */
+export function prepareThreePickOpportunity<T extends Option>(
+  available:readonly T[],
+  firstWait:number,
+  secondWait:number,
+  eligibleFuture:(p:T)=>boolean=()=>true,
+  demandIds?:readonly string[]
+) {
+  const ids=demandIds??[...available].sort((a,b)=>b.vor-a.vor||compareIds(a,b)).map(p=>p.id);
+  const byId=new Map(available.map(p=>[p.id,p]));
+
+  const survivorsAfter=(selected:ReadonlySet<string>,opponents:number)=>{
+    let remaining=Math.max(0,opponents);
+    const survivors:T[]=[];
+    for(const id of ids){
+      if(selected.has(id))continue;
+      if(remaining>0){remaining--;continue;}
+      const player=byId.get(id);
+      if(player&&eligibleFuture(player))survivors.push(player);
+    }
+    return survivors;
+  };
+  const shortlist=(players:readonly T[],perPosition:number)=>{
+    const ordered=[...players].sort((a,b)=>b.score-a.score||compareIds(a,b));
+    return [...new Map(Object.keys(modelConfig.starters)
+      .flatMap(position=>ordered.filter(p=>p.positions.includes(position)).slice(0,perPosition))
+      .map(p=>[p.id,p])).values()];
+  };
+
+  // Common centering constants affect displayed urgency magnitude, not ordering.
+  // They keep an additional future pick from mechanically inflating every score.
+  const baselineSecond=Math.max(0,...shortlist(survivorsAfter(new Set(),firstWait),2).map(p=>p.score));
+  const baselineThird=Math.max(0,...shortlist(survivorsAfter(new Set(),firstWait+secondWait),1).map(p=>p.score));
+
+  return (candidate:T,gain:(future:T,path:readonly T[])=>number)=>{
+    if(firstWait===0)return {adjustment:0,alternatives:[] as T[]};
+    const selectedFirst=new Set([candidate.id]);
+    const seconds=shortlist(survivorsAfter(selectedFirst,firstWait),2);
+    let best=0,bestSecond:T|undefined,bestThird:T|undefined;
+
+    for(const second of seconds){
+      const secondGain=gain(second,[candidate]);
+      if(secondGain<=0)continue;
+      const selectedTwo=new Set([candidate.id,second.id]);
+      const thirds=shortlist(survivorsAfter(selectedTwo,firstWait+secondWait),1);
+      let thirdGain=0,thirdChoice:T|undefined;
+      for(const third of thirds){
+        const value=gain(third,[candidate,second]);
+        if(value>thirdGain+1e-10 ||
+          (value>0&&Math.abs(value-thirdGain)<=1e-10&&thirdChoice&&compareIds(third,thirdChoice)<0)){
+          thirdGain=value;thirdChoice=third;
+        }
+      }
+      const total=secondGain+thirdGain;
+      if(total>best+1e-10 ||
+        (total>0&&Math.abs(total-best)<=1e-10&&bestSecond&&compareIds(second,bestSecond)<0)){
+        best=total;bestSecond=second;bestThird=thirdChoice;
+      }
+    }
+
+    return {
+      adjustment:best-baselineSecond-baselineThird,
+      alternatives:[bestSecond,bestThird].filter((p):p is T=>!!p),
+    };
+  };
+}
