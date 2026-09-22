@@ -1,5 +1,38 @@
 # Stage 5 model and validation
 
+## Replacement-scarcity calibration after live 10-team validation
+
+A live 10-team mock exposed a second defense-heavy failure mode after the bench-only
+starter-vacancy fix. With Cale Makar already rostered at pick 16, the model assigned
+roughly 7.8 Player Value to a high-end defenseman versus roughly 4.4 to an elite
+center. The raw seven-category production was not the cause: the large gap came from
+comparing the defenseman almost entirely with the eventual D40 fringe while the
+center faced a much stronger forward replacement. The bounded two-pick planner
+reduced that gap but could still prefer two defensemen because both current and next
+starter gains inherited the same deep positional baseline.
+
+This release restores the historical replacement calibration that existed before
+Stage 5: 55% feasible positional replacement plus 45% position-neutral league
+replacement. The 55/45 split is not a new live-data fit; it is the prior Nevisly
+safeguard that specifically prevented a weak D40/D48 baseline from overwhelming
+elite forward value. Stage 5's unique feasible allocation and bounded category
+utility remain in place.
+
+The position-neutral side uses the league-wide starter cutoff in raw standardized
+score. Because a single fringe player's category shape would inject an arbitrary
+archetype into every comparison, that scalar cutoff is represented as an equal-
+category neutral profile. Player Value blends bounded per-category utility from the
+actual feasible replacement with bounded utility from that neutral profile.
+Current-roster neutral gain uses the same blend; contextual category saturation
+continues to use the real feasible roster exchange. Therefore the displayed Player
+Value and the recommendation score use the same scarcity calibration.
+
+This is position symmetric: relabeling the complete C/LW/RW/D economy leaves values
+unchanged. Real positional scarcity is retained at 55%; it is not a defense penalty,
+round rule, named-player exception, or Yahoo ADP bonus. Yahoo ADP remains an
+availability input only. The two-pick planner, category weights, projections, and
+schedule formulas are otherwise unchanged.
+
 ## Category-economics correction (after PR9)
 
 Before: intrinsic Player Value was `sum((player[c] − feasibleReplacement[c]) / SD[c])`.

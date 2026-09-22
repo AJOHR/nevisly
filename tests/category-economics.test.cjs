@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {load}=require('./load.cjs'),{players,context}=require('./model-scenarios.cjs');
 const {replacementValues}=load('src/lib/model/replacement.ts');
-const {categories,modelConfig}=load('src/lib/model/config.ts');
+const {categories,modelConfig,positionalReplacementWeight}=load('src/lib/model/config.ts');
 const {categoryUtilityGain}=load('src/lib/model/categoryUtility.ts');
 const {rankRecommendations}=load('src/lib/model/engine.ts');
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
@@ -15,12 +15,37 @@ test('8-team profile decomposition explains raw category scaling, real replaceme
   const old=Object.fromEntries(categories.map(c=>[c,(p[c]-r[c])/m.deviations[c]]));
   near(Object.values(old).reduce((a,b)=>a+b,0),p.rawScore-r.rawScore);
   near(Object.values(p.valueContributions).reduce((a,b)=>a+b,0),p.vor);
-  for(const c of categories)near(p.valueContributions[c],categoryUtilityGain(0,old[c],modelConfig.categoryWidth));
-  t.diagnostic(JSON.stringify({profile:p.id,replacement:r.id,old,oldTotal:p.rawScore-r.rawScore,after:p.valueContributions,afterTotal:p.vor}));
+  near(Object.values(p.positionalValueContributions).reduce((a,b)=>a+b,0),p.positionalVor);
+  near(Object.values(p.overallValueContributions).reduce((a,b)=>a+b,0),p.overallVor);
+  for(const c of categories){
+   near(p.positionalValueContributions[c],categoryUtilityGain(0,old[c],modelConfig.categoryWidth));
+   near(p.valueContributions[c],
+    positionalReplacementWeight*p.positionalValueContributions[c]+
+    (1-positionalReplacementWeight)*p.overallValueContributions[c]);
+  }
+  near(p.vor,positionalReplacementWeight*p.positionalVor+(1-positionalReplacementWeight)*p.overallVor);
+  t.diagnostic(JSON.stringify({profile:p.id,replacement:r.id,old,oldTotal:p.rawScore-r.rawScore,
+   positional:p.positionalVor,overall:p.overallVor,blended:p.vor}));
  }
  const reversed=replacementValues([...pool,...profiles].reverse(),8);
  assert.deepEqual(m.ranked.map(p=>[p.id,p.vor,p.valueContributions]),reversed.ranked.map(p=>[p.id,p.vor,p.valueContributions]));
+ const defender=m.ranked.find(p=>p.id==='profile-b');
+ assert.ok(defender.positionalVor>defender.vor,'overall replacement should damp a weak positional fringe');
+ assert.ok(defender.vor>defender.overallVor,'real positional scarcity must still retain weight');
 });
+test('empty-roster recommendation uses the same blended replacement value as Player Value',()=>{
+ const market=replacementValues([...pool,...profiles],8);
+ const base=context(market.ranked);
+ const ctx={...base,leagueTeams:8,myDraftSlot:2,fantasyTeams:base.fantasyTeams.slice(0,8),draftPicks:[],draftedIds:new Set(),myTeamPlayers:[]};
+ const out=rankRecommendations(ctx,market);
+ for(const id of ['profile-a','profile-b']){
+  const p=out.find(p=>p.id===id);
+  near(p.decision.playerValue.score,p.vor);
+  near(p.decision.teamFit.adjustment,0);
+  near(p.score,p.vor);
+ }
+});
+
 test('narrow reference category cannot create millions of utility points in value or empty-roster fit',()=>{
  const narrow=players.map((p,i)=>({...p,blocks:30+i%2*.001}));
  const extreme={...profiles[0],id:'extreme',points:1,blocks:1000};

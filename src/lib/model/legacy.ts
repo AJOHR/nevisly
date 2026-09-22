@@ -33,6 +33,13 @@ type CategoryKey = (typeof categoryKeys)[number];
 export type BaseRankedPlayer = SkaterProjection & {
     rawScore: number;
     vor: number;
+    /** Pure feasible-position replacement value before the 55/45 calibration blend. */
+    positionalVor?: number;
+    /** Position-neutral league replacement value before the 55/45 calibration blend. */
+    overallVor?: number;
+    valueContributions?: Record<CategoryKey, number>;
+    positionalValueContributions?: Record<CategoryKey, number>;
+    overallValueContributions?: Record<CategoryKey, number>;
     replacementPosition: string;
     zScores: Record<CategoryKey, number>;
     projectionSources?: number;
