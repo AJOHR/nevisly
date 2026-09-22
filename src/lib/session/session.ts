@@ -2,9 +2,11 @@ import { withSelectionIdentity } from '@/lib/draft/state';
 import { DEFAULT_LEAGUE_TEAMS } from '@/lib/league';
 import type { DraftPick, SyncMetadata, YahooBridgeState } from '@/types/draft';
 import type { SkaterProjection } from '@/types/player';
+import type { GoalieProjection } from '@/types/goalie';
 export type ProjectionSourceState = {id:string; name:string; weight:number; fileName:string; players:SkaterProjection[]};
-export type Session = {bridge?:YahooBridgeState;sync?:SyncMetadata;version:1; id:string; projectionSources:ProjectionSourceState[]; draftPicks:DraftPick[]; leagueTeams:number; myDraftSlot:number};
-export const DEFAULT_SESSION:Session = {version:1,id:'manual',projectionSources:[{id:'source-1',name:'Primary Projection',weight:100,fileName:'',players:[]}],draftPicks:[],leagueTeams:DEFAULT_LEAGUE_TEAMS,myDraftSlot:1};
+export type GoalieProjectionState = {fileName:string; players:GoalieProjection[]};
+export type Session = {bridge?:YahooBridgeState;sync?:SyncMetadata;version:1; id:string; projectionSources:ProjectionSourceState[]; goalieProjection?:GoalieProjectionState; draftPicks:DraftPick[]; leagueTeams:number; myDraftSlot:number};
+export const DEFAULT_SESSION:Session = {version:1,id:'manual',projectionSources:[{id:'source-1',name:'Primary Projection',weight:100,fileName:'',players:[]}],goalieProjection:{fileName:'',players:[]},draftPicks:[],leagueTeams:DEFAULT_LEAGUE_TEAMS,myDraftSlot:1};
 export const SESSION_KEY='nevisly.session.v1';
 const record=(x:unknown):x is Record<string,unknown>=>!!x&&typeof x==='object'&&!Array.isArray(x);
 export function parseSession(raw:string):Session {
@@ -15,6 +17,17 @@ export function parseSession(raw:string):Session {
  const sourceIds=new Set<string>();
  const numeric=['age','gp','goals','assists','points','ppp','sog','hits','blocks'];
  for(const s of x.projectionSources){if(!record(s)||typeof s.id!=='string'||typeof s.name!=='string'||typeof s.fileName!=='string'||typeof s.weight!=='number'||!Number.isFinite(s.weight)||s.weight<0||sourceIds.has(s.id)||!Array.isArray(s.players))throw new Error('Invalid saved projections');sourceIds.add(s.id);for(const p of s.players){if(!record(p)||typeof p.id!=='string'||typeof p.name!=='string'||typeof p.team!=='string'||!Array.isArray(p.positions)||!p.positions.every(v=>typeof v==='string')||!numeric.every(k=>typeof p[k]==='number'&&Number.isFinite(p[k])&&Number(p[k])>=0)||(p.missingFields!==undefined&&(!Array.isArray(p.missingFields)||!p.missingFields.every(k=>typeof k==='string'&&numeric.includes(k)))))throw new Error('Invalid saved player');}}
+ if(x.goalieProjection!==undefined){
+  const g=x.goalieProjection;
+  if(!record(g)||typeof g.fileName!=='string'||!Array.isArray(g.players))throw new Error('Invalid saved goalie projections');
+  const goalieIds=new Set<string>();
+  for(const p of g.players){
+   if(!record(p)||typeof p.id!=='string'||!p.id||goalieIds.has(p.id)||typeof p.name!=='string'||typeof p.team!=='string'||
+    !['gp','wins','svPct','shutouts'].every(k=>typeof p[k]==='number'&&Number.isFinite(p[k])&&Number(p[k])>=0))throw new Error('Invalid saved goalie projection');
+   if(Number(p.svPct)<=0||Number(p.svPct)>=1)throw new Error('Invalid saved goalie save percentage');
+   goalieIds.add(p.id);
+  }
+ }
  const selectionIds=new Set<string>();
  for(const p of x.draftPicks){
   for(const field of ['selectionId','projectionId','manualProjectionId','yahooPlayerId','playerName','nhlTeam','ownerName']) {
