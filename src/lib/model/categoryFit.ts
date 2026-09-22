@@ -20,6 +20,7 @@ export type CategoryFit = {
   adjustment: number; rosterGain: number; saturationAdjustment: number;
   categories: Record<string,FitCategory>; replacementNames: string[]; warnings: string[];
   starterImprovement:boolean; beforeStarterIds:string[]; starterIds:string[];
+  beforeRosterIds:string[]; rosterIds:string[];
 };
 const totals=(players: readonly BaseRankedPlayer[]) => Object.fromEntries(categories.map(c=>[c,players.reduce((sum,p)=>sum+p[c],0)])) as CategoryValues;
 
@@ -64,6 +65,18 @@ export function prepareCategoryFit(input: {
   type LineupState={players:BaseRankedPlayer[]; origin:CategoryValues};
   const lineups=new Map<string,LineupState>();
   const secondLineups=new Map<string,LineupState>();
+  const projectedRosterIds=(starters:readonly BaseRankedPlayer[])=>{
+    const ids=new Set(starters.map(p=>p.id));
+    // Already-drafted skaters remain on our roster even when a new candidate
+    // pushes one of them from a starter slot to the bench.
+    for(const player of own)ids.add(player.id);
+    const capacity=count+config.sharedBenchSlots;
+    for(const player of [...availableReserves].sort((a,b)=>b.rawScore-a.rawScore||compareIds(a,b))) {
+      if(ids.size>=capacity)break;
+      ids.add(player.id);
+    }
+    return [...ids];
+  };
   const evaluate=(candidate:BaseRankedPlayer, startingLineup?:BaseRankedPlayer[], retainIds:ReadonlySet<string>=new Set(), neutralOrigin?:CategoryValues):CategoryFit => {
     // A reserve candidate cannot appear on both sides of its own comparison.
     const before=startingLineup?allocate(startingLineup,slots):reserveIds.has(candidate.id)&&baseIds.has(candidate.id)?allocate([...own,...availableReserves.filter(p=>p.id!==candidate.id)],slots):base;
@@ -71,8 +84,10 @@ export function prepareCategoryFit(input: {
     const candidateWarnings=[...warnings];
     if(before.size<count) {
       candidateWarnings.push('Insufficient replacement depth for comparable full rosters; category fit is unavailable.');
+      const rosterIds=projectedRosterIds(beforePlayers);
       return {adjustment:0,rosterGain:candidate.vor,saturationAdjustment:0,categories:{},replacementNames:[],warnings:candidateWarnings,starterImprovement:false,
-        beforeStarterIds:beforePlayers.map(p=>p.id),starterIds:beforePlayers.map(p=>p.id)};
+        beforeStarterIds:beforePlayers.map(p=>p.id),starterIds:beforePlayers.map(p=>p.id),
+        beforeRosterIds:rosterIds,rosterIds};
     }
     const a=totals(beforePlayers);
     const assess=(afterPlayers:BaseRankedPlayer[])=>{
@@ -125,7 +140,8 @@ export function prepareCategoryFit(input: {
     if(!starterImprovement)candidateWarnings.push('No projected starter upgrade. Bench deployment is unmodeled; assess depth separately.');
     if(!startingLineup)lineups.set(candidate.id,{players:afterPlayers,origin:a});
     return {adjustment:neutral-candidate.vor+saturation,rosterGain:neutral,saturationAdjustment:saturation,categories:details,replacementNames,warnings:candidateWarnings,starterImprovement,
-      beforeStarterIds:beforePlayers.map(p=>p.id),starterIds:afterPlayers.map(p=>p.id)};
+      beforeStarterIds:beforePlayers.map(p=>p.id),starterIds:afterPlayers.map(p=>p.id),
+      beforeRosterIds:projectedRosterIds(beforePlayers),rosterIds:projectedRosterIds(afterPlayers)};
   };
   const first=(candidate:BaseRankedPlayer)=>evaluate(candidate);
   return Object.assign(first,{
