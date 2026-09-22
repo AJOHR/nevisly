@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {load}=require('./load.cjs');
-const {prepareDraftOpportunity}=load('src/lib/model/draftOpportunity.ts');
+const {prepareDraftOpportunity,prepareThreePickOpportunity}=load('src/lib/model/draftOpportunity.ts');
 const {prepareCategoryFit}=load('src/lib/model/categoryFit.ts');
 const {modelConfig,categories}=load('src/lib/model/config.ts');
 const engine=load('src/lib/model/engine.ts');
@@ -8,7 +8,7 @@ const {snapshotFor}=require('./market-fixture.cjs');
 const rankRecommendations=(ctx,m)=>engine.rankRecommendations(ctx,m,snapshotFor(ctx.rankedPlayers));
 const {availableRecommendationRanks}=engine;
 const {replacementValues}=load('src/lib/model/replacement.ts');
-const {getNextTurn}=load('src/lib/draft/state.ts');
+const {getNextTurn,getFutureOwnTurns}=load('src/lib/draft/state.ts');
 const {players,context}=require('./model-scenarios.cjs');
 const option=(id,position,score)=>({id,positions:[position],score,vor:score});
 const options=[option('defender','D',12),option('forward','LW',11),
@@ -106,4 +106,30 @@ test('8/12-team economics and timing leave Player Value/Team Fit intact; ranks f
   views.push(a.map(p=>[p.id,p.decision.draftUrgency.adjustment]));
  }
  assert.notDeepEqual(views[0],views[1]);
+});
+
+
+test('three-pick planner carries Yahoo depletion through two future own turns',()=>{
+ const pool=[
+  option('current-d','D',12),option('current-f','LW',11),
+  option('next-d','D',10),option('next-f','LW',9),
+  option('third-d','D',8),option('third-f','LW',7),
+  option('depth-d','D',6),option('depth-f','LW',5),
+ ];
+ const demand=pool.map(p=>p.id);
+ const plan=prepareThreePickOpportunity(pool,1,1,()=>true,demand);
+ const seen=[];
+ const d=plan(pool[0],(future,path)=>{seen.push([future.id,path.map(p=>p.id)]);return future.score;});
+ const fwd=plan(pool[1],(future,path)=>future.score);
+ assert.ok(d.alternatives.length>=1);
+ assert.ok(seen.some(([,path])=>path.length===2),'third-pick callback must receive both retained earlier selections');
+ for(const [future,path] of seen)assert.ok(!path.includes(future),'a future pick cannot duplicate an earlier own selection');
+ assert.ok(Number.isFinite(d.adjustment));assert.ok(Number.isFinite(fwd.adjustment));
+});
+
+test('future snake-turn gaps expose both next own picks from an on-clock state',()=>{
+ const picks=Array.from({length:15},(_,i)=>({playerId:`x${i}`,pickNumber:i+1,fantasyTeamId:`team-${(i%10)+1}`}));
+ const turns=getFutureOwnTurns(picks,10,5,2);
+ assert.deepEqual(turns,[{pickNumber:25,opponentSelections:8},{pickNumber:36,opponentSelections:10}]);
+ assert.deepEqual(getFutureOwnTurns(picks,10,4,2),[]);
 });
