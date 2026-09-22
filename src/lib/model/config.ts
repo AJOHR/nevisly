@@ -21,8 +21,4 @@ export const modelConfig: ModelConfig = {
 };
 export const categoryLabels: Record<Category,string> = {goals:'G',assists:'A',points:'P',ppp:'PPP',sog:'SOG',hits:'HIT',blocks:'BLK'};
 
-/** Preserve real positional scarcity without letting the eventual positional fringe
- * dominate early-round value. This restores the pre-Stage-5 55/45 replacement mix. */
-export const positionalReplacementWeight = 0.55;
-
 export const rosterSelectionCapacity = Object.values(modelConfig.starters).reduce((sum,count)=>sum+count,0)+modelConfig.goalieSlots+modelConfig.sharedBenchSlots;
