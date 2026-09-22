@@ -1,5 +1,45 @@
 # Stage 5 model and validation
 
+## Three-pick and daily-lineup opportunity after live mock validation
+
+Two live 10-team mocks exposed limitations that were distinct from replacement
+calibration. First, current + next-pick planning could still favor a D-heavy path
+because it stopped before the following own turn. Second, multi-position eligibility
+was represented by feasible starter allocation but not by actual daily lineup access,
+and aggregate playoff schedule comparisons could make a nine-game player look nearly
+neutral when a feasible alternative offered more usable dates.
+
+The live planner now searches current pick + the next two own selections whenever
+both future turns remain. Yahoo ADP remains an availability/depletion input only.
+Opponent selections are removed in market order between each snake turn, skipping
+players already selected by us. The second turn keeps at most two candidates per
+starter position and the third keeps one per position, bounding the search to at most
+32 second/third paths per current candidate. Sequential category-fit evaluation keeps
+both earlier selections and the original neutral utility origin. Near the end of the
+draft the established two-pick planner remains the fallback.
+
+The NHL schedule payload now retains exact game dates for Yahoo Weeks 24-26.
+Schedule opportunity compares projected 14-skater rosters (10 starters + four bench
+slots) before and after a candidate. On each real playoff date a maximum-weight
+C2/LW2/RW2/D4 lineup is allocated. Multi-position eligibility therefore has no flat
+bonus: it helps only when it lets the projected roster avoid a real busy-night
+benching conflict or field a stronger daily lineup.
+
+Schedule value is centered on the league-average playoff game count. A player's
+per-scheduled-game expected category production is derived from season projections
+divided by NHL team games, not projected GP, preserving the existing availability
+interpretation. The candidate's schedule adjustment is the change in centered daily
+lineup opportunity between the feasible before/after projected rosters. Thus a
+nine-game player is penalized versus an otherwise comparable 10/11-game alternative,
+while favorable dates or multi-position access can offset part of that penalty.
+Older schedule payloads without exact dates keep aggregate game-volume economics but
+receive no invented daily-flexibility benefit.
+
+This does not add a generic position-count score, D penalty, round rule, player-name
+exception, consensus-rank bonus, or Yahoo ADP score bonus. Season-long bench
+deployment remains outside the model; the new exact lineup-access term is specifically
+for the configured Yahoo playoff weeks.
+
 ## Replacement-scarcity calibration after live 10-team validation
 
 A live 10-team mock exposed a second defense-heavy failure mode after the bench-only
