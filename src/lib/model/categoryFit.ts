@@ -137,7 +137,7 @@ export function prepareCategoryFit(input: {
     const afterIds=new Set(afterPlayers.map(p=>p.id));
     const replacementNames=beforePlayers.filter(p=>!afterIds.has(p.id)).map(p=>p.name);
     const starterImprovement=afterIds.has(candidate.id)&&!taken.has(candidate.id)&&!beforePlayers.some(p=>p.id===candidate.id);
-    if(!starterImprovement)candidateWarnings.push('No projected starter upgrade. Bench deployment is unmodeled; assess depth separately.');
+    if(!starterImprovement)candidateWarnings.push('No projected starter upgrade. Season-long bench deployment is unmodeled; playoff lineup access is modeled only when exact schedule dates are available.');
     if(!startingLineup)lineups.set(candidate.id,{players:afterPlayers,origin:a});
     return {adjustment:neutral-candidate.vor+saturation,rosterGain:neutral,saturationAdjustment:saturation,categories:details,replacementNames,warnings:candidateWarnings,starterImprovement,
       beforeStarterIds:beforePlayers.map(p=>p.id),starterIds:afterPlayers.map(p=>p.id),
