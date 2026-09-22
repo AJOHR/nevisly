@@ -90,6 +90,7 @@ type TeamSchedule = {
 
   playoffGames: number;
   playoffOffNightGames: number;
+  playoffDates: string[];
 
   playoffByWeek: Record<
     string,
@@ -342,6 +343,9 @@ function addGame({
       playoffOffNightGames:
         0,
 
+      playoffDates:
+        [],
+
       playoffByWeek: {
         "24": {
           games: 0,
@@ -394,6 +398,10 @@ function addGame({
   ) {
     current.playoffGames +=
       1;
+
+    current.playoffDates.push(
+      formatDate(date)
+    );
 
     current
       .playoffByWeek[
