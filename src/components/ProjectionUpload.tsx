@@ -950,6 +950,9 @@ const currentRound =
       rankedPlayers,
     ]);
 
+  const myGoalieCount =
+    draftPicks.filter(p=>p.fantasyTeamId===myTeamId&&(p.positions?.includes("G")||p.resolution==="goalie")).length;
+
   const myTeamPlayers =
     useMemo(() => {
       return myTeamOrder
@@ -1674,6 +1677,7 @@ const currentRound =
           lastPick.playerId
         )
       : undefined;
+  const lastPickName = lastPickPlayer?.name ?? lastPick?.playerName;
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -1754,7 +1758,7 @@ const currentRound =
 
               <div className="ml-auto flex items-center gap-3">
                 {lastPick &&
-                  lastPickPlayer && (
+                  lastPickName && (
                     <div className="hidden text-right lg:block">
                       <div className="text-[9px] uppercase text-zinc-500">
                         Last Pick
@@ -1762,7 +1766,7 @@ const currentRound =
 
                       <div className="text-xs">
                         {
-                          lastPickPlayer.name
+                          lastPickName
                         }
                         {" → "}
                         {getTeamName(
@@ -2892,7 +2896,7 @@ const currentRound =
                         {
                           myTeamPlayers.length
                         }{" "}
-                        skaters
+                        skaters · {myGoalieCount}/2 goalies
                       </span>
                     </div>
 
