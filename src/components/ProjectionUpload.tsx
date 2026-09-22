@@ -2302,8 +2302,26 @@ const currentRound =
               </span>
             </div>
 
+            <div className="mb-3 flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900 p-1">
+              <button type="button" onClick={()=>setActivePool("skaters")} className={`rounded-lg px-4 py-2 text-xs font-bold ${activePool==="skaters"?"bg-white text-black":"text-zinc-400 hover:bg-zinc-800"}`}>Skaters</button>
+              <button type="button" onClick={()=>setActivePool("goalies")} className={`rounded-lg px-4 py-2 text-xs font-bold ${activePool==="goalies"?"bg-white text-black":"text-zinc-400 hover:bg-zinc-800"}`}>Goalies <span className="ml-1 text-[10px] opacity-60">W · SV% · SO</span></button>
+            </div>
+
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
               <div className="min-w-0">
+                {activePool==="goalies" ? (
+                  <GoalieBoard
+                    goalies={goalieProjection.players}
+                    fileName={goalieProjection.fileName}
+                    draftPicks={draftPicks}
+                    myTeamId={myTeamId}
+                    selectedDraftTeamId={selectedDraftTeamId}
+                    onUpload={handleGoalieProjectionFile}
+                    onDraft={draftGoalie}
+                    onUndo={pick=>setDraftPicks(current=>draftReducer(current,{type:"remove",pickNumber:pick.pickNumber}))}
+                  />
+                ) : (
+                  <>
                 <DecisionBoard players={bestAvailable} onInspect={setSelectedPlayer} onDraft={id=>draftPlayer(id,myTeamId)} rosterFull={draftPicks.filter(p=>p.fantasyTeamId===myTeamId).length>=rosterSelectionCapacity} powerPlayByPlayer={powerPlayByPlayer} />
 
                 <section className="sticky top-[72px] z-30 mb-3 rounded-xl border border-zinc-800 bg-zinc-900/95 p-3 backdrop-blur">
@@ -2850,10 +2868,12 @@ const currentRound =
                     </table>
                   </div>
                 </section>
+                  </>
+                )}
               </div>
 
               <aside className="xl:sticky xl:top-[84px] xl:self-start">
-              {selectedPlayer && (
+              {activePool==="skaters" && selectedPlayer && (
   <section className="mb-4">
     <PlayerExplanationCard
       player={finalRankedPlayers.find(p=>p.id===selectedPlayer.id)??selectedPlayer}
