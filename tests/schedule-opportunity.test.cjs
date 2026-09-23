@@ -7,13 +7,13 @@ const deviations=Object.fromEntries(categories.map(c=>[c,10]));
 const stats=Object.fromEntries(categories.map(c=>[c,82]));
 const player=(id,team,positions)=>({id,name:id,team,positions,age:25,gp:82,missingFields:[],...stats});
 const allDates=Array.from({length:11},(_,i)=>`2027-03-${String(15+i).padStart(2,'0')}`);
-function schedule(team,dates,seasonOffNightGames=30,playoffOffNightGames=0,regularSeasonOffNightDates){
+function schedule(team,dates,seasonOffNightGames=30,playoffOffNightGames=0,regularSeasonOffNightDates,regularSeasonDates,seasonGames=82){
  const weeks={
   '24':{games:dates.filter(d=>d<='2027-03-21').length,offNightGames:0},
   '25':{games:dates.filter(d=>d>='2027-03-22'&&d<='2027-03-28').length,offNightGames:0},
   '26':{games:dates.filter(d=>d>='2027-03-29').length,offNightGames:0},
  };
- return {team,seasonGames:82,seasonOffNightGames,regularSeasonOffNightDates,playoffGames:dates.length,playoffOffNightGames,playoffDates:dates,playoffByWeek:weeks};
+ return {team,seasonGames,seasonOffNightGames,regularSeasonDates,regularSeasonOffNightDates,playoffGames:dates.length,playoffOffNightGames,playoffDates:dates,playoffByWeek:weeks};
 }
 function regularDates(count,start=0){
  const base=new Date('2026-10-01T12:00:00Z');
@@ -86,63 +86,55 @@ test('same-production nine-game player is penalized against an eleven-game feasi
 });
 
 
-test('regular-season off-night access is valued separately from playoff dates',()=>{
- const dates=['2027-03-15'];
- const before=[
-  player('replace','LOWOFF',['D']),player('d2','T2',['D']),player('d3','T3',['D']),player('d4','T4',['D']),
-  player('c1','T5',['C']),player('c2','T6',['C']),
-  player('lw1','T7',['LW']),player('lw2','T8',['LW']),
-  player('rw1','T9',['RW']),player('rw2','T10',['RW']),
- ];
- const candidate=player('candidate','HIGHOFF',['D']);
- const players=[...before,candidate];
- const lowDates=regularDates(29),highDates=regularDates(40),averageDates=regularDates(30);
- const schedules={LOWOFF:schedule('LOWOFF',dates,29,0,lowDates),HIGHOFF:schedule('HIGHOFF',dates,40,0,highDates)};
- for(const p of before.slice(1))schedules[p.team]=schedule(p.team,dates,30,0,averageDates);
+
+test('regular-season schedule rewards only reduced lineup congestion, not raw game production',()=>{
+ const playoff=['2027-03-15'];
+ const crowded=['2026-10-01','2026-10-02','2026-10-03'];
+ const clear=['2026-10-04','2026-10-05','2026-10-06'];
+ const d1=player('d1','D1',['D']),d2=player('d2','D2',['D']),d3=player('d3','D3',['D']),d4=player('d4','D4',['D']);
+ const replacement=player('replace','OLD',['D']),candidate=player('candidate','NEW',['D']);
+ const players=[d1,d2,d3,d4,replacement,candidate];
+ const schedules={};
+ for(const p of [d1,d2,d3,d4,replacement])schedules[p.team]=schedule(p.team,playoff,30,0,undefined,crowded,4);
+ schedules.NEW=schedule('NEW',playoff,40,0,undefined,clear,4);
  const evaluate=prepareScheduleOpportunity(players,schedules,deviations);
- const result=evaluate(candidate,before.map(p=>p.id),before.map(p=>p.id==='replace'?'candidate':p.id));
- assert.equal(result.games,1);
- assert.equal(result.seasonOffNightGames,40);
+ const before=[d1,d2,d3,d4,replacement].map(p=>p.id);
+ const after=[d1,d2,d3,d4,candidate].map(p=>p.id);
+ const result=evaluate(candidate,before,after);
  assert.equal(result.seasonExact,true);
- assert.equal(result.usableOffNightStarts,40);
- assert.ok(result.seasonOffNightAdjustment>0);
+ assert.equal(result.usableRegularStarts,3);
+ assert.ok(result.seasonScheduleAdjustment>0,'moving the fifth D away from crowded dates should recover otherwise lost starts');
  assert.ok(Math.abs(result.playoffAdjustment)<1e-10);
- assert.ok(result.adjustment>0);
 });
 
-test('playoff off nights are excluded from regular-season off-night term to avoid double counting',()=>{
- const dates=['2027-03-15'];
+test('off-night count alone cannot create value when exact regular-season congestion is unchanged',()=>{
+ const playoff=['2027-03-15'];
+ const regular=['2026-10-01','2026-10-02','2026-10-03'];
  const before=[
   player('replace','A',['D']),player('d2','T2',['D']),player('d3','T3',['D']),player('d4','T4',['D']),
-  player('c1','T5',['C']),player('c2','T6',['C']),
-  player('lw1','T7',['LW']),player('lw2','T8',['LW']),
-  player('rw1','T9',['RW']),player('rw2','T10',['RW']),
  ];
  const candidate=player('candidate','B',['D']);
  const players=[...before,candidate];
- const exact30=regularDates(30);
- const schedules={A:schedule('A',dates,30,0,exact30),B:schedule('B',dates,31,1,exact30)};
- for(const p of before.slice(1))schedules[p.team]=schedule(p.team,dates,30,0,exact30);
+ const schedules={A:schedule('A',playoff,29,0,undefined,regular,4),B:schedule('B',playoff,40,0,undefined,regular,4)};
+ for(const p of before.slice(1))schedules[p.team]=schedule(p.team,playoff,30,0,undefined,regular,4);
  const evaluate=prepareScheduleOpportunity(players,schedules,deviations);
  const result=evaluate(candidate,before.map(p=>p.id),before.map(p=>p.id==='replace'?'candidate':p.id));
- assert.ok(Math.abs(result.seasonOffNightAdjustment)<1e-10);
+ assert.equal(result.seasonOffNightGames,40);
+ assert.equal(result.seasonExact,true);
+ assert.ok(Math.abs(result.seasonScheduleAdjustment)<1e-10);
 });
 
-
-test('aggregate off-night counts alone do not create a regular-season bonus',()=>{
- const dates=['2027-03-15'];
+test('missing exact regular-season dates is neutral rather than falling back to OFF count',()=>{
+ const playoff=['2027-03-15'];
  const before=[
   player('replace','LOW',['D']),player('d2','T2',['D']),player('d3','T3',['D']),player('d4','T4',['D']),
-  player('c1','T5',['C']),player('c2','T6',['C']),
-  player('lw1','T7',['LW']),player('lw2','T8',['LW']),
-  player('rw1','T9',['RW']),player('rw2','T10',['RW']),
  ];
  const candidate=player('candidate','HIGH',['D']);
  const players=[...before,candidate];
- const schedules={LOW:schedule('LOW',dates,29),HIGH:schedule('HIGH',dates,40)};
- for(const p of before.slice(1))schedules[p.team]=schedule(p.team,dates,30);
+ const schedules={LOW:schedule('LOW',playoff,29),HIGH:schedule('HIGH',playoff,40)};
+ for(const p of before.slice(1))schedules[p.team]=schedule(p.team,playoff,30);
  const evaluate=prepareScheduleOpportunity(players,schedules,deviations);
  const result=evaluate(candidate,before.map(p=>p.id),before.map(p=>p.id==='replace'?'candidate':p.id));
  assert.equal(result.seasonExact,false);
- assert.equal(result.seasonOffNightAdjustment,0);
+ assert.equal(result.seasonScheduleAdjustment,0);
 });

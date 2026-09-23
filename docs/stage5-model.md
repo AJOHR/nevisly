@@ -1,5 +1,28 @@
 # Stage 5 model and validation
 
+## Regular-season congestion loss instead of off-night bonus
+
+Live Round-1 validation after PR #25 showed that exact off-night dates alone were
+still not enough: the model was treating usable off-night production as an additive
+bonus on top of season projections. That could overboost every player on a
+high-off-night team, because those projected stats already include the production
+from those games.
+
+The regular-season schedule term now simulates every exact non-playoff NHL game date
+for the projected 14-skater roster. On each date the C2/LW2/RW2/D4 lineup is
+allocated from the active players. The model then compares:
+
+- actually usable projected production from those daily lineups, versus
+- the same roster's unconstrained scheduled production if every game could be used.
+
+Only the difference is scored. This is a congestion loss and cannot create
+production beyond the season projection. A favorable off-night schedule is valuable
+only because it reduces otherwise lost starts.
+
+Yahoo Weeks 24-26 remain a separate exact-date opportunity model. If exact
+regular-season dates are unavailable, the regular-season schedule adjustment is
+neutral rather than reverting to raw OFF counts.
+
 ## Exact regular-season off-night lineup access
 
 Live Round-1 validation after PR #24 showed that residual positional scarcity was

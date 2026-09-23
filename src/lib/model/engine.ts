@@ -49,7 +49,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     const timing=marketTiming(demand.matches.get(player.id)?.adp,demand.ranks.get(player.id),opponentSelections,turn.nextMyPick);
     const urgency=timing.level;
     const warnings=[...fit.warnings];
-    if(!scheduleValue.available)warnings.push('Complete playoff schedule unavailable; no schedule adjustment applied.');
+    if(!scheduleValue.available)warnings.push('Complete NHL schedule unavailable; no schedule adjustment applied.');
     if(!base.replacementAvailable)warnings.push('Feasible positional replacement unavailable; intrinsic overall-skater value is still estimated, but roster scarcity is less certain.');
     if(!hasProjectionValue(player,'age'))warnings.push('Age unknown.');
     else if(player.age>=35)warnings.push('Age 35+: review projection and injury uncertainty; no additional age penalty.');
@@ -76,10 +76,10 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     if(Math.abs(scheduleValue.playoffAdjustment)>=0.01)explanations.unshift(
       `${scheduleValue.games} games in Yahoo playoff Weeks 24–26; ${scheduleValue.usableStarts} modeled usable starts; ${scheduleValue.playoffAdjustment>=0?'+':''}${scheduleValue.playoffAdjustment.toFixed(2)} playoff lineup opportunity`
     );
-    if(Math.abs(scheduleValue.seasonOffNightAdjustment)>=0.01)explanations.unshift(
+    if(Math.abs(scheduleValue.seasonScheduleAdjustment)>=0.01)explanations.unshift(
       scheduleValue.seasonExact
-        ? `${scheduleValue.seasonOffNightGames} season off-night games; ${scheduleValue.usableOffNightStarts} modeled usable non-playoff off-night starts; ${scheduleValue.seasonOffNightAdjustment>=0?'+':''}${scheduleValue.seasonOffNightAdjustment.toFixed(2)} lineup access`
-        : `${scheduleValue.seasonOffNightGames} season off-night games; exact off-night dates unavailable, no regular-season schedule adjustment`
+        ? `${scheduleValue.seasonOffNightGames} season off-night games; ${scheduleValue.usableRegularStarts} modeled usable regular-season starts; ${scheduleValue.seasonScheduleAdjustment>=0?'+':''}${scheduleValue.seasonScheduleAdjustment.toFixed(2)} congestion adjustment`
+        : `${scheduleValue.seasonOffNightGames} season off-night games; exact regular-season dates unavailable, no regular-season schedule adjustment`
     );
     if(!explanations.length)explanations.push('Compare projected value and uncertainty');
     const decision:DecisionAssessment={playerValue:{score:playerValue},teamFit:{adjustment:teamFit},draftUrgency:{opponentSelections,level:urgency,calibrated:false,adjustment:0},uncertainty:{warnings}};
