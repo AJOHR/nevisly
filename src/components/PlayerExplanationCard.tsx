@@ -4,7 +4,7 @@ import { categoryLabels, type Category } from '@/lib/model/config';
 import PowerPlayBadge from '@/components/PowerPlayBadge';
 import type { PowerPlayAssignment } from '@/lib/nhl/powerPlay';
 
-const labels:Record<string,string>={replacementValue:'Intrinsic value vs overall skater baseline',schedule:'Schedule lineup access (Team Fit)',rosterOpportunity:'Roster opportunity vs intrinsic baseline',categoryFit:'Incremental category fit',draftOpportunity:'Future-pick opportunity (Draft Urgency)',nearTermScarcity:'Near-term position tier scarcity (Draft Urgency)'};
+const labels:Record<string,string>={replacementValue:'Intrinsic value vs overall skater baseline',schedule:'Playoff usable production (Team Fit)',rosterOpportunity:'Roster opportunity vs intrinsic baseline',categoryFit:'Incremental category fit',draftOpportunity:'Future-pick opportunity (Draft Urgency)'};
 const signed=(value:number)=>`${value>=0?'+':''}${value.toFixed(3)}`;
 export default function PlayerExplanationCard({player,powerPlayAssignment}:{player:Recommendation;powerPlayAssignment?:PowerPlayAssignment}) {
   return <section aria-label={`Score explanation for ${player.name}`} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
