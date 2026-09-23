@@ -121,6 +121,20 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
       playoffWeekGames:['24','25','26'].map(w=>schedule?.playoffByWeek[w]?.games??0) as [number,number,number],
       playoffWeekOffNights:['24','25','26'].map(w=>schedule?.playoffByWeek[w]?.offNightGames??0) as [number,number,number]};
   });
+  const applyCommonPlannerBaseline=(commonBaseline:number)=>{
+    if(commonBaseline<=0)return;
+    for(const player of recommendations) {
+      if(taken.has(player.id)||player.fit.starterImprovement)continue;
+      const adjustment=-commonBaseline;
+      player.decision.draftUrgency.adjustment+=adjustment;
+      player.contributions={...player.contributions,draftOpportunity:(player.contributions?.draftOpportunity??0)+adjustment};
+      player.score+=adjustment;
+      player.explanations.unshift(
+        `Same future-pick centering baseline as starter candidates (${adjustment.toFixed(2)} Draft Urgency)`
+      );
+    }
+  };
+
   // Candidate-now planning requires our current pick. Off clock, the same turn
   // count describes opponents BEFORE our selection, not after a candidate pick.
   // Prefer a bounded three-own-pick path when two future turns remain; fall back
@@ -132,6 +146,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     const thirdTurn=futureTurns[1];
     if(thirdTurn&&thirdTurn.pickNumber<=context.leagueTeams*rosterSelectionCapacity) {
       const plan=prepareThreePickOpportunity(available,opponentSelections,thirdTurn.opponentSelections,p=>p.fit.starterImprovement,demand.ids);
+      applyCommonPlannerBaseline(plan.commonBaseline);
       for(const player of recommendations) {
         if(taken.has(player.id)||!player.fit.starterImprovement)continue;
         const timing=plan(player,(future,path)=>{
@@ -160,6 +175,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
       }
     } else {
       const plan=prepareDraftOpportunity(available,opponentSelections,p=>p.fit.starterImprovement,demand.ids);
+      applyCommonPlannerBaseline(plan.commonBaseline);
       for(const player of recommendations) {
         if(taken.has(player.id)||!player.fit.starterImprovement)continue;
         const timing=plan(player,future=>{
