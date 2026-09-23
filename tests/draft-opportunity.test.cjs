@@ -145,8 +145,10 @@ test('near-term scarcity rewards a real tier cliff, not the eventual positional 
  const d=scarcity(pool[0]),rw=scarcity(pool[1]);
  assert.equal(d.alternative.id,'next-d');
  assert.equal(rw.alternative.id,'next-rw');
- assert.equal(d.adjustment,5);
- assert.equal(rw.adjustment,1);
+ assert.equal(d.marketAlternative.id,'next-rw');
+ assert.equal(rw.marketAlternative.id,'next-rw');
+ assert.equal(d.adjustment,3);
+ assert.equal(rw.adjustment,0);
  assert.ok(d.adjustment>rw.adjustment);
 });
 
@@ -156,5 +158,20 @@ test('multi-position player uses the best surviving eligible tier and gets no fa
  const scarcity=prepareNearTermScarcity(pool,1,['flex','taken','next-c','next-rw']);
  const result=scarcity(flex);
  assert.equal(result.alternative.id,'next-c');
- assert.equal(result.adjustment,1);
+ assert.equal(result.marketAlternative.id,'next-c');
+ assert.equal(result.adjustment,0);
+});
+
+
+test('near-term scarcity removes the market-wide talent drop already priced by lookahead',()=>{
+ const pool=[
+  option('elite-c','C',14),option('elite-rw','RW',13),
+  option('survivor-c','C',7),option('survivor-rw','RW',7),
+ ];
+ const demand=pool.map(p=>p.id);
+ const scarcity=prepareNearTermScarcity(pool,1,demand);
+ const center=scarcity(pool[0]);
+ assert.equal(center.alternative.id,'survivor-c');
+ assert.equal(center.marketAlternative.id,'survivor-c');
+ assert.equal(center.adjustment,0,'general elite-to-next-turn decline must not be added twice');
 });
