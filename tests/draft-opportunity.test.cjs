@@ -158,3 +158,31 @@ test('multi-position player uses the best surviving eligible tier and gets no fa
  assert.equal(result.alternative.id,'next-c');
  assert.equal(result.adjustment,1);
 });
+
+
+test('on-clock planner applies its common centering baseline to depth candidates too',()=>{
+ const market=replacementValues(players,10);
+ const {getSnakeTeamIdForPick}=load('src/lib/draft/state.ts');
+ const fantasyTeams=Array.from({length:10},(_,i)=>({id:`team-${i+1}`,name:`Team ${i+1}`,isMyTeam:i===3}));
+ const ownedD=['p003','p007','p011','p015'];
+ let ownedIndex=0;
+ const picks=Array.from({length:43},(_,i)=>{
+   const pickNumber=i+1;
+   const team=getSnakeTeamIdForPick(pickNumber,10);
+   if(team==='team-4'){
+     const id=ownedD[ownedIndex++];
+     return {playerId:id,projectionId:id,pickNumber,fantasyTeamId:team,positions:['D']};
+   }
+   return {playerId:`unknown-${pickNumber}`,pickNumber,fantasyTeamId:team,positions:[]};
+ });
+ const base=context(market.ranked,0);
+ const ctx={...base,leagueTeams:10,myDraftSlot:4,fantasyTeams,draftPicks:picks,draftedIds:new Set(ownedD)};
+ const out=rankRecommendations(ctx,market);
+ const depth=out.find(p=>!p.fit.starterImprovement&&!ownedD.includes(p.id));
+ const starter=out.find(p=>p.fit.starterImprovement&&!ownedD.includes(p.id));
+ assert.ok(depth,'expected an available depth candidate');
+ assert.ok(starter,'expected an available starter-upgrade candidate');
+ assert.ok((depth.contributions.draftOpportunity??0)<0,'depth candidate must receive the same common planner centering baseline');
+ assert.ok(depth.decision.draftUrgency.adjustment<0);
+ assert.ok(out[0].fit.starterImprovement,'a zeroed depth placeholder must not become the best recommendation');
+});

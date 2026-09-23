@@ -23,7 +23,7 @@ export function prepareDraftOpportunity<T extends Option>(available:readonly T[]
     return Object.keys(modelConfig.starters).map(position=>remaining.filter(p=>p.positions.includes(position)).slice(0,3));
   };
   const lists=[shortlist(opponentSelections),shortlist(opponentSelections+1)];
-  return (candidate:T, gain:(future:T)=>number)=>{
+  const planner=(candidate:T, gain:(future:T)=>number)=>{
     if(opponentSelections===0)return {adjustment:0,alternative:undefined as T|undefined};
     const groups=lists[(order.get(candidate.id)??Infinity)<=opponentSelections?1:0];
     const list=[...new Map(groups.flatMap(group=>group.filter(p=>p.id!==candidate.id).slice(0,2)).map(p=>[p.id,p])).values()];
@@ -37,6 +37,7 @@ export function prepareDraftOpportunity<T extends Option>(available:readonly T[]
     }
     return {adjustment:value-baseline,alternative};
   };
+  return Object.assign(planner,{commonBaseline:baseline});
 }
 
 
@@ -84,7 +85,8 @@ export function prepareThreePickOpportunity<T extends Option>(
   const baselineSecond=Math.max(0,...shortlist(survivorsAfter(new Set(),firstWait),2).map(p=>p.score));
   const baselineThird=Math.max(0,...shortlist(survivorsAfter(new Set(),firstWait+secondWait),1).map(p=>p.score));
 
-  return (candidate:T,gain:(future:T,path:readonly T[])=>number)=>{
+  const commonBaseline=baselineSecond+baselineThird;
+  const planner=(candidate:T,gain:(future:T,path:readonly T[])=>number)=>{
     if(firstWait===0)return {adjustment:0,alternatives:[] as T[]};
     const selectedFirst=new Set([candidate.id]);
     const seconds=shortlist(survivorsAfter(selectedFirst,firstWait),2);
@@ -111,10 +113,11 @@ export function prepareThreePickOpportunity<T extends Option>(
     }
 
     return {
-      adjustment:best-baselineSecond-baselineThird,
+      adjustment:best-commonBaseline,
       alternatives:[bestSecond,bestThird].filter((p):p is T=>!!p),
     };
   };
+  return Object.assign(planner,{commonBaseline});
 }
 
 
