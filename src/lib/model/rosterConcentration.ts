@@ -21,15 +21,16 @@ export type RosterConcentration = {
   resultingTeamCount:number;
   resultingPurePositionCount:number|null;
   purePosition:string|null;
-  exemptByAdp:boolean;
+  adpPenaltyMultiplier:number;
 };
 
 /**
  * Soft roster-construction penalty only. It never changes intrinsic Player Value.
  *
- * Yahoo ADP under 60 is treated as an elite-value override: both concentration
- * penalties are displayed diagnostically but waived from Team Fit. Unknown ADP
- * and ADP >= 60 use the normal penalties.
+ * Yahoo ADP tempers roster-construction penalties:
+ *   under 50: waived
+ *   50 through 79.9: 50% applied
+ *   80 or later, or unknown: 100% applied.
  *
  * NHL-team concentration:
  *   first two owned players from a club are free; later additions rise progressively.
@@ -70,14 +71,19 @@ export function rosterConcentrationAdjustment(
     );
   }
 
-  const exemptByAdp=Number.isFinite(yahooAdp) && yahooAdp! < 60;
+  const adpPenaltyMultiplier=
+    Number.isFinite(yahooAdp) && yahooAdp! < 50
+      ? 0
+      : Number.isFinite(yahooAdp) && yahooAdp! < 80
+        ? 0.5
+        : 1;
   return {
-    adjustment:exemptByAdp?0:-(teamPenalty+positionPenalty),
+    adjustment:-(teamPenalty+positionPenalty)*adpPenaltyMultiplier,
     teamPenalty,
     positionPenalty,
     resultingTeamCount,
     resultingPurePositionCount,
     purePosition,
-    exemptByAdp,
+    adpPenaltyMultiplier,
   };
 }
