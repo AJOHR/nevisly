@@ -90,6 +90,7 @@ const CATEGORY_LABELS: Record<CategoryKey, string> = {
 
 type SortKey =
   | "rank"
+  | "adp"
   | "name"
   | "age"
   | "team"
@@ -1491,6 +1492,14 @@ const currentRound =
               return sortDirection === "asc" ? result : -result;
             }
 
+            if (sortKey === "adp") {
+              if (a.adp === undefined && b.adp === undefined) return a.name.localeCompare(b.name);
+              if (a.adp === undefined) return 1;
+              if (b.adp === undefined) return -1;
+              const result = a.adp - b.adp;
+              return sortDirection === "asc" ? result : -result;
+            }
+
             const aValue =
               a[
                 sortKey
@@ -2422,13 +2431,18 @@ const currentRound =
                   </div>
 
                   <div className="max-h-[720px] overflow-auto">
-                    <table className="w-full min-w-[900px] text-xs">
+                    <table className="w-full min-w-[950px] text-xs">
                       <thead className="sticky top-0 z-20 bg-zinc-900 text-left text-zinc-400">
                         <tr>
                           <SortableHeader
                             label="Rank"
                             onClick={() => handleSort("rank")}
                             indicator={sortIndicator("rank")}
+                          />
+                          <SortableHeader
+                            label="ADP"
+                            onClick={() => handleSort("adp")}
+                            indicator={sortIndicator("adp")}
                           />
                           <th className="p-2">
                             Pick
@@ -2652,6 +2666,9 @@ const currentRound =
                               >
                                 <td className="p-2 tabular-nums" title={drafted ? "Drafted — not ranked among available players" : "Overall available recommendation rank"}>
                                   {drafted ? "—" : `#${overallRecommendationRanks.get(player.id)}`}
+                                </td>
+                                <td className="p-2 tabular-nums" title="Yahoo standard-scoring average draft position">
+                                  {player.adp === undefined ? "—" : player.adp.toFixed(1)}
                                 </td>
                                 <td className="p-2">
                                   {drafted ? (

@@ -53,3 +53,22 @@ test('combined adjustment is the negative sum of team and position penalties',()
  assert.ok(result.positionPenalty>0);
  assert.ok(Math.abs(result.adjustment+result.teamPenalty+result.positionPenalty)<1e-12);
 });
+
+
+test('Yahoo ADP under 60 waives both team and pure-position concentration penalties',()=>{
+ const owned=[p('NYR',['C']),p('NYR',['D']),p('NYR',['C'])];
+ const result=rosterConcentrationAdjustment(p('NYR',['C']),owned,starters,59.9);
+ assert.equal(result.exemptByAdp,true);
+ assert.ok(result.teamPenalty>0);
+ assert.ok(result.positionPenalty>0);
+ assert.equal(result.adjustment,0);
+});
+
+test('Yahoo ADP 60, later ADP, and unknown ADP keep normal concentration penalties',()=>{
+ const owned=[p('NYR',['C']),p('NYR',['D']),p('NYR',['C'])];
+ for(const adp of [60,61,undefined]){
+  const result=rosterConcentrationAdjustment(p('NYR',['C']),owned,starters,adp);
+  assert.equal(result.exemptByAdp,false);
+  assert.ok(result.adjustment<0);
+ }
+});

@@ -13,7 +13,7 @@ import { prepareDraftOpportunity, prepareNearTermScarcity, prepareThreePickOppor
 import { defaultMarketSnapshot, prepareMarketDemand, marketTiming, type MarketSnapshot } from './marketDemand';
 import { rosterConcentrationAdjustment } from './rosterConcentration';
 
-export type Recommendation = RankedPlayer & {decision: DecisionAssessment; fit: CategoryFit; explanations:string[]};
+export type Recommendation = RankedPlayer & {decision: DecisionAssessment; fit: CategoryFit; explanations:string[]; adp?:number};
 export const compareRecommendations = (a:RankedPlayer,b:RankedPlayer) => b.score-a.score ||
   (b.score-(b.contributions?.draftOpportunity??0))-(a.score-(a.contributions?.draftOpportunity??0)) || compareIds(a,b);
 /** Input is already the canonical recommendation order; filters never renumber. */
@@ -56,7 +56,8 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     const schedule=scheduleFor(player.team,context.playoffSchedule);
     const scheduleValue=evaluateSchedule(player,fit.beforeRosterIds,fit.rosterIds);
     const scheduleBonus=drafted?0:scheduleValue.adjustment;
-    const timing=marketTiming(demand.matches.get(player.id)?.adp,demand.ranks.get(player.id),opponentSelections,turn.nextMyPick);
+    const marketAdp=demand.matches.get(player.id)?.adp;
+    const timing=marketTiming(marketAdp,demand.ranks.get(player.id),opponentSelections,turn.nextMyPick);
     const urgency=timing.level;
     const warnings=[...fit.warnings];
     if(!scheduleValue.available)warnings.push('Complete playoff schedule unavailable; no schedule adjustment applied.');
@@ -65,8 +66,8 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     else if(player.age>=35)warnings.push('Age 35+: review projection and injury uncertainty; no additional age penalty.');
     if((player.projectionSources??1)<2)warnings.push('Single projection source; agreement cannot be measured.');
     const concentration=drafted
-      ? {adjustment:0,teamPenalty:0,positionPenalty:0,resultingTeamCount:0,resultingPurePositionCount:null,purePosition:null}
-      : rosterConcentrationAdjustment(player,ownCompositionPlayers,modelConfig.starters);
+      ? {adjustment:0,teamPenalty:0,positionPenalty:0,resultingTeamCount:0,resultingPurePositionCount:null,purePosition:null,exemptByAdp:false}
+      : rosterConcentrationAdjustment(player,ownCompositionPlayers,modelConfig.starters,marketAdp);
     const contributions={replacementValue:base.vor,schedule:scheduleBonus,
       rosterOpportunity:drafted?0:fit.rosterGain-base.vor,
       categoryFit:drafted?0:fit.saturationAdjustment,
@@ -87,12 +88,17 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     const strongest=categories.map(c=>({c,gain:fit.categories[c]?.productionGain??0})).sort((a,b)=>b.gain-a.gain).filter(x=>x.gain>0).slice(0,2);
     if(strongest.length)explanations.push(`Adds ${strongest.map(x=>categoryLabels[x.c]).join(' + ')} versus the feasible replacement`);
     if(!fit.starterImprovement)explanations.push('Depth option; no projected starter upgrade');
-    if(concentration.teamPenalty>=0.01)explanations.unshift(
-      `NHL-team concentration: would be player #${concentration.resultingTeamCount} from ${player.team} (-${concentration.teamPenalty.toFixed(2)} Team Fit)`
+    if(concentration.exemptByAdp&&(concentration.teamPenalty>=0.01||concentration.positionPenalty>=0.01))explanations.unshift(
+      `Yahoo ADP ${marketAdp}: top-60 value override; roster concentration penalties waived`
     );
-    if(concentration.positionPenalty>=0.01&&concentration.purePosition&&concentration.resultingPurePositionCount!==null)explanations.unshift(
-      `Pure ${concentration.purePosition} congestion: ${concentration.resultingPurePositionCount} single-position ${concentration.purePosition}s for ${modelConfig.starters[concentration.purePosition]} starter slots (-${concentration.positionPenalty.toFixed(2)} Team Fit)`
-    );
+    else {
+      if(concentration.teamPenalty>=0.01)explanations.unshift(
+        `NHL-team concentration: would be player #${concentration.resultingTeamCount} from ${player.team} (-${concentration.teamPenalty.toFixed(2)} Team Fit)`
+      );
+      if(concentration.positionPenalty>=0.01&&concentration.purePosition&&concentration.resultingPurePositionCount!==null)explanations.unshift(
+        `Pure ${concentration.purePosition} congestion: ${concentration.resultingPurePositionCount} single-position ${concentration.purePosition}s for ${modelConfig.starters[concentration.purePosition]} starter slots (-${concentration.positionPenalty.toFixed(2)} Team Fit)`
+      );
+    }
     if(Math.abs(scheduleValue.playoffAdjustment)>=0.01)explanations.unshift(
       `${scheduleValue.games} games in Yahoo playoff Weeks 24–26; ${scheduleValue.usableStarts} modeled usable starts; ${scheduleValue.playoffAdjustment>=0?'+':''}${scheduleValue.playoffAdjustment.toFixed(2)} playoff lineup opportunity`
     );
@@ -101,7 +107,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     );
     if(!explanations.length)explanations.push('Compare projected value and uncertainty');
     const decision:DecisionAssessment={playerValue:{score:playerValue},teamFit:{adjustment:teamFit},draftUrgency:{opponentSelections,level:urgency,calibrated:false,adjustment:0},uncertainty:{warnings}};
-    return {...player,...base,score:playerValue+teamFit,contributions,decision,fit,explanations,
+    return {...player,...base,adp:marketAdp,score:playerValue+teamFit,contributions,decision,fit,explanations,
       needBonus:teamFit,h2hGain:0,scarcityBonus:0,scarcityReasons:[],tierScarcityBonus:0,
       returnRisk:timing.risk,returnProbability:0,
       returnReason:timing.reason,picksUntilNext:opponentSelections,
@@ -129,7 +135,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
           if(!next?.starterImprovement)return 0;
           const futureSchedule=evaluateSchedule(future,next.beforeRosterIds,next.rosterIds);
           const futureOwned=[...ownCompositionPlayers,...path.map(p=>({team:p.team,positions:p.positions}))];
-          const futureConcentration=rosterConcentrationAdjustment(future,futureOwned,modelConfig.starters);
+          const futureConcentration=rosterConcentrationAdjustment(future,futureOwned,modelConfig.starters,demand.matches.get(future.id)?.adp);
           return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment+futureConcentration.adjustment;
         });
         const scarcity=nearTermScarcity(player);
@@ -155,7 +161,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
           if(!next?.starterImprovement)return 0;
           const futureSchedule=evaluateSchedule(future,next.beforeRosterIds,next.rosterIds);
           const futureOwned=[...ownCompositionPlayers,{team:player.team,positions:player.positions}];
-          const futureConcentration=rosterConcentrationAdjustment(future,futureOwned,modelConfig.starters);
+          const futureConcentration=rosterConcentrationAdjustment(future,futureOwned,modelConfig.starters,demand.matches.get(future.id)?.adp);
           return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment+futureConcentration.adjustment;
         });
         const scarcity=nearTermScarcity(player);
