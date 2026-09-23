@@ -33,6 +33,7 @@ import { nextPickNumber, getSnakeTeamIdForPick, draftReducer } from "@/lib/draft
 import { parseSkaterCsv } from "@/lib/projections/parseSkaterCsv";
 import { parseGoalieCsv } from "@/lib/projections/parseGoalieCsv";
 import GoalieBoard from "@/components/GoalieBoard";
+import LateDraftWatchlist from "@/components/LateDraftWatchlist";
 import type { RankedGoalie } from "@/types/goalie";
 
 import DecisionBoard from "@/components/DecisionBoard";
@@ -277,7 +278,7 @@ export default function ProjectionUpload() {
     useState(false);
 
   const [projectionSourcesCollapsed,setProjectionSourcesCollapsed]=useState(false);
-  const [activePool,setActivePool]=useState<"skaters"|"goalies">("skaters");
+  const [activePool,setActivePool]=useState<"skaters"|"goalies"|"sleepers">("skaters");
 
     const [
         selectedPlayer,
@@ -2327,11 +2328,17 @@ const currentRound =
             <div className="mb-3 flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900 p-1">
               <button type="button" onClick={()=>setActivePool("skaters")} className={`rounded-lg px-4 py-2 text-xs font-bold ${activePool==="skaters"?"bg-white text-black":"text-zinc-400 hover:bg-zinc-800"}`}>Skaters</button>
               <button type="button" onClick={()=>setActivePool("goalies")} className={`rounded-lg px-4 py-2 text-xs font-bold ${activePool==="goalies"?"bg-white text-black":"text-zinc-400 hover:bg-zinc-800"}`}>Goalies <span className="ml-1 text-[10px] opacity-60">W · SV% · SO</span></button>
+              <button type="button" onClick={()=>setActivePool("sleepers")} className={`rounded-lg px-4 py-2 text-xs font-bold ${activePool==="sleepers"?"bg-white text-black":"text-zinc-400 hover:bg-zinc-800"}`}>Sleepers / Streamers</button>
             </div>
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
               <div className="min-w-0">
-                {activePool==="goalies" ? (
+                {activePool==="sleepers" ? (
+                  <LateDraftWatchlist
+                    draftPicks={draftPicks}
+                    myTeamId={myTeamId}
+                  />
+                ) : activePool==="goalies" ? (
                   <GoalieBoard
                     goalies={goalieProjection.players}
                     fileName={goalieProjection.fileName}
