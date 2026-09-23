@@ -8,6 +8,23 @@ function normalizeTeam(team:string|undefined){
   return aliases[key]??key;
 }
 
+function initialSurnameKey(name:string){
+  const parts=name.trim().split(/\s+/);
+  if(parts.length<2)return undefined;
+  const first=normalizePlayerName(parts[0]).replace(/\./g,'');
+  if(first.length!==1)return undefined;
+  const last=normalizePlayerName(parts.slice(1).join(' '));
+  return {initial:first,last};
+}
+
+function fullNameInitialSurname(name:string){
+  const parts=name.trim().split(/\s+/);
+  if(parts.length<2)return undefined;
+  const first=normalizePlayerName(parts[0]);
+  const last=normalizePlayerName(parts.slice(1).join(' '));
+  return first&&last?{initial:first[0],last}:undefined;
+}
+
 /**
  * Resolve a draft selection against the goalie projection sidecar.
  *
@@ -30,6 +47,23 @@ export function matchDraftPickToGoalie<T extends GoalieProjection>(
     const team=normalizeTeam(pick.nhlTeam);
     const teamMatches=matches.filter(g=>normalizeTeam(g.team)===team);
     if(teamMatches.length===1)return teamMatches[0];
+  }
+
+  // Yahoo draft history can render goalies as "I. Shesterkin" / "A. Vasilevskiy".
+  // Only use this fallback when Yahoo actually supplied an initial, and require
+  // a unique goalie identity. Team narrows the match when available.
+  const short=initialSurnameKey(pick.playerName);
+  if(short){
+    const initialMatches=goalies.filter(g=>{
+      const full=fullNameInitialSurname(g.name);
+      return !!full&&full.initial===short.initial&&full.last===short.last;
+    });
+    if(initialMatches.length===1)return initialMatches[0];
+    if(initialMatches.length>1&&pick.nhlTeam){
+      const team=normalizeTeam(pick.nhlTeam);
+      const teamMatches=initialMatches.filter(g=>normalizeTeam(g.team)===team);
+      if(teamMatches.length===1)return teamMatches[0];
+    }
   }
   return undefined;
 }
