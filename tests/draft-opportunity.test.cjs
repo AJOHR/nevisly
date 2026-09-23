@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {load}=require('./load.cjs');
-const {prepareDraftOpportunity,prepareThreePickOpportunity}=load('src/lib/model/draftOpportunity.ts');
+const {prepareDraftOpportunity,prepareNearTermScarcity,prepareThreePickOpportunity}=load('src/lib/model/draftOpportunity.ts');
 const {prepareCategoryFit}=load('src/lib/model/categoryFit.ts');
 const {modelConfig,categories}=load('src/lib/model/config.ts');
 const engine=load('src/lib/model/engine.ts');
@@ -132,4 +132,29 @@ test('future snake-turn gaps expose both next own picks from an on-clock state',
  const turns=getFutureOwnTurns(picks,10,5,2);
  assert.deepEqual(turns,[{pickNumber:25,opponentSelections:8},{pickNumber:36,opponentSelections:10}]);
  assert.deepEqual(getFutureOwnTurns(picks,10,4,2),[]);
+});
+
+
+test('near-term scarcity rewards a real tier cliff, not the eventual positional fringe',()=>{
+ const pool=[
+  option('elite-d','D',10),option('elite-rw','RW',9),
+  option('next-rw','RW',8),option('next-d','D',5),
+ ];
+ const demand=['elite-d','elite-rw','next-rw','next-d'];
+ const scarcity=prepareNearTermScarcity(pool,1,demand);
+ const d=scarcity(pool[0]),rw=scarcity(pool[1]);
+ assert.equal(d.alternative.id,'next-d');
+ assert.equal(rw.alternative.id,'next-rw');
+ assert.equal(d.adjustment,5);
+ assert.equal(rw.adjustment,1);
+ assert.ok(d.adjustment>rw.adjustment);
+});
+
+test('multi-position player uses the best surviving eligible tier and gets no fake flexibility scarcity',()=>{
+ const flex={...option('flex','RW',9),positions:['C','RW']};
+ const pool=[flex,option('taken','LW',8.5),option('next-c','C',8),option('next-rw','RW',6)];
+ const scarcity=prepareNearTermScarcity(pool,1,['flex','taken','next-c','next-rw']);
+ const result=scarcity(flex);
+ assert.equal(result.alternative.id,'next-c');
+ assert.equal(result.adjustment,1);
 });

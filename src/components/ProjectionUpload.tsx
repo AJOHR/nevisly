@@ -932,13 +932,6 @@ const currentRound =
       leagueTeams
   ) + 1;
 
-const currentTurn =
-  getNextTurn(
-    draftPicks,
-    leagueTeams,
-    myDraftSlot
-  );
-
   // Compatibility fields for existing roster/table consumers; no scoring here.
   const rankedPlayers = useMemo(() => baseRankedPlayers.map(initializeRankedPlayer), [baseRankedPlayers]);
 
@@ -2320,11 +2313,6 @@ const currentTurn =
               <span className="ml-auto text-xs text-zinc-500">
                 H2H Categories · 60 sec pick
               </span>
-              {!currentTurn.onClock && (
-                <span className="w-full text-[10px] text-amber-300/80">
-                  Off clock at pick #{currentPickNumber}: Draft Urgency is neutral until your next turn at pick #{currentTurn.nextMyPick}. Changing draft slot changes snake timing, so compare slots at their actual own-pick state.
-                </span>
-              )}
             </div>
 
             <div className="mb-3 flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900 p-1">
