@@ -1,5 +1,28 @@
 # Stage 5 model and validation
 
+## Exact regular-season off-night lineup access
+
+Live Round-1 validation after PR #24 showed that residual positional scarcity was
+behaving much better, but raw regular-season off-night counts could still overboost
+players on teams with many off nights. A 40-off-night schedule was being treated as
+if every one of those games automatically created extra fantasy production.
+
+The NHL schedule payload now retains every non-playoff off-night date. Regular-season
+schedule value is calculated by projecting the current 14-skater roster onto each
+actual off-night date and allocating C2/LW2/RW2/D4 with the same eligibility-aware
+allocator used elsewhere. Only players who can actually fit the lineup on that date
+contribute usable off-night production.
+
+That usable production is centered against a league-average off-night baseline.
+Therefore a 40-off-night team can still be valuable, but congestion and overlapping
+off nights reduce the benefit. A raw count by itself is never enough to create a
+bonus. If exact regular-season off-night dates are unavailable, the regular-season
+schedule adjustment is neutral rather than falling back to the old count-only model.
+
+Yahoo Weeks 24-26 remain a separate exact-date simulation. Playoff off nights are
+excluded from the regular-season date set, so playoff schedule value is not counted
+twice.
+
 ## Residual near-term positional scarcity
 
 The first near-term scarcity pass improved elite-D ordering but added the full
