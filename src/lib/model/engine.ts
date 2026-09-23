@@ -77,7 +77,9 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
       `${scheduleValue.games} games in Yahoo playoff Weeks 24–26; ${scheduleValue.usableStarts} modeled usable starts; ${scheduleValue.playoffAdjustment>=0?'+':''}${scheduleValue.playoffAdjustment.toFixed(2)} playoff lineup opportunity`
     );
     if(Math.abs(scheduleValue.seasonOffNightAdjustment)>=0.01)explanations.unshift(
-      `${scheduleValue.seasonOffNightGames} season off-night games; ${scheduleValue.seasonOffNightAdjustment>=0?'+':''}${scheduleValue.seasonOffNightAdjustment.toFixed(2)} regular-season lineup access`
+      scheduleValue.seasonExact
+        ? `${scheduleValue.seasonOffNightGames} season off-night games; ${scheduleValue.usableOffNightStarts} modeled usable non-playoff off-night starts; ${scheduleValue.seasonOffNightAdjustment>=0?'+':''}${scheduleValue.seasonOffNightAdjustment.toFixed(2)} lineup access`
+        : `${scheduleValue.seasonOffNightGames} season off-night games; exact off-night dates unavailable, no regular-season schedule adjustment`
     );
     if(!explanations.length)explanations.push('Compare projected value and uncertainty');
     const decision:DecisionAssessment={playerValue:{score:playerValue},teamFit:{adjustment:teamFit},draftUrgency:{opponentSelections,level:urgency,calibrated:false,adjustment:0},uncertainty:{warnings}};
