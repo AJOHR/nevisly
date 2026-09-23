@@ -23,19 +23,25 @@ export const lateDraftWatchTargets:LateDraftWatchTarget[]=[
   {name:'Dmitry Orlov',tag:'SLEEPER',note:'Late-round upside'},
 ];
 
-function initialSurname(name:string){
+function shortInitialSurname(name:string){
   const parts=name.trim().split(/\s+/);
   if(parts.length<2)return undefined;
   const first=normalizePlayerName(parts[0]).replace(/\./g,'');
   const last=normalizePlayerName(parts.slice(1).join(' '));
-  if(first.length===1&&last)return {initial:first,last};
-  const fullFirst=normalizePlayerName(parts[0]);
-  return fullFirst&&last?{initial:fullFirst[0],last}:undefined;
+  return first.length===1&&last?{initial:first,last}:undefined;
+}
+
+function fullInitialSurname(name:string){
+  const parts=name.trim().split(/\s+/);
+  if(parts.length<2)return undefined;
+  const first=normalizePlayerName(parts[0]);
+  const last=normalizePlayerName(parts.slice(1).join(' '));
+  return first&&last?{initial:first[0],last}:undefined;
 }
 
 export function findWatchTargetPick(target:LateDraftWatchTarget,picks:readonly DraftPick[]){
   const targetName=normalizePlayerName(target.name);
-  const targetInitial=initialSurname(target.name);
+  const targetInitial=fullInitialSurname(target.name);
   const exact=picks.filter(p=>p.playerName&&normalizePlayerName(p.playerName)===targetName);
   if(exact.length===1)return exact[0];
   if(exact.length>1)return exact.sort((a,b)=>a.pickNumber-b.pickNumber)[0];
@@ -43,7 +49,7 @@ export function findWatchTargetPick(target:LateDraftWatchTarget,picks:readonly D
   if(!targetInitial)return undefined;
   const short=picks.filter(p=>{
     if(!p.playerName)return false;
-    const pickName=initialSurname(p.playerName);
+    const pickName=shortInitialSurname(p.playerName);
     return !!pickName&&pickName.initial===targetInitial.initial&&pickName.last===targetInitial.last;
   });
   return short.length===1?short[0]:undefined;
