@@ -135,7 +135,11 @@ export function prepareNearTermScarcity<T extends Option>(
   const byId=new Map(available.map(p=>[p.id,p]));
 
   return (candidate:T)=>{
-    if(opponentSelections<=0)return {adjustment:0,alternative:undefined as T|undefined};
+    if(opponentSelections<=0)return {
+      adjustment:0,
+      alternative:undefined as T|undefined,
+      marketAlternative:undefined as T|undefined,
+    };
     let remaining=opponentSelections;
     const survivors:T[]=[];
     for(const id of ids){
@@ -144,11 +148,20 @@ export function prepareNearTermScarcity<T extends Option>(
       const player=byId.get(id);
       if(player)survivors.push(player);
     }
-    const samePosition=survivors
-      .filter(p=>p.positions.some(pos=>candidate.positions.includes(pos)))
-      .sort((a,b)=>b.vor-a.vor||compareIds(a,b));
-    const alternative=samePosition[0];
-    if(!alternative)return {adjustment:0,alternative:undefined as T|undefined};
-    return {adjustment:Math.max(0,candidate.vor-alternative.vor),alternative};
+
+    const ordered=[...survivors].sort((a,b)=>b.vor-a.vor||compareIds(a,b));
+    const marketAlternative=ordered[0];
+    const alternative=ordered.find(p=>p.positions.some(pos=>candidate.positions.includes(pos)));
+    if(!alternative||!marketAlternative)return {adjustment:0,alternative,marketAlternative};
+
+    // The three-pick planner already prices the general decline in talent between
+    // turns. Only add the extra positional cliff beyond that market-wide decline.
+    // This keeps elite-position scarcity without double-counting the fact that
+    // all elite players disappear as the draft advances.
+    return {
+      adjustment:Math.max(0,marketAlternative.vor-alternative.vor),
+      alternative,
+      marketAlternative,
+    };
   };
 }
