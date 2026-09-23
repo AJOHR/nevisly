@@ -1,4 +1,4 @@
-const TEAM_FREE_SKATERS = 2;
+const TEAM_FREE_PLAYERS = 2;
 const TEAM_BASE_PENALTY = 0.25;
 const TEAM_MAX_PENALTY = 2.5;
 const POSITION_BASE_PENALTY = 0.20;
@@ -46,7 +46,7 @@ export function rosterConcentrationAdjustment(
   const currentTeamCount=owned.filter(p=>normalizeTeam(p.team)===team).length;
   const resultingTeamCount=currentTeamCount+1;
   const teamPenalty=progressivePenalty(
-    resultingTeamCount-TEAM_FREE_SKATERS,
+    resultingTeamCount-TEAM_FREE_PLAYERS,
     TEAM_BASE_PENALTY,
     TEAM_MAX_PENALTY
   );
