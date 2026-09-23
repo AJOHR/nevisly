@@ -1,5 +1,13 @@
 # Stage 5 model and validation
 
+## Off-night definition
+
+OFF now follows the Hockey Bangers schedule definition: a player's team receives an
+off-night game when it plays on a date with **8 or fewer total NHL games league-wide**.
+The count is still scoped to this league's usable fantasy season, Sep. 29, 2026
+through Apr. 4, 2027, so Week 27 games are excluded. Yahoo playoff games (PO) remain
+the exact Mar. 15-Apr. 4 total and are unchanged.
+
 ## Near-term tier scarcity and regular-season lineup access
 
 After making intrinsic Player Value position-neutral, the empty-roster board stopped
