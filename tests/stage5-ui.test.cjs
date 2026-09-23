@@ -31,3 +31,13 @@ test('explanation renders actual component values and feasible replacement names
  assert.ok(html.includes('utility scores, not probabilities'));
  assert.ok(html.includes('Draft Urgency'));assert.ok(html.includes('Uncertainty'));
 });
+
+
+test('player pool source exposes sortable Yahoo ADP beside Rank',()=>{
+ const source=fs.readFileSync(require('node:path').join(__dirname,'../src/components/ProjectionUpload.tsx'),'utf8');
+ const rank=source.indexOf('label="Rank"');
+ const adp=source.indexOf('label="ADP"');
+ assert.ok(rank>=0&&adp>rank&&adp-rank<500,'ADP should appear immediately after Rank');
+ assert.ok(source.includes('handleSort("adp")'));
+ assert.ok(source.includes('player.adp.toFixed(1)'));
+});
