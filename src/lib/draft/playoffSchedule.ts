@@ -8,6 +8,8 @@ export type WeekSchedule = {
   
     seasonGames: number;
     seasonOffNightGames: number;
+    /** Exact non-playoff off-night dates when available. */
+    regularSeasonOffNightDates?: string[];
   
     playoffGames: number;
     playoffOffNightGames: number;
