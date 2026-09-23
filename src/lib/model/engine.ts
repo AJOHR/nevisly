@@ -11,6 +11,7 @@ import { modelConfig } from './config';
 import { rosterSelectionCapacity } from './config';
 import { prepareDraftOpportunity, prepareNearTermScarcity, prepareThreePickOpportunity } from './draftOpportunity';
 import { defaultMarketSnapshot, prepareMarketDemand, marketTiming, type MarketSnapshot } from './marketDemand';
+import { rosterConcentrationAdjustment } from './rosterConcentration';
 
 export type Recommendation = RankedPlayer & {decision: DecisionAssessment; fit: CategoryFit; explanations:string[]};
 export const compareRecommendations = (a:RankedPlayer,b:RankedPlayer) => b.score-a.score ||
@@ -29,8 +30,17 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
   const turn=getNextTurn(context.draftPicks,context.leagueTeams,context.myDraftSlot);
   const demand=prepareMarketDemand(context.rankedPlayers,context.draftPicks,snapshot);
   const opponentSelections=turn.opponentTeamIds.length;
-  const ownSelections=selections.filter(s=>s.teamId===context.fantasyTeams.find(t=>t.isMyTeam)?.id);
+  const myTeamId=context.fantasyTeams.find(t=>t.isMyTeam)?.id;
+  const ownSelections=selections.filter(s=>s.teamId===myTeamId);
   const ownPlayers=ownSelections.flatMap(s=>byId.get(s.projectionId)?[byId.get(s.projectionId)!]:[]);
+  const ownCompositionPlayers=context.draftPicks
+    .filter(p=>p.fantasyTeamId===myTeamId)
+    .map(p=>{
+      const linked=byId.get(p.projectionId??p.playerId);
+      return linked
+        ? {team:linked.team,positions:linked.positions}
+        : {team:p.nhlTeam??'',positions:p.positions??[]};
+    });
   const evaluateSchedule=prepareScheduleOpportunity(market.ranked,context.playoffSchedule,market.deviations);
   const starterSlots=rosterSlots(modelConfig.starters);
   const knownStarters=allocate(ownPlayers,starterSlots).size;
@@ -54,9 +64,13 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     if(!hasProjectionValue(player,'age'))warnings.push('Age unknown.');
     else if(player.age>=35)warnings.push('Age 35+: review projection and injury uncertainty; no additional age penalty.');
     if((player.projectionSources??1)<2)warnings.push('Single projection source; agreement cannot be measured.');
+    const concentration=drafted
+      ? {adjustment:0,teamPenalty:0,positionPenalty:0,resultingTeamCount:0,resultingPurePositionCount:null,purePosition:null}
+      : rosterConcentrationAdjustment(player,ownCompositionPlayers,modelConfig.starters);
     const contributions={replacementValue:base.vor,schedule:scheduleBonus,
       rosterOpportunity:drafted?0:fit.rosterGain-base.vor,
-      categoryFit:drafted?0:fit.saturationAdjustment};
+      categoryFit:drafted?0:fit.saturationAdjustment,
+      rosterConcentration:concentration.adjustment};
     // Unavailable comparable rosters fall back to intrinsic value with a warning.
     if(!drafted&&fit.categories && Object.keys(fit.categories).length===0)contributions.rosterOpportunity=0;
     if(!drafted&&!fit.starterImprovement&&benchAvailable&&starterVacancies===0) {
@@ -67,12 +81,18 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
       warnings.push(`No projected starter upgrade while ${starterVacancies} skater starter slot${starterVacancies===1?' is':'s are'} still open; intrinsic bench value is deferred until the starting lineup is complete.`);
     }
     const playerValue=base.vor;
-    const teamFit=contributions.rosterOpportunity+contributions.categoryFit+scheduleBonus;
+    const teamFit=contributions.rosterOpportunity+contributions.categoryFit+scheduleBonus+contributions.rosterConcentration;
     const explanations:string[]=[];
     if(fit.replacementNames.length)explanations.push(`Projected starter upgrade over ${fit.replacementNames.join(', ')}`);
     const strongest=categories.map(c=>({c,gain:fit.categories[c]?.productionGain??0})).sort((a,b)=>b.gain-a.gain).filter(x=>x.gain>0).slice(0,2);
     if(strongest.length)explanations.push(`Adds ${strongest.map(x=>categoryLabels[x.c]).join(' + ')} versus the feasible replacement`);
     if(!fit.starterImprovement)explanations.push('Depth option; no projected starter upgrade');
+    if(concentration.teamPenalty>=0.01)explanations.unshift(
+      `NHL-team concentration: would be player #${concentration.resultingTeamCount} from ${player.team} (-${concentration.teamPenalty.toFixed(2)} Team Fit)`
+    );
+    if(concentration.positionPenalty>=0.01&&concentration.purePosition&&concentration.resultingPurePositionCount!==null)explanations.unshift(
+      `Pure ${concentration.purePosition} congestion: ${concentration.resultingPurePositionCount} single-position ${concentration.purePosition}s for ${modelConfig.starters[concentration.purePosition]} starter slots (-${concentration.positionPenalty.toFixed(2)} Team Fit)`
+    );
     if(Math.abs(scheduleValue.playoffAdjustment)>=0.01)explanations.unshift(
       `${scheduleValue.games} games in Yahoo playoff Weeks 24–26; ${scheduleValue.usableStarts} modeled usable starts; ${scheduleValue.playoffAdjustment>=0?'+':''}${scheduleValue.playoffAdjustment.toFixed(2)} playoff lineup opportunity`
     );
@@ -108,7 +128,9 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
             : evaluate.afterSelections(future,path[0].id,path[1].id);
           if(!next?.starterImprovement)return 0;
           const futureSchedule=evaluateSchedule(future,next.beforeRosterIds,next.rosterIds);
-          return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment;
+          const futureOwned=[...ownCompositionPlayers,...path.map(p=>({team:p.team,positions:p.positions}))];
+          const futureConcentration=rosterConcentrationAdjustment(future,futureOwned,modelConfig.starters);
+          return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment+futureConcentration.adjustment;
         });
         const scarcity=nearTermScarcity(player);
         const urgencyAdjustment=timing.adjustment+scarcity.adjustment;
@@ -132,7 +154,9 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
           const next=evaluate.afterSelection(future,player.id);
           if(!next?.starterImprovement)return 0;
           const futureSchedule=evaluateSchedule(future,next.beforeRosterIds,next.rosterIds);
-          return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment;
+          const futureOwned=[...ownCompositionPlayers,{team:player.team,positions:player.positions}];
+          const futureConcentration=rosterConcentrationAdjustment(future,futureOwned,modelConfig.starters);
+          return next.rosterGain+next.saturationAdjustment+futureSchedule.adjustment+futureConcentration.adjustment;
         });
         const scarcity=nearTermScarcity(player);
         const urgencyAdjustment=timing.adjustment+scarcity.adjustment;

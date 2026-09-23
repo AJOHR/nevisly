@@ -1,5 +1,21 @@
 # Stage 5 model and validation
 
+## Soft roster concentration Team Fit
+
+Recommendation scoring now adds two roster-construction penalties inside Team Fit
+without changing intrinsic Player Value. NHL-team concentration is free for the first
+two owned players from a club, then rises progressively for the third and later
+players (0.25 base, capped at 2.5 score points). Single-position congestion begins
+only when the resulting count of pure C/LW/RW/D players exceeds that position's
+starter slots (C2/LW2/RW2/D4), rises progressively from a 0.20 base, and is capped at
+1.5 score points. Multi-position players do not receive the explicit positional
+congestion penalty because their actual lineup value is already handled by the
+eligibility-aware allocator.
+
+The same concentration adjustment is included when the bounded future-pick planner
+evaluates hypothetical second and third selections, so current recommendations do
+not assume that later roster construction is free.
+
 ## Off-night definition
 
 OFF now follows the Hockey Bangers schedule definition: a player's team receives an
