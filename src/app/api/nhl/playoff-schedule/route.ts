@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isOffNightGameCount } from "@/lib/draft/offNights";
 
 const NHL_API =
   "https://api-web.nhle.com/v1/schedule";
@@ -39,16 +40,6 @@ const PLAYOFF_WEEKS = [
     end: "2027-04-04",
   },
 ] as const;
-
-/*
- * Daily-lineup off nights.
- *
- * Match the Hockey Bangers definition:
- * a team game is an off-night game when the
- * entire NHL has 8 or fewer games that date.
- */
-const OFF_NIGHT_MAX_GAMES =
-  8;
 
 type NHLTeam = {
   abbrev?: string;
@@ -306,8 +297,9 @@ export async function GET() {
         ) ?? 0;
 
       const isOffNight =
-        gameCount <=
-        OFF_NIGHT_MAX_GAMES;
+        isOffNightGameCount(
+          gameCount
+        );
 
       for (
         const team of
