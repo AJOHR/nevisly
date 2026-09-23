@@ -88,7 +88,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     if(strongest.length)explanations.push(`Adds ${strongest.map(x=>categoryLabels[x.c]).join(' + ')} versus the feasible replacement`);
     if(!fit.starterImprovement)explanations.push('Depth option; no projected starter upgrade');
     if(concentration.teamPenalty>=0.01)explanations.unshift(
-      `NHL-team concentration: would be skater #${concentration.resultingTeamCount} from ${player.team} (-${concentration.teamPenalty.toFixed(2)} Team Fit)`
+      `NHL-team concentration: would be player #${concentration.resultingTeamCount} from ${player.team} (-${concentration.teamPenalty.toFixed(2)} Team Fit)`
     );
     if(concentration.positionPenalty>=0.01&&concentration.purePosition&&concentration.resultingPurePositionCount!==null)explanations.unshift(
       `Pure ${concentration.purePosition} congestion: ${concentration.resultingPurePositionCount} single-position ${concentration.purePosition}s for ${modelConfig.starters[concentration.purePosition]} starter slots (-${concentration.positionPenalty.toFixed(2)} Team Fit)`
