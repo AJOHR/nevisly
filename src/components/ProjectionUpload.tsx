@@ -2336,7 +2336,9 @@ const currentRound =
                 {activePool==="sleepers" ? (
                   <LateDraftWatchlist
                     draftPicks={draftPicks}
-                    myTeamId={myTeamId}
+                    skaters={finalRankedPlayers}
+                    goalies={goalieProjection.players}
+                    marketSnapshot={marketSnapshot}
                   />
                 ) : activePool==="goalies" ? (
                   <GoalieBoard
