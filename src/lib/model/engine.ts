@@ -115,8 +115,8 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
         player.decision.draftUrgency.adjustment=urgencyAdjustment;
         player.contributions={...player.contributions,draftOpportunity:timing.adjustment,nearTermScarcity:scarcity.adjustment};
         player.score+=urgencyAdjustment;
-        if(scarcity.adjustment>=0.01&&scarcity.alternative)player.explanations.unshift(
-          `Near-term ${player.positions.join('/')} tier drop: ${player.name} → ${scarcity.alternative.name} if waiting one turn (+${scarcity.adjustment.toFixed(2)})`
+        if(scarcity.adjustment>=0.01&&scarcity.alternative&&scarcity.marketAlternative)player.explanations.unshift(
+          `Near-term ${player.positions.join('/')} scarcity: best eligible survivor ${scarcity.alternative.name} trails the best next-turn skater ${scarcity.marketAlternative.name} (+${scarcity.adjustment.toFixed(2)})`
         );
         if(Math.abs(timing.adjustment)>=0.01)player.explanations.unshift(
           timing.alternatives.length
@@ -139,8 +139,8 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
         player.decision.draftUrgency.adjustment=urgencyAdjustment;
         player.contributions={...player.contributions,draftOpportunity:timing.adjustment,nearTermScarcity:scarcity.adjustment};
         player.score+=urgencyAdjustment;
-        if(scarcity.adjustment>=0.01&&scarcity.alternative)player.explanations.unshift(
-          `Near-term ${player.positions.join('/')} tier drop: ${player.name} → ${scarcity.alternative.name} if waiting one turn (+${scarcity.adjustment.toFixed(2)})`
+        if(scarcity.adjustment>=0.01&&scarcity.alternative&&scarcity.marketAlternative)player.explanations.unshift(
+          `Near-term ${player.positions.join('/')} scarcity: best eligible survivor ${scarcity.alternative.name} trails the best next-turn skater ${scarcity.marketAlternative.name} (+${scarcity.adjustment.toFixed(2)})`
         );
         if(Math.abs(timing.adjustment)>=0.01)player.explanations.unshift(timing.alternative?
           `Next-pick plan: ${timing.alternative.name} (${timing.alternative.positions.join('/')}) remains in the modeled pool`:

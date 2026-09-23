@@ -1,5 +1,29 @@
 # Stage 5 model and validation
 
+## Residual near-term positional scarcity
+
+The first near-term scarcity pass improved elite-D ordering but added the full
+candidate-to-next-position value drop on top of the existing three-pick planner.
+That double-counted the general fact that elite players disappear between turns and
+inflated top-of-board scores.
+
+Near-term scarcity is now residual. After Yahoo market depletion to the next own
+turn, Nevisly identifies both:
+
+- the best surviving skater overall, and
+- the best surviving skater who can fill any of the current candidate's eligible
+  positions.
+
+Only the gap between those two survivors is added as positional scarcity. The
+market-wide talent decline is already priced by the three-pick planner and therefore
+is not added again. Multi-position players still use the best survivor across all of
+their eligible positions.
+
+This preserves a real D-tier premium when the next-turn D option is materially worse
+than the best skater still available, while preventing MacKinnon/McDavid/Celebrini
+from receiving giant extra bonuses merely because all first-round talent will be
+gone later.
+
 ## Near-term tier scarcity and regular-season lineup access
 
 After making intrinsic Player Value position-neutral, the empty-roster board stopped
