@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isOffNightGameCount } from "@/lib/draft/offNights";
 
 const NHL_API =
   "https://api-web.nhle.com/v1/schedule";
@@ -39,17 +40,6 @@ const PLAYOFF_WEEKS = [
     end: "2027-04-04",
   },
 ] as const;
-
-/*
- * Daily-lineup off nights.
- */
-const OFF_NIGHT_DAYS =
-  new Set([
-    0, // Sunday
-    1, // Monday
-    3, // Wednesday
-    5, // Friday
-  ]);
 
 type NHLTeam = {
   abbrev?: string;
@@ -108,6 +98,14 @@ export async function GET() {
 
     const seenGames =
       new Set<number>();
+
+    const collectedGames: Array<{
+      date: Date;
+      teams: string[];
+    }> = [];
+
+    const gamesByDate =
+      new Map<string, number>();
 
     const seasonStart =
       parseDate(
@@ -243,25 +241,34 @@ export async function GET() {
 
             game.homeTeam
               ?.abbrev,
-          ];
+          ].filter(
+            (team): team is string =>
+              Boolean(team)
+          );
 
-          for (
-            const team of
-            teams
+          if (
+            teams.length !==
+              2
           ) {
-            if (
-              !team
-            ) {
-              continue;
-            }
-
-            addGame({
-              schedules,
-              team,
-              date:
-                gameDate,
-            });
+            continue;
           }
+
+          const gameDateKey =
+            formatDate(
+              gameDate
+            );
+
+          collectedGames.push({
+            date: gameDate,
+            teams,
+          });
+
+          gamesByDate.set(
+            gameDateKey,
+            (gamesByDate.get(
+              gameDateKey
+            ) ?? 0) + 1
+          );
         }
       }
 
@@ -270,6 +277,42 @@ export async function GET() {
           cursor,
           7
         );
+    }
+
+    /*
+     * Classify off nights only after the whole
+     * in-window schedule has been collected so
+     * the league-wide game count for each date
+     * is known.
+     */
+    for (
+      const game of
+      collectedGames
+    ) {
+      const gameCount =
+        gamesByDate.get(
+          formatDate(
+            game.date
+          )
+        ) ?? 0;
+
+      const isOffNight =
+        isOffNightGameCount(
+          gameCount
+        );
+
+      for (
+        const team of
+        game.teams
+      ) {
+        addGame({
+          schedules,
+          team,
+          date:
+            game.date,
+          isOffNight,
+        });
+      }
     }
 
     return NextResponse.json({
@@ -315,6 +358,7 @@ function addGame({
   schedules,
   team,
   date,
+  isOffNight,
 }: {
   schedules: Map<
     string,
@@ -324,6 +368,8 @@ function addGame({
   team: string;
 
   date: Date;
+
+  isOffNight: boolean;
 }) {
   const current =
     schedules.get(
@@ -363,11 +409,6 @@ function addGame({
         },
       },
     };
-
-  const isOffNight =
-    OFF_NIGHT_DAYS.has(
-      date.getUTCDay()
-    );
 
   /*
    * Season totals.
