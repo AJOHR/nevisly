@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import type { DraftPick } from '@/types/draft';
 import type { GoalieProjection, RankedGoalie } from '@/types/goalie';
 import { rankGoalies, goalieRoleReason } from '@/lib/model/goalies';
-import { normalizePlayerName } from '@/lib/projections/identity';
+import { matchDraftPickToGoalie } from '@/lib/draft/goalieAvailability';
 
 type Props={
   goalies:GoalieProjection[];
@@ -20,16 +20,14 @@ export default function GoalieBoard(props:Props){
   const [startersOnly,setStartersOnly]=useState(true);
   const [search,setSearch]=useState('');
   const ranked=useMemo(()=>rankGoalies(props.goalies),[props.goalies]);
-  const byName=useMemo(()=>new Map(ranked.map(g=>[normalizePlayerName(g.name),g])),[ranked]);
   const ownerByGoalie=useMemo(()=>{
     const result=new Map<string,{teamId:string;pick:DraftPick}>();
     for(const pick of props.draftPicks){
-      let goalie=ranked.find(g=>g.id===pick.playerId);
-      if(!goalie && (pick.positions?.includes('G')||pick.resolution==='goalie') && pick.playerName)goalie=byName.get(normalizePlayerName(pick.playerName));
+      const goalie=matchDraftPickToGoalie(pick,ranked);
       if(goalie)result.set(goalie.id,{teamId:pick.fantasyTeamId,pick});
     }
     return result;
-  },[props.draftPicks,ranked,byName]);
+  },[props.draftPicks,ranked]);
 
   const myGoalies=[...ownerByGoalie.entries()].flatMap(([id,owner])=>owner.teamId===props.myTeamId?[ranked.find(g=>g.id===id)!]:[]);
   const myClearStarters=myGoalies.filter(g=>g.role==='STARTER').length;
