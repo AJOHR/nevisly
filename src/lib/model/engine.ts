@@ -49,7 +49,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     const timing=marketTiming(demand.matches.get(player.id)?.adp,demand.ranks.get(player.id),opponentSelections,turn.nextMyPick);
     const urgency=timing.level;
     const warnings=[...fit.warnings];
-    if(!scheduleValue.available)warnings.push('Complete playoff schedule unavailable; no schedule adjustment applied.');
+    if(!scheduleValue.available)warnings.push('Complete NHL schedule unavailable; no schedule adjustment applied.');
     if(!base.replacementAvailable)warnings.push('Feasible positional replacement unavailable; intrinsic overall-skater value is still estimated, but roster scarcity is less certain.');
     if(!hasProjectionValue(player,'age'))warnings.push('Age unknown.');
     else if(player.age>=35)warnings.push('Age 35+: review projection and injury uncertainty; no additional age penalty.');
