@@ -1,101 +1,20 @@
 # Stage 5 model and validation
 
-## Regular-season congestion loss instead of off-night bonus
+## Stable scoring baseline restored after live Round-1 validation
 
-Live Round-1 validation after PR #25 showed that exact off-night dates alone were
-still not enough: the model was treating usable off-night production as an additive
-bonus on top of season projections. That could overboost every player on a
-high-off-night team, because those projected stats already include the production
-from those games.
+PRs #23-#26 experimented with near-term tier scarcity and regular-season schedule
+modifiers after the first position-neutral intrinsic-value release. Live mocks showed
+those additions could dominate the board, create large draft-slot sensitivity, and
+produce implausible Round-1 orderings.
 
-The regular-season schedule term now simulates every exact non-playoff NHL game date
-for the projected 14-skater roster. On each date the C2/LW2/RW2/D4 lineup is
-allocated from the active players. The model then compares:
+The skater scoring engine is therefore restored to the PR #22 baseline. Player Value
+remains position-neutral, feasible positional scarcity enters through roster-aware
+Team Fit, the bounded three-own-pick Yahoo timing planner remains, and exact Yahoo
+Weeks 24-26 playoff lineup opportunity remains. The experimental regular-season
+schedule modifier and extra near-term tier-scarcity term are removed.
 
-- actually usable projected production from those daily lineups, versus
-- the same roster's unconstrained scheduled production if every game could be used.
-
-Only the difference is scored. This is a congestion loss and cannot create
-production beyond the season projection. A favorable off-night schedule is valuable
-only because it reduces otherwise lost starts.
-
-Yahoo Weeks 24-26 remain a separate exact-date opportunity model. If exact
-regular-season dates are unavailable, the regular-season schedule adjustment is
-neutral rather than reverting to raw OFF counts.
-
-## Exact regular-season off-night lineup access
-
-Live Round-1 validation after PR #24 showed that residual positional scarcity was
-behaving much better, but raw regular-season off-night counts could still overboost
-players on teams with many off nights. A 40-off-night schedule was being treated as
-if every one of those games automatically created extra fantasy production.
-
-The NHL schedule payload now retains every non-playoff off-night date. Regular-season
-schedule value is calculated by projecting the current 14-skater roster onto each
-actual off-night date and allocating C2/LW2/RW2/D4 with the same eligibility-aware
-allocator used elsewhere. Only players who can actually fit the lineup on that date
-contribute usable off-night production.
-
-That usable production is centered against a league-average off-night baseline.
-Therefore a 40-off-night team can still be valuable, but congestion and overlapping
-off nights reduce the benefit. A raw count by itself is never enough to create a
-bonus. If exact regular-season off-night dates are unavailable, the regular-season
-schedule adjustment is neutral rather than falling back to the old count-only model.
-
-Yahoo Weeks 24-26 remain a separate exact-date simulation. Playoff off nights are
-excluded from the regular-season date set, so playoff schedule value is not counted
-twice.
-
-## Residual near-term positional scarcity
-
-The first near-term scarcity pass improved elite-D ordering but added the full
-candidate-to-next-position value drop on top of the existing three-pick planner.
-That double-counted the general fact that elite players disappear between turns and
-inflated top-of-board scores.
-
-Near-term scarcity is now residual. After Yahoo market depletion to the next own
-turn, Nevisly identifies both:
-
-- the best surviving skater overall, and
-- the best surviving skater who can fill any of the current candidate's eligible
-  positions.
-
-Only the gap between those two survivors is added as positional scarcity. The
-market-wide talent decline is already priced by the three-pick planner and therefore
-is not added again. Multi-position players still use the best survivor across all of
-their eligible positions.
-
-This preserves a real D-tier premium when the next-turn D option is materially worse
-than the best skater still available, while preventing MacKinnon/McDavid/Celebrini
-from receiving giant extra bonuses merely because all first-round talent will be
-gone later.
-
-## Near-term tier scarcity and regular-season lineup access
-
-After making intrinsic Player Value position-neutral, the empty-roster board stopped
-overvaluing the eventual D40 fringe, but an elite defenseman could become slightly
-undervalued relative to a similarly elite forward. The missing quantity was not
-deep positional replacement; it was the near-term quality lost by waiting one turn.
-
-Draft Urgency now includes a position-aware tier-drop term. For each current
-candidate, Yahoo market order removes the modeled opponent selections before the
-next own turn. Nevisly then finds the best surviving player who can fill any of the
-candidate's eligible positions and measures the bounded intrinsic-value drop from
-the current player to that survivor. Multi-position players use the best surviving
-eligible alternative, so extra eligibility cannot manufacture a scarcity premium.
-This is deliberately next-turn scarcity only and never references the eventual
-league-wide positional fringe.
-
-Schedule value now has two non-overlapping components. Yahoo Weeks 24-26 retain the
-exact-date projected-lineup simulation. Regular-season off-night access uses each
-team's off-night count before the playoff window, multiplied by projected per-game
-category value and centered on league average. Playoff off nights are removed from
-the regular-season term so the championship weeks are not double counted. This
-allows a 40-off-night / 11-playoff-game profile to earn more usable-lineup value than
-a 29-off-night / 9-playoff-game profile without altering intrinsic Player Value.
-
-The Player Pool Rank column is also sortable ascending/descending. Rank remains the
-canonical overall available recommendation rank; filtering does not renumber it.
+Non-scoring product improvements added later, including sortable Player Pool Rank and
+the goalie tab, remain.
 
 ## Position-neutral intrinsic value and goalie sidecar
 
