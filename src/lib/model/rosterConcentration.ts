@@ -27,7 +27,7 @@ export type RosterConcentration = {
  * Soft roster-construction penalty only. It never changes intrinsic Player Value.
  *
  * NHL-team concentration:
- *   first two skaters from a club are free; later additions rise progressively.
+ *   first two owned players from a club are free; later additions rise progressively.
  *
  * Single-position congestion:
  *   a player with exactly one eligible position is penalized only after the
