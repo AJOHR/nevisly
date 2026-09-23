@@ -1,17 +1,17 @@
 # Stage 5 model and validation
 
-## Yahoo ADP display and top-60 concentration override
+## Yahoo ADP display and graduated concentration weighting
 
-The Player Pool now shows a sortable Yahoo ADP column immediately beside Nevisly
-Rank. ADP is the uniquely matched Yahoo standard-scoring market value from the same
-cached snapshot used by Draft Urgency; unmatched or ambiguous players display a dash.
+The Player Pool shows a sortable Yahoo ADP column immediately beside Nevisly Rank.
+ADP is the uniquely matched Yahoo standard-scoring market value from the same cached
+snapshot used by Draft Urgency; unmatched or ambiguous players display a dash.
 
-Roster-construction penalties now have a simple value override. If a candidate has a
-uniquely matched Yahoo ADP **under 60**, both the NHL-team concentration penalty and
-the pure-position congestion penalty are waived. ADP 60 or later, and unknown ADP,
-use the normal concentration rules. The diagnostic still computes the would-be
-penalties so the explanation can state that the top-60 override waived them. The
-same ADP override is applied inside the bounded future-pick planner.
+Roster-construction penalties use a three-band ADP curve for this 10-team draft:
+**ADP under 50 = 0%**, **ADP 50–79.9 = 50%**, and **ADP 80+ or unknown = 100%**
+of the NHL-team and pure-position concentration penalties. The diagnostic still
+computes the underlying concentration amounts, while the recommendation explanation
+shows the applied weighting. The same curve is used inside the bounded future-pick
+planner.
 
 ## Soft roster concentration Team Fit
 

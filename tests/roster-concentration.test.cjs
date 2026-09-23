@@ -55,20 +55,31 @@ test('combined adjustment is the negative sum of team and position penalties',()
 });
 
 
-test('Yahoo ADP under 60 waives both team and pure-position concentration penalties',()=>{
+test('Yahoo ADP under 50 waives both concentration penalties',()=>{
  const owned=[p('NYR',['C']),p('NYR',['D']),p('NYR',['C'])];
- const result=rosterConcentrationAdjustment(p('NYR',['C']),owned,starters,59.9);
- assert.equal(result.exemptByAdp,true);
+ const result=rosterConcentrationAdjustment(p('NYR',['C']),owned,starters,49.9);
+ assert.equal(result.adpPenaltyMultiplier,0);
  assert.ok(result.teamPenalty>0);
  assert.ok(result.positionPenalty>0);
  assert.equal(result.adjustment,0);
 });
 
-test('Yahoo ADP 60, later ADP, and unknown ADP keep normal concentration penalties',()=>{
+test('Yahoo ADP 50 through 79.9 applies half of concentration penalties',()=>{
  const owned=[p('NYR',['C']),p('NYR',['D']),p('NYR',['C'])];
- for(const adp of [60,61,undefined]){
+ for(const adp of [50,60,79.9]){
   const result=rosterConcentrationAdjustment(p('NYR',['C']),owned,starters,adp);
-  assert.equal(result.exemptByAdp,false);
-  assert.ok(result.adjustment<0);
+  assert.equal(result.adpPenaltyMultiplier,0.5);
+  const full=result.teamPenalty+result.positionPenalty;
+  assert.ok(Math.abs(result.adjustment+full*0.5)<1e-12);
+ }
+});
+
+test('Yahoo ADP 80 or later and unknown ADP apply full concentration penalties',()=>{
+ const owned=[p('NYR',['C']),p('NYR',['D']),p('NYR',['C'])];
+ for(const adp of [80,100,undefined]){
+  const result=rosterConcentrationAdjustment(p('NYR',['C']),owned,starters,adp);
+  assert.equal(result.adpPenaltyMultiplier,1);
+  const full=result.teamPenalty+result.positionPenalty;
+  assert.ok(Math.abs(result.adjustment+full)<1e-12);
  }
 });
