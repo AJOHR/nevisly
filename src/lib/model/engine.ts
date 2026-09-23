@@ -34,7 +34,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
   const ownSelections=selections.filter(s=>s.teamId===myTeamId);
   const ownPlayers=ownSelections.flatMap(s=>byId.get(s.projectionId)?[byId.get(s.projectionId)!]:[]);
   const ownCompositionPlayers=context.draftPicks
-    .filter(p=>p.fantasyTeamId===myTeamId && !p.positions?.includes('G'))
+    .filter(p=>p.fantasyTeamId===myTeamId)
     .map(p=>{
       const linked=byId.get(p.projectionId??p.playerId);
       return linked
