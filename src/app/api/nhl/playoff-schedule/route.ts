@@ -87,6 +87,7 @@ type TeamSchedule = {
 
   seasonGames: number;
   seasonOffNightGames: number;
+  regularSeasonOffNightDates: string[];
 
   playoffGames: number;
   playoffOffNightGames: number;
@@ -337,6 +338,9 @@ function addGame({
       seasonOffNightGames:
         0,
 
+      regularSeasonOffNightDates:
+        [],
+
       playoffGames:
         0,
 
@@ -392,6 +396,15 @@ function addGame({
     getPlayoffWeek(
       date
     );
+
+  if (
+    isOffNight &&
+    !playoffWeek
+  ) {
+    current.regularSeasonOffNightDates.push(
+      formatDate(date)
+    );
+  }
 
   if (
     playoffWeek
