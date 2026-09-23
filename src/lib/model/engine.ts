@@ -66,7 +66,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     else if(player.age>=35)warnings.push('Age 35+: review projection and injury uncertainty; no additional age penalty.');
     if((player.projectionSources??1)<2)warnings.push('Single projection source; agreement cannot be measured.');
     const concentration=drafted
-      ? {adjustment:0,teamPenalty:0,positionPenalty:0,resultingTeamCount:0,resultingPurePositionCount:null,purePosition:null,exemptByAdp:false}
+      ? {adjustment:0,teamPenalty:0,positionPenalty:0,resultingTeamCount:0,resultingPurePositionCount:null,purePosition:null,adpPenaltyMultiplier:1}
       : rosterConcentrationAdjustment(player,ownCompositionPlayers,modelConfig.starters,marketAdp);
     const contributions={replacementValue:base.vor,schedule:scheduleBonus,
       rosterOpportunity:drafted?0:fit.rosterGain-base.vor,
@@ -88,15 +88,21 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     const strongest=categories.map(c=>({c,gain:fit.categories[c]?.productionGain??0})).sort((a,b)=>b.gain-a.gain).filter(x=>x.gain>0).slice(0,2);
     if(strongest.length)explanations.push(`Adds ${strongest.map(x=>categoryLabels[x.c]).join(' + ')} versus the feasible replacement`);
     if(!fit.starterImprovement)explanations.push('Depth option; no projected starter upgrade');
-    if(concentration.exemptByAdp&&(concentration.teamPenalty>=0.01||concentration.positionPenalty>=0.01))explanations.unshift(
-      `Yahoo ADP ${marketAdp}: top-60 value override; roster concentration penalties waived`
+    const hasConcentrationPenalty=concentration.teamPenalty>=0.01||concentration.positionPenalty>=0.01;
+    if(hasConcentrationPenalty&&concentration.adpPenaltyMultiplier===0)explanations.unshift(
+      `Yahoo ADP ${marketAdp}: top-50 value override; roster concentration penalties waived`
     );
     else {
-      if(concentration.teamPenalty>=0.01)explanations.unshift(
-        `NHL-team concentration: would be player #${concentration.resultingTeamCount} from ${player.team} (-${concentration.teamPenalty.toFixed(2)} Team Fit)`
+      if(hasConcentrationPenalty&&concentration.adpPenaltyMultiplier===0.5)explanations.unshift(
+        `Yahoo ADP ${marketAdp}: roster concentration penalties reduced to 50%`
       );
-      if(concentration.positionPenalty>=0.01&&concentration.purePosition&&concentration.resultingPurePositionCount!==null)explanations.unshift(
-        `Pure ${concentration.purePosition} congestion: ${concentration.resultingPurePositionCount} single-position ${concentration.purePosition}s for ${modelConfig.starters[concentration.purePosition]} starter slots (-${concentration.positionPenalty.toFixed(2)} Team Fit)`
+      const appliedTeamPenalty=concentration.teamPenalty*concentration.adpPenaltyMultiplier;
+      const appliedPositionPenalty=concentration.positionPenalty*concentration.adpPenaltyMultiplier;
+      if(appliedTeamPenalty>=0.01)explanations.unshift(
+        `NHL-team concentration: would be player #${concentration.resultingTeamCount} from ${player.team} (-${appliedTeamPenalty.toFixed(2)} Team Fit)`
+      );
+      if(appliedPositionPenalty>=0.01&&concentration.purePosition&&concentration.resultingPurePositionCount!==null)explanations.unshift(
+        `Pure ${concentration.purePosition} congestion: ${concentration.resultingPurePositionCount} single-position ${concentration.purePosition}s for ${modelConfig.starters[concentration.purePosition]} starter slots (-${appliedPositionPenalty.toFixed(2)} Team Fit)`
       );
     }
     if(Math.abs(scheduleValue.playoffAdjustment)>=0.01)explanations.unshift(
