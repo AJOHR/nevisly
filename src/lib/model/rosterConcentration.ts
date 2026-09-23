@@ -1,5 +1,3 @@
-import type { SkaterProjection } from '@/types/player';
-
 const TEAM_FREE_SKATERS = 2;
 const TEAM_BASE_PENALTY = 0.25;
 const TEAM_MAX_PENALTY = 2.5;
@@ -37,9 +35,11 @@ export type RosterConcentration = {
  *   Multi-position players receive no explicit position-congestion penalty;
  *   their actual lineup usefulness is handled by the allocation model.
  */
+type RosterPiece = {team:string; positions:readonly string[]};
+
 export function rosterConcentrationAdjustment(
-  candidate:Pick<SkaterProjection,'team'|'positions'>,
-  owned:readonly Pick<SkaterProjection,'team'|'positions'>[],
+  candidate:RosterPiece,
+  owned:readonly RosterPiece[],
   starters:Readonly<Record<string,number>>
 ):RosterConcentration {
   const team=normalizeTeam(candidate.team);
