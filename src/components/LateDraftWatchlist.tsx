@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { DraftPick } from '@/types/draft';
 import type { GoalieProjection } from '@/types/goalie';
 import type { Recommendation } from '@/lib/model/engine';
@@ -17,6 +17,29 @@ function uniqueNameMatch<T extends {name:string}>(name:string,players:readonly T
 }
 
 const number=(value:number|undefined,digits=1)=>value===undefined?'—':value.toFixed(digits);
+
+type SkaterSortKey='score'|'adp'|'player'|'gp'|'goals'|'assists'|'points'|'ppp'|'sog'|'hits'|'blocks'|'off'|'po';
+type SortDirection='asc'|'desc';
+
+function SortHeader({
+  label,
+  column,
+  active,
+  direction,
+  onSort,
+}:{
+  label:string;
+  column:SkaterSortKey;
+  active:SkaterSortKey;
+  direction:SortDirection;
+  onSort:(column:SkaterSortKey)=>void;
+}){
+  return <th className="p-2">
+    <button type="button" onClick={()=>onSort(column)} className="whitespace-nowrap font-semibold hover:text-white">
+      {label}{active===column?(direction==='desc'?' ▼':' ▲'):''}
+    </button>
+  </th>;
+}
 
 export default function LateDraftWatchlist({
   draftPicks,
@@ -43,6 +66,8 @@ export default function LateDraftWatchlist({
   );
 
   const rankedGoalies=useMemo(()=>rankGoalies(goalies),[goalies]);
+  const [skaterSortKey,setSkaterSortKey]=useState<SkaterSortKey>('score');
+  const [skaterSortDirection,setSkaterSortDirection]=useState<SortDirection>('desc');
 
   const skaterTargets=availableTargets
     .filter(target=>target.tag!=='WEEK 1 GOALIE')
@@ -51,6 +76,50 @@ export default function LateDraftWatchlist({
       projection:uniqueNameMatch(target.name,skaters),
       market:marketMatches.get(target.name),
     }));
+
+  const sortedSkaterTargets=useMemo(()=>{
+    const rows=[...skaterTargets];
+    const numeric=(row:(typeof rows)[number],key:SkaterSortKey):number|undefined=>{
+      const p=row.projection;
+      switch(key){
+        case 'score': return p?.score;
+        case 'adp': return row.market?.adp;
+        case 'gp': return p?.gp;
+        case 'goals': return p?.goals;
+        case 'assists': return p?.assists;
+        case 'points': return p?.points;
+        case 'ppp': return p?.ppp;
+        case 'sog': return p?.sog;
+        case 'hits': return p?.hits;
+        case 'blocks': return p?.blocks;
+        case 'off': return p?.seasonOffNightGames;
+        case 'po': return p?.playoffGames;
+        default: return undefined;
+      }
+    };
+    rows.sort((a,b)=>{
+      if(skaterSortKey==='player'){
+        const cmp=(a.projection?.name??a.target.name).localeCompare(b.projection?.name??b.target.name);
+        return skaterSortDirection==='asc'?cmp:-cmp;
+      }
+      const av=numeric(a,skaterSortKey),bv=numeric(b,skaterSortKey);
+      if(av===undefined&&bv===undefined)return a.target.name.localeCompare(b.target.name);
+      if(av===undefined)return 1;
+      if(bv===undefined)return -1;
+      const cmp=av-bv;
+      return skaterSortDirection==='asc'?cmp:-cmp;
+    });
+    return rows;
+  },[skaterTargets,skaterSortKey,skaterSortDirection]);
+
+  const sortSkaters=(column:SkaterSortKey)=>{
+    if(column===skaterSortKey){
+      setSkaterSortDirection(current=>current==='desc'?'asc':'desc');
+      return;
+    }
+    setSkaterSortKey(column);
+    setSkaterSortDirection(column==='player'?'asc':'desc');
+  };
 
   const goalieTargets=availableTargets
     .filter(target=>target.tag==='WEEK 1 GOALIE')
@@ -78,24 +147,26 @@ export default function LateDraftWatchlist({
         <table className="w-full min-w-[1120px] text-xs">
           <thead className="bg-zinc-900 text-left text-zinc-400">
             <tr>
-              <th className="p-2">ADP</th>
-              <th className="p-2">Player</th>
+              <SortHeader label="Score" column="score" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
+              <SortHeader label="ADP" column="adp" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
+              <SortHeader label="Player" column="player" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
               <th className="p-2">Pos</th>
               <th className="p-2">Team</th>
-              <th className="p-2">GP</th>
-              <th className="p-2">G</th>
-              <th className="p-2">A</th>
-              <th className="p-2">P</th>
-              <th className="p-2">PPP</th>
-              <th className="p-2">SOG</th>
-              <th className="p-2">HIT</th>
-              <th className="p-2">BLK</th>
-              <th className="p-2">OFF</th>
-              <th className="p-2">PO</th>
+              <SortHeader label="GP" column="gp" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
+              <SortHeader label="G" column="goals" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
+              <SortHeader label="A" column="assists" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
+              <SortHeader label="P" column="points" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
+              <SortHeader label="PPP" column="ppp" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
+              <SortHeader label="SOG" column="sog" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
+              <SortHeader label="HIT" column="hits" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
+              <SortHeader label="BLK" column="blocks" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
+              <SortHeader label="OFF" column="off" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
+              <SortHeader label="PO" column="po" active={skaterSortKey} direction={skaterSortDirection} onSort={sortSkaters} />
             </tr>
           </thead>
           <tbody>
-            {skaterTargets.map(({target,projection,market})=><tr key={target.name} className="border-t border-zinc-800 hover:bg-zinc-800/40">
+            {sortedSkaterTargets.map(({target,projection,market})=><tr key={target.name} className="border-t border-zinc-800 hover:bg-zinc-800/40">
+              <td className="p-2 font-black tabular-nums text-emerald-400">{projection?projection.score.toFixed(2):'—'}</td>
               <td className="p-2 tabular-nums">{market?market.adp.toFixed(1):'—'}</td>
               <td className="p-2 font-semibold">{projection?.name??target.name}</td>
               <td className="p-2 text-zinc-400">{projection?.positions.join('/')??market?.positions.join('/')??'—'}</td>
@@ -111,7 +182,7 @@ export default function LateDraftWatchlist({
               <td className="p-2 tabular-nums">{projection?.seasonOffNightGames??'—'}</td>
               <td className="p-2 tabular-nums">{projection?.playoffGames??'—'}</td>
             </tr>)}
-            {!skaterTargets.length&&<tr><td colSpan={14} className="p-6 text-center text-zinc-500">All skater watchlist targets have been drafted.</td></tr>}
+            {!sortedSkaterTargets.length&&<tr><td colSpan={15} className="p-6 text-center text-zinc-500">All skater watchlist targets have been drafted.</td></tr>}
           </tbody>
         </table>
       </div>
