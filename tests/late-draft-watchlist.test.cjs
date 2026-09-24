@@ -49,3 +49,16 @@ test('Yahoo ADP snapshot matches watch targets by canonical identity aliases',()
  assert.equal(matches.get('Yegor Chinakhov')?.name,'Egor Chinakhov');
  assert.equal(matches.get('Tristan Jarry')?.adp,136.3);
 });
+
+
+test('sleeper table exposes live Nevisly score and sortable columns',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const source=fs.readFileSync(path.join(__dirname,'../src/components/LateDraftWatchlist.tsx'),'utf8');
+ assert.ok(source.includes('label="Score"'));
+ assert.ok(source.includes("useState<SkaterSortKey>('score')"));
+ assert.ok(source.includes("projection.score.toFixed(2)"));
+ for(const key of ['adp','gp','goals','assists','points','ppp','sog','hits','blocks','off','po']){
+  assert.ok(source.includes(`column="${key}"`),key);
+ }
+ assert.ok(source.includes('sortedSkaterTargets.map'));
+});
