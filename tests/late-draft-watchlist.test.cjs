@@ -7,9 +7,9 @@ test('late-draft watchlist contains the requested sleeper and streamer targets',
  for(const name of [
   'Gabe Perreault','Devon Levi','Tristan Jarry','Justin Hryckowian','Porter Martone',
   'Matvei Gridin','Will Smith','Yegor Chinakhov','Carter Yakemchuk','Matvei Michkov',
-  'Luke Hughes','Bowen Byram','Dmitry Orlov'
+  'Luke Hughes','Bowen Byram','Dmitry Orlov','Kiefer Sherwood','Eeli Tolvanen'
  ])assert.ok(names.includes(name),name);
- assert.equal(lateDraftWatchTargets.length,13);
+ assert.equal(lateDraftWatchTargets.length,15);
 });
 
 test('watchlist marks full-name Yahoo history rows as drafted',()=>{
