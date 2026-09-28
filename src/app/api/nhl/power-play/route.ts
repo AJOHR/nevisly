@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   DAILY_FACEOFF_TEAMS,
+  dailyFaceoffLineCombinationUrl,
   parseDailyFaceoffPowerPlayPage,
   type PowerPlayTeamResult,
 } from "@/lib/nhl/powerPlay";
@@ -38,7 +39,7 @@ async function loadTeam(
 ): Promise<PowerPlayTeamResult> {
   try {
     const response = await fetch(
-      `https://www.dailyfaceoff.com/teams/${slug}/line-combinations`,
+      dailyFaceoffLineCombinationUrl(slug),
       {
         headers: {
           Accept: "text/html,application/xhtml+xml",
