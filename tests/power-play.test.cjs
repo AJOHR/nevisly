@@ -5,6 +5,8 @@ const {
   parseDailyFaceoffPowerPlayPage,
   powerPlayKey,
   normalizePowerPlayTeam,
+  dailyFaceoffLineCombinationUrl,
+  DAILY_FACEOFF_FETCH_CACHE_VERSION,
 }=load('src/lib/nhl/powerPlay.ts');
 const {
   powerPlaySnapshotTeam,
@@ -79,4 +81,11 @@ test('snapshot includes obvious current PP1 anchors used for acceptance',()=>{
   assert.equal(col.players.find(p=>p.name==='Cale Makar')?.unit,'PP1');
   assert.equal(edm.players.find(p=>p.name==='Connor McDavid')?.unit,'PP1');
   assert.equal(tbl.players.find(p=>p.name==='Nikita Kucherov')?.unit,'PP1');
+});
+
+
+test('Daily Faceoff fetch URL uses the current cache generation',()=>{
+  const url=dailyFaceoffLineCombinationUrl('anaheim-ducks');
+  assert.ok(url.startsWith('https://www.dailyfaceoff.com/teams/anaheim-ducks/line-combinations?'));
+  assert.ok(url.includes('nevisly-cache='+DAILY_FACEOFF_FETCH_CACHE_VERSION));
 });
