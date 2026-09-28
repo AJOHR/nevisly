@@ -1,8 +1,8 @@
 {
   "source": "Yahoo Sports Fantasy Hockey Draft Analysis",
   "sourceUrl": "https://hockey.fantasysports.yahoo.com/hockey/draftanalysis",
-  "sourceDate": "2026-09-21",
-  "retrievedAt": "2026-09-22T02:00:41.743203+00:00",
+  "sourceDate": "2026-09-28",
+  "retrievedAt": "2026-09-28T18:33:04.612Z",
   "scoringContext": "Yahoo standard scoring ADP",
   "season": "2026",
   "players": [
@@ -13,7 +13,7 @@
       "positions": [
         "C"
       ],
-      "adp": 1.5
+      "adp": 1.4
     },
     {
       "yahooPlayerId": "5980",
@@ -22,7 +22,7 @@
       "positions": [
         "C"
       ],
-      "adp": 2.1
+      "adp": 2
     },
     {
       "yahooPlayerId": "5425",
@@ -31,7 +31,7 @@
       "positions": [
         "RW"
       ],
-      "adp": 3.8
+      "adp": 3.7
     },
     {
       "yahooPlayerId": "32763",
@@ -40,7 +40,7 @@
       "positions": [
         "C"
       ],
-      "adp": 4.5
+      "adp": 4.1
     },
     {
       "yahooPlayerId": "6369",
@@ -50,7 +50,7 @@
         "C",
         "LW"
       ],
-      "adp": 5.8
+      "adp": 5.6
     },
     {
       "yahooPlayerId": "7519",
@@ -59,7 +59,7 @@
       "positions": [
         "D"
       ],
-      "adp": 6.5
+      "adp": 7
     },
     {
       "yahooPlayerId": "6391",
@@ -68,7 +68,7 @@
       "positions": [
         "RW"
       ],
-      "adp": 8.2
+      "adp": 7.6
     },
     {
       "yahooPlayerId": "6877",
@@ -77,7 +77,7 @@
       "positions": [
         "LW"
       ],
-      "adp": 9.5
+      "adp": 9.1
     },
     {
       "yahooPlayerId": "7554",
@@ -87,7 +87,7 @@
         "LW",
         "RW"
       ],
-      "adp": 9.9
+      "adp": 9.5
     },
     {
       "yahooPlayerId": "5699",
@@ -96,7 +96,7 @@
       "positions": [
         "G"
       ],
-      "adp": 11.1
+      "adp": 11.3
     },
     {
       "yahooPlayerId": "7905",
@@ -105,7 +105,7 @@
       "positions": [
         "D"
       ],
-      "adp": 12
+      "adp": 11.9
     },
     {
       "yahooPlayerId": "7528",
@@ -123,25 +123,7 @@
       "positions": [
         "D"
       ],
-      "adp": 15
-    },
-    {
-      "yahooPlayerId": "7908",
-      "name": "Evan Bouchard",
-      "team": "EDM",
-      "positions": [
-        "D"
-      ],
-      "adp": 16
-    },
-    {
-      "yahooPlayerId": "7527",
-      "name": "Martin Necas",
-      "team": "COL",
-      "positions": [
-        "RW"
-      ],
-      "adp": 16.1
+      "adp": 14.9
     },
     {
       "yahooPlayerId": "7109",
@@ -150,7 +132,25 @@
       "positions": [
         "C"
       ],
-      "adp": 16.4
+      "adp": 15.3
+    },
+    {
+      "yahooPlayerId": "7908",
+      "name": "Evan Bouchard",
+      "team": "EDM",
+      "positions": [
+        "D"
+      ],
+      "adp": 15.8
+    },
+    {
+      "yahooPlayerId": "7527",
+      "name": "Martin Necas",
+      "team": "COL",
+      "positions": [
+        "RW"
+      ],
+      "adp": 16.7
     },
     {
       "yahooPlayerId": "8293",
@@ -160,7 +160,7 @@
         "LW",
         "RW"
       ],
-      "adp": 18
+      "adp": 17.7
     },
     {
       "yahooPlayerId": "8279",
@@ -170,7 +170,7 @@
         "C",
         "LW"
       ],
-      "adp": 18.7
+      "adp": 18
     },
     {
       "yahooPlayerId": "8898",
@@ -180,7 +180,7 @@
         "C",
         "RW"
       ],
-      "adp": 19.7
+      "adp": 20
     },
     {
       "yahooPlayerId": "31751",
@@ -189,7 +189,7 @@
       "positions": [
         "D"
       ],
-      "adp": 20.6
+      "adp": 20.5
     },
     {
       "yahooPlayerId": "8290",
@@ -199,7 +199,7 @@
         "LW",
         "RW"
       ],
-      "adp": 21.5
+      "adp": 21.9
     },
     {
       "yahooPlayerId": "6744",
@@ -208,17 +208,7 @@
       "positions": [
         "C"
       ],
-      "adp": 22.4
-    },
-    {
-      "yahooPlayerId": "7902",
-      "name": "Brady Tkachuk",
-      "team": "FLA",
-      "positions": [
-        "C",
-        "LW"
-      ],
-      "adp": 25.2
+      "adp": 22.1
     },
     {
       "yahooPlayerId": "6752",
@@ -228,7 +218,7 @@
         "LW",
         "RW"
       ],
-      "adp": 25.6
+      "adp": 25.4
     },
     {
       "yahooPlayerId": "7541",
@@ -237,16 +227,26 @@
       "positions": [
         "G"
       ],
-      "adp": 25.9
+      "adp": 25.8
     },
     {
-      "yahooPlayerId": "5820",
-      "name": "Connor Hellebuyck",
-      "team": "WPG",
+      "yahooPlayerId": "7902",
+      "name": "Brady Tkachuk",
+      "team": "FLA",
+      "positions": [
+        "C",
+        "LW"
+      ],
+      "adp": 25.8
+    },
+    {
+      "yahooPlayerId": "8155",
+      "name": "Logan Thompson",
+      "team": "WSH",
       "positions": [
         "G"
       ],
-      "adp": 25.9
+      "adp": 29.3
     },
     {
       "yahooPlayerId": "7134",
@@ -256,7 +256,7 @@
         "C",
         "RW"
       ],
-      "adp": 29.6
+      "adp": 29.5
     },
     {
       "yahooPlayerId": "6759",
@@ -264,15 +264,6 @@
       "team": "WPG",
       "positions": [
         "LW"
-      ],
-      "adp": 30.3
-    },
-    {
-      "yahooPlayerId": "8155",
-      "name": "Logan Thompson",
-      "team": "WSH",
-      "positions": [
-        "G"
       ],
       "adp": 30.4
     },
@@ -283,17 +274,7 @@
       "positions": [
         "D"
       ],
-      "adp": 31.4
-    },
-    {
-      "yahooPlayerId": "6057",
-      "name": "Jake Guentzel",
-      "team": "TB",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 32.7
+      "adp": 31.9
     },
     {
       "yahooPlayerId": "31759",
@@ -304,7 +285,26 @@
         "LW",
         "RW"
       ],
-      "adp": 33.8
+      "adp": 32.6
+    },
+    {
+      "yahooPlayerId": "6057",
+      "name": "Jake Guentzel",
+      "team": "TB",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 32.9
+    },
+    {
+      "yahooPlayerId": "6447",
+      "name": "Ilya Sorokin",
+      "team": "NYI",
+      "positions": [
+        "G"
+      ],
+      "adp": 33.5
     },
     {
       "yahooPlayerId": "7114",
@@ -314,7 +314,7 @@
         "LW",
         "RW"
       ],
-      "adp": 33.8
+      "adp": 33.7
     },
     {
       "yahooPlayerId": "7899",
@@ -323,7 +323,7 @@
       "positions": [
         "D"
       ],
-      "adp": 34.6
+      "adp": 35.1
     },
     {
       "yahooPlayerId": "5368",
@@ -332,16 +332,7 @@
       "positions": [
         "C"
       ],
-      "adp": 36.5
-    },
-    {
-      "yahooPlayerId": "6447",
-      "name": "Ilya Sorokin",
-      "team": "NYI",
-      "positions": [
-        "G"
-      ],
-      "adp": 36.9
+      "adp": 36
     },
     {
       "yahooPlayerId": "7264",
@@ -351,7 +342,7 @@
         "LW",
         "RW"
       ],
-      "adp": 37.7
+      "adp": 37.2
     },
     {
       "yahooPlayerId": "7147",
@@ -361,7 +352,7 @@
         "LW",
         "RW"
       ],
-      "adp": 41
+      "adp": 40.7
     },
     {
       "yahooPlayerId": "8885",
@@ -371,7 +362,7 @@
         "LW",
         "RW"
       ],
-      "adp": 41.5
+      "adp": 40.9
     },
     {
       "yahooPlayerId": "6746",
@@ -382,7 +373,16 @@
         "LW",
         "RW"
       ],
-      "adp": 41.6
+      "adp": 41.5
+    },
+    {
+      "yahooPlayerId": "6486",
+      "name": "Igor Shesterkin",
+      "team": "NYR",
+      "positions": [
+        "G"
+      ],
+      "adp": 42.6
     },
     {
       "yahooPlayerId": "6374",
@@ -392,16 +392,16 @@
         "C",
         "RW"
       ],
-      "adp": 42.1
+      "adp": 42.7
     },
     {
-      "yahooPlayerId": "6486",
-      "name": "Igor Shesterkin",
-      "team": "NYR",
+      "yahooPlayerId": "5820",
+      "name": "Connor Hellebuyck",
+      "team": "WPG",
       "positions": [
         "G"
       ],
-      "adp": 42.4
+      "adp": 43.6
     },
     {
       "yahooPlayerId": "7115",
@@ -420,7 +420,7 @@
       "positions": [
         "C"
       ],
-      "adp": 45.6
+      "adp": 44.4
     },
     {
       "yahooPlayerId": "6368",
@@ -429,7 +429,7 @@
       "positions": [
         "RW"
       ],
-      "adp": 46.9
+      "adp": 46.4
     },
     {
       "yahooPlayerId": "8643",
@@ -442,22 +442,22 @@
       "adp": 47.9
     },
     {
+      "yahooPlayerId": "5057",
+      "name": "Scott Wedgewood",
+      "team": "COL",
+      "positions": [
+        "G"
+      ],
+      "adp": 48.9
+    },
+    {
       "yahooPlayerId": "6728",
       "name": "Artemi Panarin",
       "team": "LA",
       "positions": [
         "LW"
       ],
-      "adp": 50.8
-    },
-    {
-      "yahooPlayerId": "6643",
-      "name": "Darren Raddysh",
-      "team": "TOR",
-      "positions": [
-        "D"
-      ],
-      "adp": 51.3
+      "adp": 51
     },
     {
       "yahooPlayerId": "7124",
@@ -466,7 +466,16 @@
       "positions": [
         "D"
       ],
-      "adp": 51.4
+      "adp": 51.8
+    },
+    {
+      "yahooPlayerId": "3737",
+      "name": "Sidney Crosby",
+      "team": "PIT",
+      "positions": [
+        "C"
+      ],
+      "adp": 52.5
     },
     {
       "yahooPlayerId": "9269",
@@ -476,34 +485,25 @@
         "LW",
         "RW"
       ],
-      "adp": 52.8
+      "adp": 52.6
     },
     {
-      "yahooPlayerId": "3737",
-      "name": "Sidney Crosby",
-      "team": "PIT",
-      "positions": [
-        "C"
-      ],
-      "adp": 52.8
-    },
-    {
-      "yahooPlayerId": "8284",
-      "name": "Moritz Seider",
-      "team": "DET",
+      "yahooPlayerId": "6643",
+      "name": "Darren Raddysh",
+      "team": "TOR",
       "positions": [
         "D"
       ],
       "adp": 53.5
     },
     {
-      "yahooPlayerId": "5057",
-      "name": "Scott Wedgewood",
-      "team": "COL",
+      "yahooPlayerId": "5981",
+      "name": "Aleksander Barkov",
+      "team": "FLA",
       "positions": [
-        "G"
+        "C"
       ],
-      "adp": 54.6
+      "adp": 54.3
     },
     {
       "yahooPlayerId": "6395",
@@ -512,14 +512,23 @@
       "positions": [
         "RW"
       ],
-      "adp": 55.2
+      "adp": 54.8
     },
     {
-      "yahooPlayerId": "7174",
-      "name": "Adam Fox",
-      "team": "NYR",
+      "yahooPlayerId": "8284",
+      "name": "Moritz Seider",
+      "team": "DET",
       "positions": [
         "D"
+      ],
+      "adp": 55.5
+    },
+    {
+      "yahooPlayerId": "8895",
+      "name": "Jesper Wallstedt",
+      "team": "MIN",
+      "positions": [
+        "G"
       ],
       "adp": 56.1
     },
@@ -530,25 +539,16 @@
       "positions": [
         "LW"
       ],
-      "adp": 56.3
+      "adp": 56.2
     },
     {
-      "yahooPlayerId": "5981",
-      "name": "Aleksander Barkov",
-      "team": "FLA",
+      "yahooPlayerId": "7174",
+      "name": "Adam Fox",
+      "team": "NYR",
       "positions": [
-        "C"
+        "D"
       ],
-      "adp": 57.3
-    },
-    {
-      "yahooPlayerId": "8895",
-      "name": "Jesper Wallstedt",
-      "team": "MIN",
-      "positions": [
-        "G"
-      ],
-      "adp": 59.5
+      "adp": 57.5
     },
     {
       "yahooPlayerId": "7626",
@@ -557,7 +557,7 @@
       "positions": [
         "G"
       ],
-      "adp": 61.5
+      "adp": 60.9
     },
     {
       "yahooPlayerId": "8645",
@@ -566,7 +566,7 @@
       "positions": [
         "D"
       ],
-      "adp": 62.7
+      "adp": 62.3
     },
     {
       "yahooPlayerId": "7947",
@@ -575,7 +575,7 @@
       "positions": [
         "RW"
       ],
-      "adp": 63.6
+      "adp": 63
     },
     {
       "yahooPlayerId": "30547",
@@ -585,17 +585,7 @@
         "LW",
         "RW"
       ],
-      "adp": 64.2
-    },
-    {
-      "yahooPlayerId": "30544",
-      "name": "Connor Bedard",
-      "team": "CHI",
-      "positions": [
-        "C",
-        "RW"
-      ],
-      "adp": 68.2
+      "adp": 63
     },
     {
       "yahooPlayerId": "33425",
@@ -604,7 +594,7 @@
       "positions": [
         "RW"
       ],
-      "adp": 68.4
+      "adp": 68.1
     },
     {
       "yahooPlayerId": "6887",
@@ -613,16 +603,7 @@
       "positions": [
         "G"
       ],
-      "adp": 69.1
-    },
-    {
-      "yahooPlayerId": "7518",
-      "name": "Miro Heiskanen",
-      "team": "DAL",
-      "positions": [
-        "D"
-      ],
-      "adp": 69.7
+      "adp": 68.4
     },
     {
       "yahooPlayerId": "8357",
@@ -632,7 +613,25 @@
         "LW",
         "RW"
       ],
-      "adp": 72.2
+      "adp": 71
+    },
+    {
+      "yahooPlayerId": "7518",
+      "name": "Miro Heiskanen",
+      "team": "DAL",
+      "positions": [
+        "D"
+      ],
+      "adp": 71.2
+    },
+    {
+      "yahooPlayerId": "4947",
+      "name": "Jacob Markstrom",
+      "team": "FLA",
+      "positions": [
+        "G"
+      ],
+      "adp": 71.3
     },
     {
       "yahooPlayerId": "4491",
@@ -650,16 +649,7 @@
       "positions": [
         "RW"
       ],
-      "adp": 74.7
-    },
-    {
-      "yahooPlayerId": "6777",
-      "name": "Sebastian Aho",
-      "team": "CAR",
-      "positions": [
-        "C"
-      ],
-      "adp": 75.5
+      "adp": 74.1
     },
     {
       "yahooPlayerId": "7535",
@@ -668,7 +658,26 @@
       "positions": [
         "C"
       ],
-      "adp": 77
+      "adp": 75
+    },
+    {
+      "yahooPlayerId": "6777",
+      "name": "Sebastian Aho",
+      "team": "CAR",
+      "positions": [
+        "C"
+      ],
+      "adp": 75.1
+    },
+    {
+      "yahooPlayerId": "30544",
+      "name": "Connor Bedard",
+      "team": "CHI",
+      "positions": [
+        "C",
+        "RW"
+      ],
+      "adp": 75.3
     },
     {
       "yahooPlayerId": "7267",
@@ -678,16 +687,7 @@
         "LW",
         "RW"
       ],
-      "adp": 77.1
-    },
-    {
-      "yahooPlayerId": "4947",
-      "name": "Jacob Markstrom",
-      "team": "FLA",
-      "positions": [
-        "G"
-      ],
-      "adp": 77.3
+      "adp": 76.1
     },
     {
       "yahooPlayerId": "9238",
@@ -696,16 +696,7 @@
       "positions": [
         "G"
       ],
-      "adp": 77.6
-    },
-    {
-      "yahooPlayerId": "4930",
-      "name": "Roman Josi",
-      "team": "NSH",
-      "positions": [
-        "D"
-      ],
-      "adp": 78.2
+      "adp": 78
     },
     {
       "yahooPlayerId": "30154",
@@ -717,40 +708,22 @@
       "adp": 79.1
     },
     {
-      "yahooPlayerId": "30075",
-      "name": "Brock Faber",
-      "team": "MIN",
+      "yahooPlayerId": "4930",
+      "name": "Roman Josi",
+      "team": "NSH",
       "positions": [
         "D"
       ],
-      "adp": 81.3
+      "adp": 79.6
     },
     {
-      "yahooPlayerId": "30862",
-      "name": "Jakub Dobes",
-      "team": "MTL",
-      "positions": [
-        "G"
-      ],
-      "adp": 82.3
-    },
-    {
-      "yahooPlayerId": "5992",
-      "name": "Josh Morrissey",
-      "team": "WPG",
-      "positions": [
-        "D"
-      ],
-      "adp": 83.3
-    },
-    {
-      "yahooPlayerId": "4503",
-      "name": "John Carlson",
+      "yahooPlayerId": "6448",
+      "name": "Brayden Point",
       "team": "TB",
       "positions": [
-        "D"
+        "C"
       ],
-      "adp": 83.8
+      "adp": 81.1
     },
     {
       "yahooPlayerId": "7636",
@@ -760,25 +733,25 @@
         "LW",
         "RW"
       ],
-      "adp": 84.2
+      "adp": 81.9
     },
     {
-      "yahooPlayerId": "6448",
-      "name": "Brayden Point",
-      "team": "TB",
-      "positions": [
-        "C"
-      ],
-      "adp": 84.4
-    },
-    {
-      "yahooPlayerId": "32790",
-      "name": "Ivan Demidov",
+      "yahooPlayerId": "30862",
+      "name": "Jakub Dobes",
       "team": "MTL",
       "positions": [
-        "RW"
+        "G"
       ],
-      "adp": 85.1
+      "adp": 81.9
+    },
+    {
+      "yahooPlayerId": "30075",
+      "name": "Brock Faber",
+      "team": "MIN",
+      "positions": [
+        "D"
+      ],
+      "adp": 82.7
     },
     {
       "yahooPlayerId": "5367",
@@ -788,7 +761,34 @@
         "C",
         "RW"
       ],
-      "adp": 85.6
+      "adp": 83.7
+    },
+    {
+      "yahooPlayerId": "4503",
+      "name": "John Carlson",
+      "team": "TB",
+      "positions": [
+        "D"
+      ],
+      "adp": 85.1
+    },
+    {
+      "yahooPlayerId": "5992",
+      "name": "Josh Morrissey",
+      "team": "WPG",
+      "positions": [
+        "D"
+      ],
+      "adp": 85.3
+    },
+    {
+      "yahooPlayerId": "32790",
+      "name": "Ivan Demidov",
+      "team": "MTL",
+      "positions": [
+        "RW"
+      ],
+      "adp": 86
     },
     {
       "yahooPlayerId": "6384",
@@ -798,7 +798,7 @@
         "LW",
         "RW"
       ],
-      "adp": 90.7
+      "adp": 89.7
     },
     {
       "yahooPlayerId": "4682",
@@ -807,16 +807,7 @@
       "positions": [
         "D"
       ],
-      "adp": 90.8
-    },
-    {
-      "yahooPlayerId": "7117",
-      "name": "Mikhail Sergachev",
-      "team": "UTA",
-      "positions": [
-        "D"
-      ],
-      "adp": 91.6
+      "adp": 91.9
     },
     {
       "yahooPlayerId": "32898",
@@ -825,44 +816,7 @@
       "positions": [
         "D"
       ],
-      "adp": 92.1
-    },
-    {
-      "yahooPlayerId": "3637",
-      "name": "Alex Ovechkin",
-      "team": "WSH",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 93.2
-    },
-    {
-      "yahooPlayerId": "4901",
-      "name": "Sergei Bobrovsky",
-      "team": "TOR",
-      "positions": [
-        "G"
-      ],
-      "adp": 93.4
-    },
-    {
-      "yahooPlayerId": "33811",
-      "name": "Gavin McKenna",
-      "team": "TOR",
-      "positions": [
-        "LW"
-      ],
-      "adp": 93.6
-    },
-    {
-      "yahooPlayerId": "7910",
-      "name": "Noah Dobson",
-      "team": "MTL",
-      "positions": [
-        "D"
-      ],
-      "adp": 94.1
+      "adp": 92
     },
     {
       "yahooPlayerId": "6386",
@@ -872,16 +826,43 @@
         "C",
         "RW"
       ],
-      "adp": 94.8
+      "adp": 92.3
     },
     {
-      "yahooPlayerId": "6381",
-      "name": "Dylan Larkin",
-      "team": "DET",
+      "yahooPlayerId": "7117",
+      "name": "Mikhail Sergachev",
+      "team": "UTA",
       "positions": [
-        "C"
+        "D"
       ],
-      "adp": 96.7
+      "adp": 92.8
+    },
+    {
+      "yahooPlayerId": "4901",
+      "name": "Sergei Bobrovsky",
+      "team": "TOR",
+      "positions": [
+        "G"
+      ],
+      "adp": 92.9
+    },
+    {
+      "yahooPlayerId": "33811",
+      "name": "Gavin McKenna",
+      "team": "TOR",
+      "positions": [
+        "LW"
+      ],
+      "adp": 94.6
+    },
+    {
+      "yahooPlayerId": "7910",
+      "name": "Noah Dobson",
+      "team": "MTL",
+      "positions": [
+        "D"
+      ],
+      "adp": 95.4
     },
     {
       "yahooPlayerId": "6784",
@@ -890,25 +871,7 @@
       "positions": [
         "G"
       ],
-      "adp": 97.4
-    },
-    {
-      "yahooPlayerId": "5769",
-      "name": "Shayne Gostisbehere",
-      "team": "CAR",
-      "positions": [
-        "D"
-      ],
-      "adp": 98.5
-    },
-    {
-      "yahooPlayerId": "7122",
-      "name": "Charlie McAvoy",
-      "team": "BOS",
-      "positions": [
-        "D"
-      ],
-      "adp": 98.9
+      "adp": 96.6
     },
     {
       "yahooPlayerId": "5096",
@@ -918,25 +881,7 @@
         "LW",
         "RW"
       ],
-      "adp": 100.7
-    },
-    {
-      "yahooPlayerId": "6005",
-      "name": "Shea Theodore",
-      "team": "VGK",
-      "positions": [
-        "D"
-      ],
-      "adp": 100.9
-    },
-    {
-      "yahooPlayerId": "30546",
-      "name": "Adam Fantilli",
-      "team": "CBJ",
-      "positions": [
-        "C"
-      ],
-      "adp": 101.8
+      "adp": 98.3
     },
     {
       "yahooPlayerId": "6751",
@@ -946,7 +891,44 @@
         "LW",
         "RW"
       ],
-      "adp": 103.3
+      "adp": 99.3
+    },
+    {
+      "yahooPlayerId": "5769",
+      "name": "Shayne Gostisbehere",
+      "team": "CAR",
+      "positions": [
+        "D"
+      ],
+      "adp": 99.4
+    },
+    {
+      "yahooPlayerId": "7122",
+      "name": "Charlie McAvoy",
+      "team": "BOS",
+      "positions": [
+        "D"
+      ],
+      "adp": 99.7
+    },
+    {
+      "yahooPlayerId": "3637",
+      "name": "Alex Ovechkin",
+      "team": "WSH",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 100.2
+    },
+    {
+      "yahooPlayerId": "6005",
+      "name": "Shea Theodore",
+      "team": "VGK",
+      "positions": [
+        "D"
+      ],
+      "adp": 100.3
     },
     {
       "yahooPlayerId": "32779",
@@ -955,25 +937,7 @@
       "positions": [
         "RW"
       ],
-      "adp": 104.9
-    },
-    {
-      "yahooPlayerId": "6078",
-      "name": "Juuse Saros",
-      "team": "NSH",
-      "positions": [
-        "G"
-      ],
-      "adp": 105.1
-    },
-    {
-      "yahooPlayerId": "8884",
-      "name": "Brandt Clarke",
-      "team": "LA",
-      "positions": [
-        "D"
-      ],
-      "adp": 105.4
+      "adp": 101.5
     },
     {
       "yahooPlayerId": "8654",
@@ -983,7 +947,25 @@
         "C",
         "LW"
       ],
-      "adp": 107.1
+      "adp": 104
+    },
+    {
+      "yahooPlayerId": "6078",
+      "name": "Juuse Saros",
+      "team": "NSH",
+      "positions": [
+        "G"
+      ],
+      "adp": 105.6
+    },
+    {
+      "yahooPlayerId": "8884",
+      "name": "Brandt Clarke",
+      "team": "LA",
+      "positions": [
+        "D"
+      ],
+      "adp": 105.9
     },
     {
       "yahooPlayerId": "5152",
@@ -992,7 +974,25 @@
       "positions": [
         "RW"
       ],
-      "adp": 107.3
+      "adp": 107.2
+    },
+    {
+      "yahooPlayerId": "6381",
+      "name": "Dylan Larkin",
+      "team": "DET",
+      "positions": [
+        "C"
+      ],
+      "adp": 109
+    },
+    {
+      "yahooPlayerId": "6791",
+      "name": "Roope Hintz",
+      "team": "DAL",
+      "positions": [
+        "C"
+      ],
+      "adp": 109.3
     },
     {
       "yahooPlayerId": "6795",
@@ -1001,7 +1001,7 @@
       "positions": [
         "D"
       ],
-      "adp": 108.8
+      "adp": 109.9
     },
     {
       "yahooPlayerId": "7582",
@@ -1012,7 +1012,7 @@
         "LW",
         "RW"
       ],
-      "adp": 111
+      "adp": 110
     },
     {
       "yahooPlayerId": "5370",
@@ -1024,15 +1024,6 @@
       "adp": 111.1
     },
     {
-      "yahooPlayerId": "6184",
-      "name": "MacKenzie Weegar",
-      "team": "UTA",
-      "positions": [
-        "D"
-      ],
-      "adp": 112.9
-    },
-    {
       "yahooPlayerId": "5376",
       "name": "J.T. Miller",
       "team": "NYR",
@@ -1041,7 +1032,34 @@
         "LW",
         "RW"
       ],
-      "adp": 114.3
+      "adp": 111.2
+    },
+    {
+      "yahooPlayerId": "30546",
+      "name": "Adam Fantilli",
+      "team": "CBJ",
+      "positions": [
+        "C"
+      ],
+      "adp": 112.2
+    },
+    {
+      "yahooPlayerId": "6184",
+      "name": "MacKenzie Weegar",
+      "team": "UTA",
+      "positions": [
+        "D"
+      ],
+      "adp": 113.2
+    },
+    {
+      "yahooPlayerId": "30832",
+      "name": "Logan Cooley",
+      "team": "UTA",
+      "positions": [
+        "C"
+      ],
+      "adp": 114.7
     },
     {
       "yahooPlayerId": "8282",
@@ -1050,25 +1068,7 @@
       "positions": [
         "D"
       ],
-      "adp": 115.7
-    },
-    {
-      "yahooPlayerId": "8296",
-      "name": "Thomas Harley",
-      "team": "DAL",
-      "positions": [
-        "D"
-      ],
-      "adp": 116.4
-    },
-    {
-      "yahooPlayerId": "6791",
-      "name": "Roope Hintz",
-      "team": "DAL",
-      "positions": [
-        "C"
-      ],
-      "adp": 116.5
+      "adp": 115.2
     },
     {
       "yahooPlayerId": "6375",
@@ -1077,17 +1077,25 @@
       "positions": [
         "LW"
       ],
-      "adp": 116.6
+      "adp": 117.3
     },
     {
-      "yahooPlayerId": "7900",
-      "name": "Andrei Svechnikov",
-      "team": "CAR",
+      "yahooPlayerId": "8296",
+      "name": "Thomas Harley",
+      "team": "DAL",
       "positions": [
-        "LW",
-        "RW"
+        "D"
       ],
       "adp": 117.4
+    },
+    {
+      "yahooPlayerId": "7569",
+      "name": "Ukko-Pekka Luukkonen",
+      "team": "BUF",
+      "positions": [
+        "G"
+      ],
+      "adp": 117.8
     },
     {
       "yahooPlayerId": "30227",
@@ -1100,22 +1108,14 @@
       "adp": 117.9
     },
     {
-      "yahooPlayerId": "7569",
-      "name": "Ukko-Pekka Luukkonen",
-      "team": "BUF",
+      "yahooPlayerId": "7900",
+      "name": "Andrei Svechnikov",
+      "team": "CAR",
       "positions": [
-        "G"
+        "LW",
+        "RW"
       ],
-      "adp": 118.5
-    },
-    {
-      "yahooPlayerId": "30832",
-      "name": "Logan Cooley",
-      "team": "UTA",
-      "positions": [
-        "C"
-      ],
-      "adp": 119
+      "adp": 118.2
     },
     {
       "yahooPlayerId": "6424",
@@ -1124,26 +1124,7 @@
       "positions": [
         "D"
       ],
-      "adp": 119.4
-    },
-    {
-      "yahooPlayerId": "9118",
-      "name": "Jet Greaves",
-      "team": "CBJ",
-      "positions": [
-        "G"
-      ],
-      "adp": 120.7
-    },
-    {
-      "yahooPlayerId": "8653",
-      "name": "Seth Jarvis",
-      "team": "CAR",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 122.7
+      "adp": 118.9
     },
     {
       "yahooPlayerId": "4471",
@@ -1153,16 +1134,7 @@
         "C",
         "RW"
       ],
-      "adp": 123.4
-    },
-    {
-      "yahooPlayerId": "7886",
-      "name": "Kevin Lankinen",
-      "team": "VAN",
-      "positions": [
-        "G"
-      ],
-      "adp": 126
+      "adp": 123
     },
     {
       "yahooPlayerId": "5983",
@@ -1171,7 +1143,7 @@
       "positions": [
         "D"
       ],
-      "adp": 126.2
+      "adp": 123.7
     },
     {
       "yahooPlayerId": "5988",
@@ -1180,34 +1152,26 @@
       "positions": [
         "C"
       ],
-      "adp": 127
+      "adp": 123.9
     },
     {
-      "yahooPlayerId": "30574",
-      "name": "Gabe Perreault",
-      "team": "NYR",
+      "yahooPlayerId": "8653",
+      "name": "Seth Jarvis",
+      "team": "CAR",
       "positions": [
+        "LW",
         "RW"
       ],
-      "adp": 127.3
+      "adp": 124.7
     },
     {
-      "yahooPlayerId": "5053",
-      "name": "Bryan Rust",
-      "team": "PIT",
-      "positions": [
-        "RW"
-      ],
-      "adp": 127.5
-    },
-    {
-      "yahooPlayerId": "8651",
-      "name": "Yaroslav Askarov",
-      "team": "SJ",
+      "yahooPlayerId": "9118",
+      "name": "Jet Greaves",
+      "team": "CBJ",
       "positions": [
         "G"
       ],
-      "adp": 127.7
+      "adp": 125.2
     },
     {
       "yahooPlayerId": "4681",
@@ -1216,7 +1180,16 @@
       "positions": [
         "C"
       ],
-      "adp": 127.8
+      "adp": 125.4
+    },
+    {
+      "yahooPlayerId": "7886",
+      "name": "Kevin Lankinen",
+      "team": "VAN",
+      "positions": [
+        "G"
+      ],
+      "adp": 125.9
     },
     {
       "yahooPlayerId": "7156",
@@ -1225,16 +1198,25 @@
       "positions": [
         "G"
       ],
-      "adp": 128.1
+      "adp": 126.5
     },
     {
-      "yahooPlayerId": "5329",
-      "name": "Mattias Ekholm",
-      "team": "EDM",
+      "yahooPlayerId": "8651",
+      "name": "Yaroslav Askarov",
+      "team": "SJ",
       "positions": [
-        "D"
+        "G"
       ],
-      "adp": 128.3
+      "adp": 126.6
+    },
+    {
+      "yahooPlayerId": "5053",
+      "name": "Bryan Rust",
+      "team": "PIT",
+      "positions": [
+        "RW"
+      ],
+      "adp": 126.9
     },
     {
       "yahooPlayerId": "6798",
@@ -1243,52 +1225,16 @@
       "positions": [
         "D"
       ],
-      "adp": 128.4
+      "adp": 127.2
     },
     {
-      "yahooPlayerId": "8004",
-      "name": "Joel Hofer",
-      "team": "STL",
+      "yahooPlayerId": "5329",
+      "name": "Mattias Ekholm",
+      "team": "EDM",
       "positions": [
-        "G"
+        "D"
       ],
-      "adp": 128.7
-    },
-    {
-      "yahooPlayerId": "4921",
-      "name": "Mats Zuccarello",
-      "team": "LA",
-      "positions": [
-        "RW"
-      ],
-      "adp": 129
-    },
-    {
-      "yahooPlayerId": "7516",
-      "name": "Nico Hischier",
-      "team": "NJ",
-      "positions": [
-        "C"
-      ],
-      "adp": 129.1
-    },
-    {
-      "yahooPlayerId": "7593",
-      "name": "Stuart Skinner",
-      "team": "WPG",
-      "positions": [
-        "G"
-      ],
-      "adp": 129.1
-    },
-    {
-      "yahooPlayerId": "5696",
-      "name": "Tom Wilson",
-      "team": "WSH",
-      "positions": [
-        "RW"
-      ],
-      "adp": 129.3
+      "adp": 128.6
     },
     {
       "yahooPlayerId": "8433",
@@ -1297,54 +1243,7 @@
       "positions": [
         "G"
       ],
-      "adp": 129.4
-    },
-    {
-      "yahooPlayerId": "5454",
-      "name": "Jordan Binnington",
-      "team": "STL",
-      "positions": [
-        "G"
-      ],
-      "adp": 129.4
-    },
-    {
-      "yahooPlayerId": "6766",
-      "name": "Travis Konecny",
-      "team": "PHI",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 129.9
-    },
-    {
-      "yahooPlayerId": "5020",
-      "name": "Tyler Toffoli",
-      "team": "SJ",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 130
-    },
-    {
-      "yahooPlayerId": "7930",
-      "name": "Mattias Samuelsson",
-      "team": "BUF",
-      "positions": [
-        "D"
-      ],
-      "adp": 130.1
-    },
-    {
-      "yahooPlayerId": "8879",
-      "name": "Mason McTavish",
-      "team": "STL",
-      "positions": [
-        "C"
-      ],
-      "adp": 130.4
+      "adp": 129.6
     },
     {
       "yahooPlayerId": "33420",
@@ -1353,16 +1252,25 @@
       "positions": [
         "C"
       ],
-      "adp": 130.6
+      "adp": 129.8
     },
     {
-      "yahooPlayerId": "6818",
-      "name": "Adin Hill",
-      "team": "VGK",
+      "yahooPlayerId": "7516",
+      "name": "Nico Hischier",
+      "team": "NJ",
       "positions": [
-        "G"
+        "C"
       ],
-      "adp": 131.1
+      "adp": 129.9
+    },
+    {
+      "yahooPlayerId": "5696",
+      "name": "Tom Wilson",
+      "team": "WSH",
+      "positions": [
+        "RW"
+      ],
+      "adp": 130.1
     },
     {
       "yahooPlayerId": "8287",
@@ -1373,7 +1281,89 @@
         "LW",
         "RW"
       ],
+      "adp": 130.1
+    },
+    {
+      "yahooPlayerId": "5454",
+      "name": "Jordan Binnington",
+      "team": "STL",
+      "positions": [
+        "G"
+      ],
+      "adp": 130.3
+    },
+    {
+      "yahooPlayerId": "4240",
+      "name": "Patrick Kane",
+      "team": "CHI",
+      "positions": [
+        "RW"
+      ],
+      "adp": 130.4
+    },
+    {
+      "yahooPlayerId": "5853",
+      "name": "Linus Ullmark",
+      "team": "OTT",
+      "positions": [
+        "G"
+      ],
+      "adp": 130.5
+    },
+    {
+      "yahooPlayerId": "8004",
+      "name": "Joel Hofer",
+      "team": "STL",
+      "positions": [
+        "G"
+      ],
+      "adp": 130.6
+    },
+    {
+      "yahooPlayerId": "6766",
+      "name": "Travis Konecny",
+      "team": "PHI",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 130.8
+    },
+    {
+      "yahooPlayerId": "6818",
+      "name": "Adin Hill",
+      "team": "VGK",
+      "positions": [
+        "G"
+      ],
+      "adp": 130.9
+    },
+    {
+      "yahooPlayerId": "4921",
+      "name": "Mats Zuccarello",
+      "team": "LA",
+      "positions": [
+        "RW"
+      ],
       "adp": 131.3
+    },
+    {
+      "yahooPlayerId": "6370",
+      "name": "Sam Bennett",
+      "team": "FLA",
+      "positions": [
+        "C"
+      ],
+      "adp": 131.5
+    },
+    {
+      "yahooPlayerId": "5734",
+      "name": "Anthony Stolarz",
+      "team": "TOR",
+      "positions": [
+        "G"
+      ],
+      "adp": 131.8
     },
     {
       "yahooPlayerId": "4064",
@@ -1382,51 +1372,14 @@
       "positions": [
         "D"
       ],
-      "adp": 131.3
-    },
-    {
-      "yahooPlayerId": "7854",
-      "name": "Kiefer Sherwood",
-      "team": "SJ",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 131.5
-    },
-    {
-      "yahooPlayerId": "7170",
-      "name": "Joseph Woll",
-      "team": "PHI",
-      "positions": [
-        "G"
-      ],
-      "adp": 131.5
-    },
-    {
-      "yahooPlayerId": "33424",
-      "name": "James Hagens",
-      "team": "BOS",
-      "positions": [
-        "C"
-      ],
-      "adp": 131.7
-    },
-    {
-      "yahooPlayerId": "4472",
-      "name": "Drew Doughty",
-      "team": "LA",
-      "positions": [
-        "D"
-      ],
       "adp": 131.9
     },
     {
-      "yahooPlayerId": "5431",
-      "name": "Vincent Trocheck",
-      "team": "UTA",
+      "yahooPlayerId": "7066",
+      "name": "Mason Marchment",
+      "team": "SJ",
       "positions": [
-        "C"
+        "LW"
       ],
       "adp": 132
     },
@@ -1436,6 +1389,63 @@
       "team": "CHI",
       "positions": [
         "G"
+      ],
+      "adp": 132
+    },
+    {
+      "yahooPlayerId": "30221",
+      "name": "Luke Hughes",
+      "team": "NJ",
+      "positions": [
+        "D"
+      ],
+      "adp": 132
+    },
+    {
+      "yahooPlayerId": "5391",
+      "name": "Rickard Rakell",
+      "team": "PIT",
+      "positions": [
+        "C",
+        "LW",
+        "RW"
+      ],
+      "adp": 132.1
+    },
+    {
+      "yahooPlayerId": "5995",
+      "name": "Nikita Zadorov",
+      "team": "BOS",
+      "positions": [
+        "D"
+      ],
+      "adp": 132.2
+    },
+    {
+      "yahooPlayerId": "7593",
+      "name": "Stuart Skinner",
+      "team": "WPG",
+      "positions": [
+        "G"
+      ],
+      "adp": 132.3
+    },
+    {
+      "yahooPlayerId": "7854",
+      "name": "Kiefer Sherwood",
+      "team": "SJ",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 132.5
+    },
+    {
+      "yahooPlayerId": "4472",
+      "name": "Drew Doughty",
+      "team": "LA",
+      "positions": [
+        "D"
       ],
       "adp": 132.5
     },
@@ -1450,197 +1460,13 @@
       "adp": 132.7
     },
     {
-      "yahooPlayerId": "4240",
-      "name": "Patrick Kane",
-      "team": "CHI",
-      "positions": [
-        "RW"
-      ],
-      "adp": 132.7
-    },
-    {
-      "yahooPlayerId": "7066",
-      "name": "Mason Marchment",
-      "team": "SJ",
-      "positions": [
-        "LW"
-      ],
-      "adp": 132.7
-    },
-    {
-      "yahooPlayerId": "6767",
-      "name": "Jack Roslovic",
-      "team": "TOR",
-      "positions": [
-        "C",
-        "RW"
-      ],
-      "adp": 132.7
-    },
-    {
-      "yahooPlayerId": "4699",
-      "name": "Chris Kreider",
-      "team": "MTL",
-      "positions": [
-        "LW"
-      ],
-      "adp": 132.7
-    },
-    {
-      "yahooPlayerId": "5391",
-      "name": "Rickard Rakell",
-      "team": "PIT",
-      "positions": [
-        "C",
-        "LW",
-        "RW"
-      ],
-      "adp": 133
-    },
-    {
-      "yahooPlayerId": "4990",
-      "name": "Brock Nelson",
-      "team": "COL",
+      "yahooPlayerId": "33424",
+      "name": "James Hagens",
+      "team": "BOS",
       "positions": [
         "C"
       ],
-      "adp": 133
-    },
-    {
-      "yahooPlayerId": "5853",
-      "name": "Linus Ullmark",
-      "team": "OTT",
-      "positions": [
-        "G"
-      ],
-      "adp": 133.3
-    },
-    {
-      "yahooPlayerId": "7163",
-      "name": "Filip Gustavsson",
-      "team": "MIN",
-      "positions": [
-        "G"
-      ],
-      "adp": 133.4
-    },
-    {
-      "yahooPlayerId": "5734",
-      "name": "Anthony Stolarz",
-      "team": "TOR",
-      "positions": [
-        "G"
-      ],
-      "adp": 133.5
-    },
-    {
-      "yahooPlayerId": "30550",
-      "name": "Ryan Leonard",
-      "team": "WSH",
-      "positions": [
-        "RW"
-      ],
-      "adp": 133.7
-    },
-    {
-      "yahooPlayerId": "8909",
-      "name": "Olen Zellweger",
-      "team": "BUF",
-      "positions": [
-        "D"
-      ],
-      "adp": 133.7
-    },
-    {
-      "yahooPlayerId": "30221",
-      "name": "Luke Hughes",
-      "team": "NJ",
-      "positions": [
-        "D"
-      ],
-      "adp": 133.8
-    },
-    {
-      "yahooPlayerId": "6367",
-      "name": "Aaron Ekblad",
-      "team": "FLA",
-      "positions": [
-        "D"
-      ],
-      "adp": 133.8
-    },
-    {
-      "yahooPlayerId": "6476",
-      "name": "Devon Toews",
-      "team": "COL",
-      "positions": [
-        "D"
-      ],
-      "adp": 133.9
-    },
-    {
-      "yahooPlayerId": "33913",
-      "name": "Ivar Stenberg",
-      "team": "SJ",
-      "positions": [
-        "LW"
-      ],
-      "adp": 134.1
-    },
-    {
-      "yahooPlayerId": "5733",
-      "name": "Jake McCabe",
-      "team": "TOR",
-      "positions": [
-        "D"
-      ],
-      "adp": 134.1
-    },
-    {
-      "yahooPlayerId": "7983",
-      "name": "Lukas Dostal",
-      "team": "ANA",
-      "positions": [
-        "G"
-      ],
-      "adp": 134.4
-    },
-    {
-      "yahooPlayerId": "30109",
-      "name": "Josh Doan",
-      "team": "BUF",
-      "positions": [
-        "RW"
-      ],
-      "adp": 134.5
-    },
-    {
-      "yahooPlayerId": "4589",
-      "name": "Jake Allen",
-      "team": "NJ",
-      "positions": [
-        "G"
-      ],
-      "adp": 134.7
-    },
-    {
-      "yahooPlayerId": "4686",
-      "name": "Oliver Ekman-Larsson",
-      "team": "TOR",
-      "positions": [
-        "D"
-      ],
-      "adp": 134.7
-    },
-    {
-      "yahooPlayerId": "32794",
-      "name": "Igor Chernyshov",
-      "team": "SJ",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 135
+      "adp": 132.7
     },
     {
       "yahooPlayerId": "8663",
@@ -1650,16 +1476,127 @@
         "LW",
         "RW"
       ],
-      "adp": 135
+      "adp": 132.8
     },
     {
-      "yahooPlayerId": "5995",
-      "name": "Nikita Zadorov",
-      "team": "BOS",
+      "yahooPlayerId": "8909",
+      "name": "Olen Zellweger",
+      "team": "BUF",
       "positions": [
         "D"
       ],
-      "adp": 135.1
+      "adp": 132.8
+    },
+    {
+      "yahooPlayerId": "7170",
+      "name": "Joseph Woll",
+      "team": "PHI",
+      "positions": [
+        "G"
+      ],
+      "adp": 132.8
+    },
+    {
+      "yahooPlayerId": "6367",
+      "name": "Aaron Ekblad",
+      "team": "FLA",
+      "positions": [
+        "D"
+      ],
+      "adp": 132.8
+    },
+    {
+      "yahooPlayerId": "30574",
+      "name": "Gabe Perreault",
+      "team": "NYR",
+      "positions": [
+        "RW"
+      ],
+      "adp": 133
+    },
+    {
+      "yahooPlayerId": "6767",
+      "name": "Jack Roslovic",
+      "team": "TOR",
+      "positions": [
+        "C",
+        "RW"
+      ],
+      "adp": 133.2
+    },
+    {
+      "yahooPlayerId": "4990",
+      "name": "Brock Nelson",
+      "team": "COL",
+      "positions": [
+        "C"
+      ],
+      "adp": 133.3
+    },
+    {
+      "yahooPlayerId": "8879",
+      "name": "Mason McTavish",
+      "team": "STL",
+      "positions": [
+        "C"
+      ],
+      "adp": 133.3
+    },
+    {
+      "yahooPlayerId": "6476",
+      "name": "Devon Toews",
+      "team": "COL",
+      "positions": [
+        "D"
+      ],
+      "adp": 133.4
+    },
+    {
+      "yahooPlayerId": "6765",
+      "name": "Brock Boeser",
+      "team": "VAN",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 133.6
+    },
+    {
+      "yahooPlayerId": "7930",
+      "name": "Mattias Samuelsson",
+      "team": "BUF",
+      "positions": [
+        "D"
+      ],
+      "adp": 133.6
+    },
+    {
+      "yahooPlayerId": "4699",
+      "name": "Chris Kreider",
+      "team": "MTL",
+      "positions": [
+        "LW"
+      ],
+      "adp": 133.8
+    },
+    {
+      "yahooPlayerId": "5020",
+      "name": "Tyler Toffoli",
+      "team": "SJ",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 133.9
+    },
+    {
+      "yahooPlayerId": "5733",
+      "name": "Jake McCabe",
+      "team": "TOR",
+      "positions": [
+        "D"
+      ],
+      "adp": 133.9
     },
     {
       "yahooPlayerId": "6451",
@@ -1668,35 +1605,53 @@
       "positions": [
         "D"
       ],
-      "adp": 135.1
+      "adp": 133.9
     },
     {
-      "yahooPlayerId": "6038",
-      "name": "Tyler Bertuzzi",
-      "team": "CHI",
+      "yahooPlayerId": "5431",
+      "name": "Vincent Trocheck",
+      "team": "UTA",
+      "positions": [
+        "C"
+      ],
+      "adp": 134
+    },
+    {
+      "yahooPlayerId": "30550",
+      "name": "Ryan Leonard",
+      "team": "WSH",
+      "positions": [
+        "RW"
+      ],
+      "adp": 134
+    },
+    {
+      "yahooPlayerId": "9251",
+      "name": "Bobby McMann",
+      "team": "SEA",
       "positions": [
         "LW",
         "RW"
       ],
-      "adp": 135.2
+      "adp": 134
     },
     {
-      "yahooPlayerId": "30866",
-      "name": "Sergei Murashov",
-      "team": "PIT",
+      "yahooPlayerId": "5777",
+      "name": "Colton Parayko",
+      "team": "STL",
       "positions": [
-        "G"
+        "D"
       ],
-      "adp": 135.2
+      "adp": 134.1
     },
     {
-      "yahooPlayerId": "6370",
-      "name": "Sam Bennett",
-      "team": "FLA",
+      "yahooPlayerId": "5227",
+      "name": "Brayden McNabb",
+      "team": "VGK",
       "positions": [
-        "C"
+        "D"
       ],
-      "adp": 135.4
+      "adp": 134.3
     },
     {
       "yahooPlayerId": "5363",
@@ -1706,34 +1661,90 @@
         "LW",
         "RW"
       ],
-      "adp": 135.5
+      "adp": 134.5
     },
     {
-      "yahooPlayerId": "31910",
-      "name": "Sam Rinzel",
+      "yahooPlayerId": "4686",
+      "name": "Oliver Ekman-Larsson",
+      "team": "TOR",
+      "positions": [
+        "D"
+      ],
+      "adp": 134.5
+    },
+    {
+      "yahooPlayerId": "6038",
+      "name": "Tyler Bertuzzi",
       "team": "CHI",
       "positions": [
-        "D"
+        "LW",
+        "RW"
       ],
-      "adp": 135.5
+      "adp": 134.7
     },
     {
-      "yahooPlayerId": "9280",
-      "name": "Denton Mateychuk",
-      "team": "CBJ",
+      "yahooPlayerId": "8882",
+      "name": "Simon Edvinsson",
+      "team": "DET",
       "positions": [
         "D"
       ],
-      "adp": 135.5
+      "adp": 134.7
     },
     {
-      "yahooPlayerId": "8935",
-      "name": "J.J. Moser",
-      "team": "TB",
+      "yahooPlayerId": "7525",
+      "name": "Owen Tippett",
+      "team": "PHI",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 134.7
+    },
+    {
+      "yahooPlayerId": "7163",
+      "name": "Filip Gustavsson",
+      "team": "MIN",
+      "positions": [
+        "G"
+      ],
+      "adp": 134.9
+    },
+    {
+      "yahooPlayerId": "30109",
+      "name": "Josh Doan",
+      "team": "BUF",
+      "positions": [
+        "RW"
+      ],
+      "adp": 135
+    },
+    {
+      "yahooPlayerId": "33913",
+      "name": "Ivar Stenberg",
+      "team": "SJ",
+      "positions": [
+        "LW"
+      ],
+      "adp": 135.4
+    },
+    {
+      "yahooPlayerId": "8877",
+      "name": "Owen Power",
+      "team": "BUF",
       "positions": [
         "D"
       ],
       "adp": 135.6
+    },
+    {
+      "yahooPlayerId": "7983",
+      "name": "Lukas Dostal",
+      "team": "ANA",
+      "positions": [
+        "G"
+      ],
+      "adp": 135.7
     },
     {
       "yahooPlayerId": "8286",
@@ -1742,16 +1753,25 @@
       "positions": [
         "D"
       ],
-      "adp": 135.7
+      "adp": 135.8
     },
     {
-      "yahooPlayerId": "5777",
-      "name": "Colton Parayko",
-      "team": "STL",
+      "yahooPlayerId": "4589",
+      "name": "Jake Allen",
+      "team": "NJ",
       "positions": [
-        "D"
+        "G"
       ],
       "adp": 135.8
+    },
+    {
+      "yahooPlayerId": "8642",
+      "name": "Quinton Byfield",
+      "team": "LA",
+      "positions": [
+        "C"
+      ],
+      "adp": 135.9
     },
     {
       "yahooPlayerId": "5161",
@@ -1763,151 +1783,13 @@
       "adp": 136
     },
     {
-      "yahooPlayerId": "5703",
-      "name": "Mike Matheson",
-      "team": "MTL",
+      "yahooPlayerId": "8935",
+      "name": "J.J. Moser",
+      "team": "TB",
       "positions": [
         "D"
       ],
       "adp": 136.1
-    },
-    {
-      "yahooPlayerId": "6896",
-      "name": "John Marino",
-      "team": "UTA",
-      "positions": [
-        "D"
-      ],
-      "adp": 136.2
-    },
-    {
-      "yahooPlayerId": "8642",
-      "name": "Quinton Byfield",
-      "team": "LA",
-      "positions": [
-        "C"
-      ],
-      "adp": 136.3
-    },
-    {
-      "yahooPlayerId": "6765",
-      "name": "Brock Boeser",
-      "team": "VAN",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 136.3
-    },
-    {
-      "yahooPlayerId": "6024",
-      "name": "Tristan Jarry",
-      "team": "EDM",
-      "positions": [
-        "G"
-      ],
-      "adp": 136.3
-    },
-    {
-      "yahooPlayerId": "8666",
-      "name": "Jake Neighbours",
-      "team": "STL",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 136.3
-    },
-    {
-      "yahooPlayerId": "8877",
-      "name": "Owen Power",
-      "team": "BUF",
-      "positions": [
-        "D"
-      ],
-      "adp": 136.4
-    },
-    {
-      "yahooPlayerId": "7920",
-      "name": "K'Andre Miller",
-      "team": "CAR",
-      "positions": [
-        "D"
-      ],
-      "adp": 136.5
-    },
-    {
-      "yahooPlayerId": "30849",
-      "name": "Jimmy Snuggerud",
-      "team": "STL",
-      "positions": [
-        "RW"
-      ],
-      "adp": 136.6
-    },
-    {
-      "yahooPlayerId": "6817",
-      "name": "Dan Vladar",
-      "team": "PHI",
-      "positions": [
-        "G"
-      ],
-      "adp": 136.7
-    },
-    {
-      "yahooPlayerId": "8922",
-      "name": "Logan Stankoven",
-      "team": "CAR",
-      "positions": [
-        "C",
-        "RW"
-      ],
-      "adp": 136.8
-    },
-    {
-      "yahooPlayerId": "8882",
-      "name": "Simon Edvinsson",
-      "team": "DET",
-      "positions": [
-        "D"
-      ],
-      "adp": 137
-    },
-    {
-      "yahooPlayerId": "33428",
-      "name": "Anton Frondell",
-      "team": "CHI",
-      "positions": [
-        "C"
-      ],
-      "adp": 137.1
-    },
-    {
-      "yahooPlayerId": "5986",
-      "name": "Darnell Nurse",
-      "team": "SJ",
-      "positions": [
-        "D"
-      ],
-      "adp": 137.1
-    },
-    {
-      "yahooPlayerId": "6062",
-      "name": "Carter Verhaeghe",
-      "team": "FLA",
-      "positions": [
-        "LW"
-      ],
-      "adp": 137.4
-    },
-    {
-      "yahooPlayerId": "32766",
-      "name": "Zeev Buium",
-      "team": "VAN",
-      "positions": [
-        "D"
-      ],
-      "adp": 137.6
     },
     {
       "yahooPlayerId": "6901",
@@ -1916,34 +1798,61 @@
       "positions": [
         "D"
       ],
-      "adp": 137.6
+      "adp": 136.1
     },
     {
-      "yahooPlayerId": "32773",
-      "name": "Zayne Parekh",
-      "team": "CGY",
-      "positions": [
-        "D"
-      ],
-      "adp": 137.7
-    },
-    {
-      "yahooPlayerId": "7520",
-      "name": "Elias Pettersson",
-      "team": "VAN",
+      "yahooPlayerId": "6814",
+      "name": "Anthony Cirelli",
+      "team": "TB",
       "positions": [
         "C"
       ],
-      "adp": 137.8
+      "adp": 136.2
     },
     {
-      "yahooPlayerId": "6402",
-      "name": "Ivan Barbashev",
-      "team": "VGK",
+      "yahooPlayerId": "30866",
+      "name": "Sergei Murashov",
+      "team": "PIT",
       "positions": [
-        "LW"
+        "G"
       ],
-      "adp": 137.8
+      "adp": 136.2
+    },
+    {
+      "yahooPlayerId": "6494",
+      "name": "Gustav Forsling",
+      "team": "FLA",
+      "positions": [
+        "D"
+      ],
+      "adp": 136.2
+    },
+    {
+      "yahooPlayerId": "31910",
+      "name": "Sam Rinzel",
+      "team": "CHI",
+      "positions": [
+        "D"
+      ],
+      "adp": 136.4
+    },
+    {
+      "yahooPlayerId": "5703",
+      "name": "Mike Matheson",
+      "team": "MTL",
+      "positions": [
+        "D"
+      ],
+      "adp": 136.5
+    },
+    {
+      "yahooPlayerId": "6024",
+      "name": "Tristan Jarry",
+      "team": "EDM",
+      "positions": [
+        "G"
+      ],
+      "adp": 136.5
     },
     {
       "yahooPlayerId": "8314",
@@ -1952,65 +1861,25 @@
       "positions": [
         "G"
       ],
-      "adp": 137.8
+      "adp": 136.6
     },
     {
-      "yahooPlayerId": "3358",
-      "name": "Brent Burns",
-      "team": "COL",
+      "yahooPlayerId": "7920",
+      "name": "K'Andre Miller",
+      "team": "CAR",
       "positions": [
         "D"
       ],
-      "adp": 137.8
+      "adp": 136.7
     },
     {
-      "yahooPlayerId": "9251",
-      "name": "Bobby McMann",
-      "team": "SEA",
+      "yahooPlayerId": "30849",
+      "name": "Jimmy Snuggerud",
+      "team": "STL",
       "positions": [
-        "LW",
         "RW"
       ],
-      "adp": 137.9
-    },
-    {
-      "yahooPlayerId": "5685",
-      "name": "Morgan Rielly",
-      "team": "TOR",
-      "positions": [
-        "D"
-      ],
-      "adp": 138.1
-    },
-    {
-      "yahooPlayerId": "7525",
-      "name": "Owen Tippett",
-      "team": "PHI",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 138.1
-    },
-    {
-      "yahooPlayerId": "4683",
-      "name": "Matt Duchene",
-      "team": "DAL",
-      "positions": [
-        "C",
-        "RW"
-      ],
-      "adp": 138.2
-    },
-    {
-      "yahooPlayerId": "8883",
-      "name": "William Eklund",
-      "team": "OTT",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 138.3
+      "adp": 136.9
     },
     {
       "yahooPlayerId": "30548",
@@ -2020,17 +1889,136 @@
         "LW",
         "RW"
       ],
-      "adp": 138.7
+      "adp": 136.9
     },
     {
-      "yahooPlayerId": "6758",
-      "name": "Mathew Barzal",
-      "team": "NYI",
+      "yahooPlayerId": "5986",
+      "name": "Darnell Nurse",
+      "team": "SJ",
+      "positions": [
+        "D"
+      ],
+      "adp": 137.3
+    },
+    {
+      "yahooPlayerId": "8489",
+      "name": "Dustin Wolf",
+      "team": "CGY",
+      "positions": [
+        "G"
+      ],
+      "adp": 137.4
+    },
+    {
+      "yahooPlayerId": "8922",
+      "name": "Logan Stankoven",
+      "team": "CAR",
       "positions": [
         "C",
         "RW"
       ],
-      "adp": 138.9
+      "adp": 137.5
+    },
+    {
+      "yahooPlayerId": "32794",
+      "name": "Igor Chernyshov",
+      "team": "SJ",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 137.5
+    },
+    {
+      "yahooPlayerId": "32773",
+      "name": "Zayne Parekh",
+      "team": "CGY",
+      "positions": [
+        "D"
+      ],
+      "adp": 137.5
+    },
+    {
+      "yahooPlayerId": "3358",
+      "name": "Brent Burns",
+      "team": "COL",
+      "positions": [
+        "D"
+      ],
+      "adp": 137.7
+    },
+    {
+      "yahooPlayerId": "4683",
+      "name": "Matt Duchene",
+      "team": "DAL",
+      "positions": [
+        "C",
+        "RW"
+      ],
+      "adp": 137.8
+    },
+    {
+      "yahooPlayerId": "32766",
+      "name": "Zeev Buium",
+      "team": "VAN",
+      "positions": [
+        "D"
+      ],
+      "adp": 137.9
+    },
+    {
+      "yahooPlayerId": "5407",
+      "name": "John Gibson",
+      "team": "DET",
+      "positions": [
+        "G"
+      ],
+      "adp": 137.9
+    },
+    {
+      "yahooPlayerId": "9280",
+      "name": "Denton Mateychuk",
+      "team": "CBJ",
+      "positions": [
+        "D"
+      ],
+      "adp": 137.9
+    },
+    {
+      "yahooPlayerId": "33428",
+      "name": "Anton Frondell",
+      "team": "CHI",
+      "positions": [
+        "C"
+      ],
+      "adp": 138.2
+    },
+    {
+      "yahooPlayerId": "7520",
+      "name": "Elias Pettersson",
+      "team": "VAN",
+      "positions": [
+        "C"
+      ],
+      "adp": 138.2
+    },
+    {
+      "yahooPlayerId": "5685",
+      "name": "Morgan Rielly",
+      "team": "TOR",
+      "positions": [
+        "D"
+      ],
+      "adp": 138.2
+    },
+    {
+      "yahooPlayerId": "6941",
+      "name": "Joey Daccord",
+      "team": "SEA",
+      "positions": [
+        "G"
+      ],
+      "adp": 138.3
     },
     {
       "yahooPlayerId": "5362",
@@ -2040,32 +2028,24 @@
         "C",
         "LW"
       ],
-      "adp": 138.9
+      "adp": 138.4
     },
     {
-      "yahooPlayerId": "5407",
-      "name": "John Gibson",
-      "team": "DET",
+      "yahooPlayerId": "6035",
+      "name": "Artturi Lehkonen",
+      "team": "COL",
       "positions": [
-        "G"
+        "LW",
+        "RW"
       ],
-      "adp": 138.9
+      "adp": 138.4
     },
     {
-      "yahooPlayerId": "5689",
-      "name": "Jacob Trouba",
+      "yahooPlayerId": "5254",
+      "name": "Dmitry Orlov",
       "team": "SJ",
       "positions": [
         "D"
-      ],
-      "adp": 138.9
-    },
-    {
-      "yahooPlayerId": "8489",
-      "name": "Dustin Wolf",
-      "team": "CGY",
-      "positions": [
-        "G"
       ],
       "adp": 138.9
     },
@@ -2076,25 +2056,16 @@
       "positions": [
         "D"
       ],
-      "adp": 138.9
-    },
-    {
-      "yahooPlayerId": "6814",
-      "name": "Anthony Cirelli",
-      "team": "TB",
-      "positions": [
-        "C"
-      ],
       "adp": 139
     },
     {
-      "yahooPlayerId": "5254",
-      "name": "Dmitry Orlov",
-      "team": "SJ",
+      "yahooPlayerId": "6762",
+      "name": "Joel Eriksson Ek",
+      "team": "MIN",
       "positions": [
-        "D"
+        "C"
       ],
-      "adp": 139.1
+      "adp": 139.2
     },
     {
       "yahooPlayerId": "6055",
@@ -2105,129 +2076,25 @@
         "LW",
         "RW"
       ],
-      "adp": 139.2
+      "adp": 139.3
     },
     {
-      "yahooPlayerId": "6762",
-      "name": "Joel Eriksson Ek",
-      "team": "MIN",
+      "yahooPlayerId": "5689",
+      "name": "Jacob Trouba",
+      "team": "SJ",
       "positions": [
-        "C"
+        "D"
       ],
       "adp": 139.4
     },
     {
-      "yahooPlayerId": "6035",
-      "name": "Artturi Lehkonen",
-      "team": "COL",
+      "yahooPlayerId": "6062",
+      "name": "Carter Verhaeghe",
+      "team": "FLA",
       "positions": [
-        "LW",
-        "RW"
+        "LW"
       ],
       "adp": 139.5
-    },
-    {
-      "yahooPlayerId": "6941",
-      "name": "Joey Daccord",
-      "team": "SEA",
-      "positions": [
-        "G"
-      ],
-      "adp": 139.5
-    },
-    {
-      "yahooPlayerId": "7143",
-      "name": "Jordan Kyrou",
-      "team": "WSH",
-      "positions": [
-        "RW"
-      ],
-      "adp": 139.6
-    },
-    {
-      "yahooPlayerId": "7161",
-      "name": "Filip Hronek",
-      "team": "VAN",
-      "positions": [
-        "D"
-      ],
-      "adp": 140
-    },
-    {
-      "yahooPlayerId": "5989",
-      "name": "Valeri Nichushkin",
-      "team": "CBJ",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 140.1
-    },
-    {
-      "yahooPlayerId": "6383",
-      "name": "Travis Sanheim",
-      "team": "PHI",
-      "positions": [
-        "D"
-      ],
-      "adp": 140.1
-    },
-    {
-      "yahooPlayerId": "8674",
-      "name": "JJ Peterka",
-      "team": "BOS",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 140.2
-    },
-    {
-      "yahooPlayerId": "30905",
-      "name": "Alexander Nikishin",
-      "team": "CAR",
-      "positions": [
-        "D"
-      ],
-      "adp": 140.7
-    },
-    {
-      "yahooPlayerId": "3638",
-      "name": "Evgeni Malkin",
-      "team": "PIT",
-      "positions": [
-        "C",
-        "LW",
-        "RW"
-      ],
-      "adp": 141.1
-    },
-    {
-      "yahooPlayerId": "8285",
-      "name": "Dylan Cozens",
-      "team": "OTT",
-      "positions": [
-        "C"
-      ],
-      "adp": 141.1
-    },
-    {
-      "yahooPlayerId": "31161",
-      "name": "Sam Malinski",
-      "team": "COL",
-      "positions": [
-        "D"
-      ],
-      "adp": 141.1
-    },
-    {
-      "yahooPlayerId": "30155",
-      "name": "Jackson Blake",
-      "team": "CAR",
-      "positions": [
-        "RW"
-      ],
-      "adp": 141.3
     },
     {
       "yahooPlayerId": "8369",
@@ -2237,129 +2104,62 @@
         "LW",
         "RW"
       ],
-      "adp": 141.3
+      "adp": 140
     },
     {
-      "yahooPlayerId": "5010",
-      "name": "Justin Faulk",
-      "team": "DET",
+      "yahooPlayerId": "6758",
+      "name": "Mathew Barzal",
+      "team": "NYI",
       "positions": [
-        "D"
-      ],
-      "adp": 141.5
-    },
-    {
-      "yahooPlayerId": "5999",
-      "name": "Anthony Mantha",
-      "team": "NJ",
-      "positions": [
-        "LW",
+        "C",
         "RW"
       ],
-      "adp": 141.8
+      "adp": 140.2
     },
     {
-      "yahooPlayerId": "6760",
-      "name": "Thomas Chabot",
-      "team": "OTT",
+      "yahooPlayerId": "7161",
+      "name": "Filip Hronek",
+      "team": "VAN",
       "positions": [
         "D"
       ],
-      "adp": 141.8
+      "adp": 140.6
     },
     {
-      "yahooPlayerId": "5765",
-      "name": "Esa Lindell",
-      "team": "DAL",
-      "positions": [
-        "D"
-      ],
-      "adp": 141.9
-    },
-    {
-      "yahooPlayerId": "6745",
-      "name": "Dylan Strome",
+      "yahooPlayerId": "7143",
+      "name": "Jordan Kyrou",
       "team": "WSH",
       "positions": [
-        "C"
-      ],
-      "adp": 142
-    },
-    {
-      "yahooPlayerId": "8641",
-      "name": "Alexis Lafreniere",
-      "team": "NYR",
-      "positions": [
-        "LW",
         "RW"
       ],
-      "adp": 142.2
+      "adp": 140.7
     },
     {
-      "yahooPlayerId": "9270",
-      "name": "Simon Nemec",
-      "team": "CGY",
+      "yahooPlayerId": "8285",
+      "name": "Dylan Cozens",
+      "team": "OTT",
+      "positions": [
+        "C"
+      ],
+      "adp": 140.9
+    },
+    {
+      "yahooPlayerId": "31161",
+      "name": "Sam Malinski",
+      "team": "COL",
       "positions": [
         "D"
       ],
-      "adp": 142.2
+      "adp": 140.9
     },
     {
-      "yahooPlayerId": "6749",
-      "name": "Ivan Provorov",
-      "team": "CBJ",
-      "positions": [
-        "D"
-      ],
-      "adp": 142.9
-    },
-    {
-      "yahooPlayerId": "7751",
-      "name": "Sean Walker",
+      "yahooPlayerId": "30155",
+      "name": "Jackson Blake",
       "team": "CAR",
       "positions": [
-        "D"
-      ],
-      "adp": 143.1
-    },
-    {
-      "yahooPlayerId": "4786",
-      "name": "Ryan O'Reilly",
-      "team": "NSH",
-      "positions": [
-        "C"
-      ],
-      "adp": 143.9
-    },
-    {
-      "yahooPlayerId": "7526",
-      "name": "Gabriel Vilardi",
-      "team": "WPG",
-      "positions": [
-        "C",
         "RW"
       ],
-      "adp": 144.3
-    },
-    {
-      "yahooPlayerId": "6748",
-      "name": "Pavel Zacha",
-      "team": "BOS",
-      "positions": [
-        "C",
-        "LW"
-      ],
-      "adp": 144.3
-    },
-    {
-      "yahooPlayerId": "4351",
-      "name": "Brad Marchand",
-      "team": "FLA",
-      "positions": [
-        "LW",
-        "RW"
-      ],
-      "adp": 144.8
+      "adp": 141
     },
     {
       "yahooPlayerId": "30139",
@@ -2370,12 +2170,212 @@
         "LW",
         "RW"
       ],
-      "adp": 144.9
+      "adp": 141.1
     },
     {
-      "yahooPlayerId": "5697",
-      "name": "Tomas Hertl",
-      "team": "VGK",
+      "yahooPlayerId": "6383",
+      "name": "Travis Sanheim",
+      "team": "PHI",
+      "positions": [
+        "D"
+      ],
+      "adp": 141.1
+    },
+    {
+      "yahooPlayerId": "3638",
+      "name": "Evgeni Malkin",
+      "team": "PIT",
+      "positions": [
+        "C",
+        "LW",
+        "RW"
+      ],
+      "adp": 141.2
+    },
+    {
+      "yahooPlayerId": "6817",
+      "name": "Dan Vladar",
+      "team": "PHI",
+      "positions": [
+        "G"
+      ],
+      "adp": 141.2
+    },
+    {
+      "yahooPlayerId": "8641",
+      "name": "Alexis Lafreniere",
+      "team": "NYR",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 141.3
+    },
+    {
+      "yahooPlayerId": "5999",
+      "name": "Anthony Mantha",
+      "team": "NJ",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 141.4
+    },
+    {
+      "yahooPlayerId": "6745",
+      "name": "Dylan Strome",
+      "team": "WSH",
+      "positions": [
+        "C"
+      ],
+      "adp": 141.6
+    },
+    {
+      "yahooPlayerId": "6760",
+      "name": "Thomas Chabot",
+      "team": "OTT",
+      "positions": [
+        "D"
+      ],
+      "adp": 141.7
+    },
+    {
+      "yahooPlayerId": "5010",
+      "name": "Justin Faulk",
+      "team": "DET",
+      "positions": [
+        "D"
+      ],
+      "adp": 141.7
+    },
+    {
+      "yahooPlayerId": "8883",
+      "name": "William Eklund",
+      "team": "OTT",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 141.8
+    },
+    {
+      "yahooPlayerId": "8674",
+      "name": "JJ Peterka",
+      "team": "BOS",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 141.8
+    },
+    {
+      "yahooPlayerId": "5989",
+      "name": "Valeri Nichushkin",
+      "team": "CBJ",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 141.8
+    },
+    {
+      "yahooPlayerId": "5765",
+      "name": "Esa Lindell",
+      "team": "DAL",
+      "positions": [
+        "D"
+      ],
+      "adp": 142
+    },
+    {
+      "yahooPlayerId": "7751",
+      "name": "Sean Walker",
+      "team": "CAR",
+      "positions": [
+        "D"
+      ],
+      "adp": 142.3
+    },
+    {
+      "yahooPlayerId": "9270",
+      "name": "Simon Nemec",
+      "team": "CGY",
+      "positions": [
+        "D"
+      ],
+      "adp": 142.7
+    },
+    {
+      "yahooPlayerId": "6749",
+      "name": "Ivan Provorov",
+      "team": "CBJ",
+      "positions": [
+        "D"
+      ],
+      "adp": 143
+    },
+    {
+      "yahooPlayerId": "6748",
+      "name": "Pavel Zacha",
+      "team": "BOS",
+      "positions": [
+        "C",
+        "LW"
+      ],
+      "adp": 143.4
+    },
+    {
+      "yahooPlayerId": "30905",
+      "name": "Alexander Nikishin",
+      "team": "CAR",
+      "positions": [
+        "D"
+      ],
+      "adp": 143.5
+    },
+    {
+      "yahooPlayerId": "4786",
+      "name": "Ryan O'Reilly",
+      "team": "NSH",
+      "positions": [
+        "C"
+      ],
+      "adp": 144.1
+    },
+    {
+      "yahooPlayerId": "4351",
+      "name": "Brad Marchand",
+      "team": "FLA",
+      "positions": [
+        "LW",
+        "RW"
+      ],
+      "adp": 144.3
+    },
+    {
+      "yahooPlayerId": "7526",
+      "name": "Gabriel Vilardi",
+      "team": "WPG",
+      "positions": [
+        "C",
+        "RW"
+      ],
+      "adp": 144.4
+    },
+    {
+      "yahooPlayerId": "6390",
+      "name": "Jared McCann",
+      "team": "SEA",
+      "positions": [
+        "C",
+        "LW"
+      ],
+      "adp": 144.6
+    },
+    {
+      "yahooPlayerId": "4687",
+      "name": "Nazem Kadri",
+      "team": "COL",
       "positions": [
         "C",
         "LW"
@@ -2383,9 +2383,9 @@
       "adp": 145
     },
     {
-      "yahooPlayerId": "6390",
-      "name": "Jared McCann",
-      "team": "SEA",
+      "yahooPlayerId": "5697",
+      "name": "Tomas Hertl",
+      "team": "VGK",
       "positions": [
         "C",
         "LW"
@@ -2400,17 +2400,7 @@
         "LW",
         "RW"
       ],
-      "adp": 145.3
-    },
-    {
-      "yahooPlayerId": "4687",
-      "name": "Nazem Kadri",
-      "team": "COL",
-      "positions": [
-        "C",
-        "LW"
-      ],
-      "adp": 145.7
+      "adp": 145.4
     },
     {
       "yahooPlayerId": "30549",
@@ -2419,7 +2409,7 @@
       "positions": [
         "LW"
       ],
-      "adp": 146.3
+      "adp": 146.2
     },
     {
       "yahooPlayerId": "5336",
@@ -2428,7 +2418,7 @@
       "positions": [
         "G"
       ],
-      "adp": 146.5
+      "adp": 147
     },
     {
       "yahooPlayerId": "6377",
@@ -2437,16 +2427,7 @@
       "positions": [
         "LW"
       ],
-      "adp": 149.1
-    },
-    {
-      "yahooPlayerId": "30201",
-      "name": "Jacob Fowler",
-      "team": "MTL",
-      "positions": [
-        "G"
-      ],
-      "adp": 150.7
+      "adp": 148.5
     },
     {
       "yahooPlayerId": "7089",
@@ -2455,7 +2436,16 @@
       "positions": [
         "G"
       ],
-      "adp": 151.8
+      "adp": 150.6
+    },
+    {
+      "yahooPlayerId": "30201",
+      "name": "Jacob Fowler",
+      "team": "MTL",
+      "positions": [
+        "G"
+      ],
+      "adp": 151.4
     }
   ]
 }
