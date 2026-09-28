@@ -21,6 +21,8 @@ export const lateDraftWatchTargets:LateDraftWatchTarget[]=[
   {name:'Luke Hughes',tag:'SLEEPER',note:'Late-round upside'},
   {name:'Bowen Byram',tag:'SLEEPER',note:'Late-round upside'},
   {name:'Dmitry Orlov',tag:'SLEEPER',note:'Late-round upside'},
+  {name:'Kiefer Sherwood',tag:'SLEEPER',note:'Banger-category specialist'},
+  {name:'Eeli Tolvanen',tag:'SLEEPER',note:'Banger-category specialist'},
 ];
 
 function shortInitialSurname(name:string){
