@@ -45,9 +45,9 @@ test('Yahoo ADP snapshot matches watch targets by canonical identity aliases',()
  const {defaultMarketSnapshot,matchMarketPlayers}=load('src/lib/model/marketDemand.ts');
  const targets=lateDraftWatchTargets.map(target=>({id:target.name,name:target.name}));
  const matches=matchMarketPlayers(targets,defaultMarketSnapshot);
- assert.equal(matches.get('Gabe Perreault')?.adp,127.3);
+ assert.equal(matches.get('Gabe Perreault')?.adp,defaultMarketSnapshot.players.find(p=>p.name==='Gabe Perreault').adp);
  assert.equal(matches.get('Yegor Chinakhov')?.name,'Egor Chinakhov');
- assert.equal(matches.get('Tristan Jarry')?.adp,136.3);
+ assert.equal(matches.get('Tristan Jarry')?.adp,defaultMarketSnapshot.players.find(p=>p.name==='Tristan Jarry').adp);
 });
 
 
