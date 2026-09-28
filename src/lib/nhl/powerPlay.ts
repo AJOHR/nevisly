@@ -19,6 +19,12 @@ export type PowerPlayTeamResult = {
   players: PowerPlayAssignment[];
 };
 
+export const DAILY_FACEOFF_FETCH_CACHE_VERSION = "2";
+
+export function dailyFaceoffLineCombinationUrl(slug: string) {
+  return `https://www.dailyfaceoff.com/teams/${slug}/line-combinations?nevisly-cache=${DAILY_FACEOFF_FETCH_CACHE_VERSION}`;
+}
+
 export const DAILY_FACEOFF_TEAMS = [
   ["ANA", "anaheim-ducks"],
   ["BOS", "boston-bruins"],
