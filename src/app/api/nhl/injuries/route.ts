@@ -1,22 +1,7 @@
 import { NextResponse } from "next/server";
+import { parseBigBallsInjuries } from "@/lib/nhl/injuries";
 
 export const revalidate = 43200; // 12 hours
-
-type InjuryPlayer = {
-  id?: string;
-  name?: string;
-  team?: {
-    abbreviation?: string;
-    name?: string;
-  };
-};
-
-type InjuryItem = {
-  player?: InjuryPlayer;
-  status?: string;
-  injury_type?: string | null;
-  return_date?: string | null;
-};
 
 export async function GET() {
   const apiKey =
@@ -79,55 +64,23 @@ export async function GET() {
     const json =
       await response.json();
 
-    const rawInjuries =
-      json?.data?.injuries ??
-      [];
-
     const injuries =
-      rawInjuries
-        .map(
-          (
-            injury:
-              InjuryItem
-          ) => ({
-            id:
-              injury.player
-                ?.id ??
-              "",
+      parseBigBallsInjuries(
+        json
+      );
 
-            name:
-              injury.player
-                ?.name ??
-              "",
-
-            team:
-              injury.player
-                ?.team
-                ?.abbreviation ??
-              "",
-
-            status:
-              injury.status ??
-              "unknown",
-
-            injuryType:
-              injury.injury_type ??
-              null,
-
-            returnDate:
-              injury.return_date ??
-              null,
-          })
-        )
-        .filter(
-          (
-            injury: {
-              name: string;
-            }
-          ) =>
-            injury.name.length >
-            0
-        );
+    if (injuries === null) {
+      return NextResponse.json(
+        {
+          error:
+            "Injury API returned an unexpected response shape.",
+          injuries: [],
+        },
+        {
+          status: 502,
+        }
+      );
+    }
 
     return NextResponse.json({
       injuries,
