@@ -22,24 +22,35 @@ test('normalization samples roster roles, not just high-point forwards, without 
 const candidate={...players[0],id:'candidate',team:'A',positions:['C']};
 const peer={...candidate,id:'peer',team:'B'};
 const deviations=Object.fromEntries(categories.map(c=>[c,20]));
-test('playoff opportunity is incremental projected production, includes only Weeks 24–26 and ignores flat seasonal bonuses',()=>{
- const a=schedule(11),b=schedule(9),evaluate=prepareScheduleOpportunity([candidate,peer],[],{A:a,B:b},deviations);
- const result=evaluate(candidate);
+test('playoff opportunity uses comparable rosters and only Weeks 24–26',()=>{
+ const a=schedule(11),b=schedule(9),evaluate=prepareScheduleOpportunity([candidate,peer],{A:a,B:b},deviations);
+ const result=evaluate(candidate,[peer.id],[candidate.id]);
+ assert.equal(result.available,true);
  near(result.extraStarts,2);
- near(result.adjustment,2*categories.reduce((n,c)=>n+candidate[c]/20,0)/82);
- const changed={...a,playoffGames:99,seasonOffNightGames:99,playoffByWeek:{...a.playoffByWeek,27:{games:8,offNightGames:8}}};
- near(prepareScheduleOpportunity([candidate,peer],[],{A:changed,B:b},deviations)(candidate).adjustment,result.adjustment);
+ near(result.playoffAdjustment,2*categories.reduce((n,c)=>n+candidate[c]/20,0)/82);
+ near(result.seasonOffNightAdjustment,0);
+ near(result.adjustment,result.playoffAdjustment);
+ const changed={...a,playoffGames:99,playoffByWeek:{...a.playoffByWeek,27:{games:8,offNightGames:8}}};
+ near(prepareScheduleOpportunity([candidate,peer],{A:changed,B:b},deviations)(candidate,[peer.id],[candidate.id]).adjustment,result.adjustment);
 });
 test('missing or partial schedule is neutral, including absent alternatives',()=>{
- for(const schedules of [{},{A:schedule(11)},{A:{...schedule(11),playoffByWeek:{}},B:schedule(9)}])
-  assert.equal(prepareScheduleOpportunity([candidate,peer],[],schedules,deviations)(candidate).adjustment,0);
+ for(const schedules of [{},{A:schedule(11)},{A:{...schedule(11),playoffByWeek:{}},B:schedule(9)}]) {
+  const result=prepareScheduleOpportunity([candidate,peer],schedules,deviations)(candidate,[peer.id],[candidate.id]);
+  assert.equal(result.available,false);
+  assert.equal(result.adjustment,0);
+ }
 });
-test('off-night distribution matters only when actual eligible roster capacity is congested',()=>{
- const schedules={A:schedule(10,6),B:schedule(10,3)};
- near(prepareScheduleOpportunity([candidate,peer],[],schedules,deviations)(candidate).adjustment,0);
+test('aggregate schedules do not invent busy-night allocation without exact dates',()=>{
+ // Equal regular-season OFF counts isolate playoff opportunity. Exact-date
+ // congestion and flexibility are covered in schedule-opportunity.test.cjs.
+ const schedules={A:{...schedule(10,6),seasonOffNightGames:42},B:{...schedule(10,3),seasonOffNightGames:39}};
  const own=[{...candidate,id:'own1'},{...candidate,id:'own2'}];
- const busy=prepareScheduleOpportunity([candidate,peer],own,schedules,deviations)(candidate);
- assert.ok(busy.adjustment>0);near(busy.extraStarts,1); // 2 starting C / 3 C; off nights remain usable.
+ const evaluate=prepareScheduleOpportunity([candidate,peer,...own],schedules,deviations);
+ const result=evaluate(candidate,[...own.map(p=>p.id),peer.id],[...own.map(p=>p.id),candidate.id]);
+ assert.equal(result.available,true);
+ assert.equal(result.exact,false);
+ near(result.extraStarts,0);
+ near(result.adjustment,0);
 });
 
 const ps=[...players,{...players[0],id:'close-a',team:'A'},{...players[0],id:'close-b',team:'B'},
@@ -59,15 +70,24 @@ test('schedule breaks a close decision but two games do not overcome a substanti
  assert.ok(find(scheduled,'close-a').explanations.some(r=>r.includes('Weeks 24–26')));
  assert.ok(!base.some(p=>p.explanations.some(r=>r.includes('Weeks 24–26'))));
 });
-test('replacement and positional economics enter recommendation score once, not as stacked VOR and fit rewards',()=>{
+test('replacement economics enter once and open-slot depth receives no standalone bench reward',()=>{
  for(const p of base){
   near(p.decision.playerValue.score,p.vor);
-  near(p.score-p.decision.draftUrgency.adjustment,p.fit.starterImprovement?p.fit.rosterGain+p.fit.saturationAdjustment:p.vor);
-  near(p.contributions.rosterOpportunity,p.fit.starterImprovement?p.fit.rosterGain-p.vor:0);
+  near(p.vor,p.overallVor);
+  near(p.score-p.decision.draftUrgency.adjustment,p.fit.rosterGain+p.fit.saturationAdjustment);
+  near(p.contributions.rosterOpportunity,p.fit.rosterGain-p.vor);
+  near(p.score,Object.values(p.contributions).reduce((sum,value)=>sum+value,0));
+  if(p.fit.starterImprovement) {
+   // Empty-roster intrinsic value is position-neutral, without positional premiums.
+   near(p.fit.rosterGain,p.vor);
+   near(p.decision.teamFit.adjustment,0);
+  } else {
+   // PR34 retains common planner centering even for these deferred depth options.
+   near(p.score-p.decision.draftUrgency.adjustment,0);
+  }
  }
- const changed={...market,ranked:market.ranked.map(p=>({...p,vor:p.vor+100}))};
- const recalculated=rankRecommendations({...ctx,rankedPlayers:ctx.rankedPlayers.map(p=>({...p,vor:p.vor+100}))},changed);
- for(const p of base.filter(p=>p.fit.starterImprovement))near(p.score,recalculated.find(q=>q.id===p.id).score);
+ assert.ok(base.some(p=>p.fit.starterImprovement));
+ assert.ok(base.some(p=>!p.fit.starterImprovement));
 });
 
 function flexFit(positions,ownPosition='C'){

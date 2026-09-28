@@ -1,5 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {load}=require('./load.cjs');
+// Match the existing projection-test shim for the CommonJS TypeScript loader.
+const Papa=require('papaparse');Papa.default=Papa;
 const {parseGoalieCsv}=load('src/lib/projections/parseGoalieCsv.ts');
 const {rankGoalies}=load('src/lib/model/goalies.ts');
 
