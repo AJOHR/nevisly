@@ -12,6 +12,7 @@ import { rosterSelectionCapacity } from './config';
 import { prepareDraftOpportunity, prepareNearTermScarcity, prepareThreePickOpportunity } from './draftOpportunity';
 import { defaultMarketSnapshot, prepareMarketDemand, marketTiming, type MarketSnapshot } from './marketDemand';
 import { rosterConcentrationAdjustment } from './rosterConcentration';
+import { resolveCurrentNhlTeam } from '@/lib/projections/identity';
 
 export type Recommendation = RankedPlayer & {decision: DecisionAssessment; fit: CategoryFit; explanations:string[]; adp?:number};
 export const compareRecommendations = (a:RankedPlayer,b:RankedPlayer) => b.score-a.score ||
@@ -25,10 +26,11 @@ export function availableRecommendationRanks(players:readonly RankedPlayer[],dra
 export function rankRecommendations(context:FinalContext, market = replacementValues(context.rankedPlayers,context.leagueTeams), snapshot:MarketSnapshot=defaultMarketSnapshot):Recommendation[] {
   const selections=canonicalSelections(context.draftPicks);
   const taken=new Set(selections.map(s=>s.projectionId));
-  const byId=new Map(context.rankedPlayers.map(p=>[p.id,p]));
+  const canonicalPlayers=context.rankedPlayers.map(p=>({...p,team:resolveCurrentNhlTeam(p.name,p.team)}));
+  const byId=new Map(canonicalPlayers.map(p=>[p.id,p]));
   const evaluate=prepareCategoryFit({players:market.ranked,reserves:market.reserves.map(p=>byId.get(p.id)!),market:market.allocated,deviations:market.deviations,selections,teams:context.fantasyTeams});
   const turn=getNextTurn(context.draftPicks,context.leagueTeams,context.myDraftSlot);
-  const demand=prepareMarketDemand(context.rankedPlayers,context.draftPicks,snapshot);
+  const demand=prepareMarketDemand(canonicalPlayers,context.draftPicks,snapshot);
   const opponentSelections=turn.opponentTeamIds.length;
   const myTeamId=context.fantasyTeams.find(t=>t.isMyTeam)?.id;
   const ownSelections=selections.filter(s=>s.teamId===myTeamId);
@@ -41,7 +43,11 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
         ? {team:linked.team,positions:linked.positions}
         : {team:p.nhlTeam??'',positions:p.positions??[]};
     });
-  const evaluateSchedule=prepareScheduleOpportunity(market.ranked,context.playoffSchedule,market.deviations);
+  const evaluateSchedule=prepareScheduleOpportunity(
+    market.ranked.map(p=>({...p,team:resolveCurrentNhlTeam(p.name,p.team)})),
+    context.playoffSchedule,
+    market.deviations
+  );
   const starterSlots=rosterSlots(modelConfig.starters);
   const knownStarters=allocate(ownPlayers,starterSlots).size;
   const starterVacancies=Math.max(0,starterSlots.length-knownStarters);
@@ -113,7 +119,7 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
     );
     if(!explanations.length)explanations.push('Compare projected value and uncertainty');
     const decision:DecisionAssessment={playerValue:{score:playerValue},teamFit:{adjustment:teamFit},draftUrgency:{opponentSelections,level:urgency,calibrated:false,adjustment:0},uncertainty:{warnings}};
-    return {...player,...base,adp:marketAdp,score:playerValue+teamFit,contributions,decision,fit,explanations,
+    return {...player,...base,team:player.team,adp:marketAdp,score:playerValue+teamFit,contributions,decision,fit,explanations,
       needBonus:teamFit,h2hGain:0,scarcityBonus:0,scarcityReasons:[],tierScarcityBonus:0,
       returnRisk:timing.risk,returnProbability:0,
       returnReason:timing.reason,picksUntilNext:opponentSelections,

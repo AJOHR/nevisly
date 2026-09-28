@@ -38,3 +38,18 @@ export function normalizePlayerName(name: string): string {
   return identityAliases[normalized] ?? normalized;
 }
 export function projectionId(name: string): string { return `projection:${normalizePlayerName(name)}`; }
+
+
+/**
+ * Confirmed NHL-team changes that may post-date uploaded projection/market files.
+ * Keep this intentionally tiny and objective: team assignment only, no projection
+ * or role adjustment. Remove an entry once all upstream sources have caught up.
+ */
+const currentTeamOverrides: Record<string,string> = {
+  kirillmarchenko:'TOR',
+  matthewknies:'CBJ',
+};
+
+export function resolveCurrentNhlTeam(playerName:string, providerTeam:string):string {
+  return currentTeamOverrides[normalizePlayerName(playerName)] ?? providerTeam.trim().toUpperCase();
+}
