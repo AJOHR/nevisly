@@ -15,9 +15,15 @@ const market=replacementValues(players,12);
 const recommendations=rankRecommendations(context(market.ranked,0),market).slice(0,5);
 test('decision UI renders separate dimensions, explicit actions and uncertainty',()=>{
  const html=renderToStaticMarkup(React.createElement(Board,{players:recommendations,onInspect:()=>{},onDraft:()=>{},rosterFull:false}));
- for(const label of ['Player Value','Team Fit','Draft urgency:','Uncertainty','Explain score','MY PICK','Goalie value is unmodeled'])assert.ok(html.includes(label),label);
+ for(const label of ['Value','Fit','Timing','Market','Details · market reasoning &amp; uncertainty','Explain full score','MY PICK','BEST PICK NOW','NEXT BEST','ALTERNATIVE'])assert.ok(html.includes(label),label);
  assert.equal((html.match(/aria-label="Draft [^"]+ to my team"/g)||[]).length,5);
+ for(const p of recommendations){
+  assert.ok(html.includes(p.decision.playerValue.score.toFixed(2)));
+  assert.ok(html.includes(p.score.toFixed(2)));
+  for(const warning of p.decision.uncertainty.warnings)assert.ok(html.includes(warning));
+ }
  assert.ok(!html.includes('championship value rating'));
+ assert.ok(!html.includes('Goalie value is unmodeled'));
 });
 test('a full roster does not present another recommendation draft action',()=>{
  const html=renderToStaticMarkup(React.createElement(Board,{players:recommendations,onInspect:()=>{},onDraft:()=>{},rosterFull:true}));

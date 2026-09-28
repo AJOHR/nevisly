@@ -61,7 +61,7 @@ test('Yahoo ADP under 50 waives both concentration penalties',()=>{
  assert.equal(result.adpPenaltyMultiplier,0);
  assert.ok(result.teamPenalty>0);
  assert.ok(result.positionPenalty>0);
- assert.equal(result.adjustment,0);
+ assert.equal(Math.abs(result.adjustment),0); // Both signed zeros mean no penalty.
 });
 
 test('Yahoo ADP 50 through 79.9 applies half of concentration penalties',()=>{
