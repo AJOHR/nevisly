@@ -144,9 +144,9 @@ test('near-term scarcity rewards a real tier cliff, not the eventual positional 
  const scarcity=prepareNearTermScarcity(pool,1,demand);
  const d=scarcity(pool[0]),rw=scarcity(pool[1]);
  assert.equal(d.alternative.id,'next-d');
- assert.equal(rw.alternative.id,'next-rw');
+ assert.equal(rw.alternative,undefined); // RW itself survives the one-pick window.
  assert.equal(d.adjustment,5);
- assert.equal(rw.adjustment,1);
+ assert.equal(rw.adjustment,0);
  assert.ok(d.adjustment>rw.adjustment);
 });
 
