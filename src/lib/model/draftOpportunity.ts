@@ -136,9 +136,14 @@ export function prepareNearTermScarcity<T extends Option>(
 ) {
   const ids=demandIds??[...available].sort((a,b)=>b.vor-a.vor||compareIds(a,b)).map(p=>p.id);
   const byId=new Map(available.map(p=>[p.id,p]));
+  const order=new Map(ids.map((id,i)=>[id,i]));
 
   return (candidate:T)=>{
     if(opponentSelections<=0)return {adjustment:0,alternative:undefined as T|undefined};
+    // A tier is not lost by waiting when the candidate himself survives. Unknown
+    // market identities cannot justify a claimed imminent positional loss either.
+    const rank=order.get(candidate.id);
+    if(rank===undefined||rank>=opponentSelections)return {adjustment:0,alternative:undefined as T|undefined};
     let remaining=opponentSelections;
     const survivors:T[]=[];
     for(const id of ids){
@@ -153,5 +158,37 @@ export function prepareNearTermScarcity<T extends Option>(
     const alternative=samePosition[0];
     if(!alternative)return {adjustment:0,alternative:undefined as T|undefined};
     return {adjustment:Math.max(0,candidate.vor-alternative.vor),alternative};
+  };
+}
+
+/** Conservative current-pick deferral cost, in existing Value + Fit units.
+ * The opportunity gap is best imminent option minus best OTHER survivor, not a
+ * positional premium. Cap Timing at -weight*gap rather than adding this to the
+ * planner's loss: an already larger acquisition cost is never counted twice.
+ * Both absolute ADP and remaining market order must support deferral. The weight
+ * is a bounded distance ratio, NOT a survival probability or fitted forecast.
+ */
+export function prepareMarketDeferral<T extends Option>(
+  available:readonly T[],currentPick:number,wait:number,demandIds:readonly string[],
+  adps:ReadonlyMap<string,number>
+) {
+  const order=new Map(demandIds.map((id,i)=>[id,i+1]));
+  const known=available.filter(p=>order.has(p.id)&&adps.has(p.id)).map(p=>({id:p.id,score:p.score}));
+  const imminent=Math.max(0,...known.filter(p=>order.get(p.id)!<=wait).map(p=>p.score));
+  // Only two needed: exclude the candidate without another pool scan per player.
+  const survivors=known.filter(p=>order.get(p.id)!>wait)
+    .sort((a,b)=>b.score-a.score||compareIds(a,b)).slice(0,2);
+  return (candidate:T,timing:number)=>{
+    const adp=adps.get(candidate.id),rank=order.get(candidate.id);
+    if(wait<=0||adp===undefined||rank===undefined)return {adjustment:0,cost:0};
+    const margin=Math.min(adp-(currentPick+wait+1),rank-wait-1);
+    if(margin<=0)return {adjustment:0,cost:0};
+    const survivor=survivors.find(p=>p.id!==candidate.id);
+    // Incomplete alternative coverage does not justify inventing an opportunity gap.
+    if(!survivor)return {adjustment:0,cost:0};
+    const gap=Math.max(0,imminent-Math.max(0,survivor.score));
+    const cost=gap*margin/(margin+wait);
+    if(cost<=0)return {adjustment:0,cost:0};
+    return {adjustment:Math.min(timing,-cost)-timing,cost};
   };
 }
