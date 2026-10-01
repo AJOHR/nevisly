@@ -26,20 +26,20 @@ test('classification has deterministic boundaries, not probability; ratios never
  assert.equal(classifyCategory(undefined,10,2),'Unknown');
  const s=structuredClone(fixture);s.myTeam.remaining['SV%']=.9;
  const sv=matchupRows(s).find(r=>r.category==='SV%');assert.equal(sv.mineFinish,undefined);assert.equal(sv.basis,'current totals');
- s.myTeam.remaining.G=undefined;assert.equal(matchupRows(s)[0].mineFinish,undefined);
+ s.myTeam.roster[0].gameDates=undefined;assert.equal(matchupRows(s)[0].mineFinish,undefined);
 });
 test('weekly needs can outweigh ROS while the tradeoff and category arithmetic stay separate',()=>{
  const moves=seasonMoves(fixture);assert.equal(moves[0].add.id,'mock-wing');assert.ok(moves[0].rosChange<0);assert.ok(moves[0].weeklyFit>moves[1].weeklyFit);
- assert.equal(moves[0].gamesChange,2);assert.equal(moves[0].delta.HIT,7.5);assert.equal(moves[0].delta.SOG,4);
+ assert.equal(moves[0].gamesChange,3);assert.equal(moves[0].delta.HIT,9);assert.ok(Math.abs(moves[0].delta.SOG-6)<1e-10);
  const s=structuredClone(fixture);s.freeAgents[0].rosValue=999;
  assert.equal(seasonMoves(s)[0].weeklyFit,moves[0].weeklyFit);
- s.freeAgents[0].usableGames=undefined;assert.equal(compareMove(s,s.freeAgents[0],s.myTeam.roster[15]),null);
- assert.equal(compareMove(fixture,fixture.freeAgents[0],fixture.myTeam.roster[2]),null);
+ s.freeAgents[0].gameDates=undefined;assert.equal(compareMove(s,s.freeAgents[0],s.myTeam.roster[15]),null);
+ assert.equal(compareMove(fixture,fixture.freeAgents[0],fixture.myTeam.roster[7]),null);
 });
 test('Season dashboard renders explicit mock provenance, all categories and supported next move',()=>{
  const html=renderToStaticMarkup(React.createElement(Season));
  for(const label of ['Your Next Move','League data:','Manual','not live','Example checking winger','Eeli Tolvanen','ROS value change','Goalie Situation','SV%','Waivers','Trades'])assert.ok(html.includes(label),label);
- const s=structuredClone(fixture);s.myTeam.remaining={};
+ const s=structuredClone(fixture);s.myTeam.roster[0].gameDates=undefined;
  assert.ok(renderToStaticMarkup(React.createElement(Season,{state:s})).includes('Insufficient season-state data'));
 });
 test('mode buttons switch views while retaining the exact Draft subtree',()=>{
@@ -61,17 +61,17 @@ test('existing Draft screen renders inside the mode shell and manual drafting st
  const ui=actions([]);ui.draftPlayer('test-player','team-1');assert.equal(ui.picks.length,1);ui.undoLastPick();assert.equal(ui.picks.length,0);
 });
 test('season engine has no provider or draft scoring imports',()=>{
- for(const file of ['state.ts','engine.ts','fixture.ts']){
+ for(const file of ['state.ts','engine.ts','fixture.ts','lineup.ts']){
   const source=fs.readFileSync(path.join(__dirname,'../src/lib/season',file),'utf8');
   const imports=[...source.matchAll(/from\s+['"]([^'"]+)/g)].map(m=>m[1]);
-  assert.ok(imports.every(i=>i.startsWith('./')),imports.join(','));
+  assert.ok(imports.every(i=>i.startsWith('./')||i==='../model/allocation'),imports.join(','));
   assert.ok(!/fetch\(|XMLHttpRequest|yahoo/i.test(source));
  }
 });
 test('Matchup and Waivers render details; unfinished tabs advertise no functionality',()=>{
  const original=React.useState;
  try{
-  for(const [tab,labels] of [['Matchup',['Your remaining','Their remaining','SV% is current-only']],['Waivers',['Suggested Drop','ROS Value','Weekly Fit','Example checking winger']],['Trades',['Coming next','Not implemented in Phase 1']]]){
+  for(const [tab,labels] of [['Matchup',['Your remaining','Their remaining','SV% is current-only']],['Waivers',['Suggested Drop','ROS Value','Weekly Fit','Example checking winger']],['Streamers',['Weekly Streamers','Scheduled GP','Bench conflicts','Daily assignments']],['Trades',['Coming next','Not implemented in Phase 2']]]){
    React.useState=()=>[tab,()=>{}];
    const html=renderToStaticMarkup(React.createElement(Season));
    for(const label of labels)assert.ok(html.includes(label),`${tab}: ${label}`);
