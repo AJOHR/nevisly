@@ -1,4 +1,4 @@
-import {normalizeSeasonState, SKATER_CATEGORIES, type SeasonLeagueState, type SeasonPlayer} from './state';
+import {normalizeSeasonState, type SeasonLeagueState, type SeasonPlayer} from './state';
 /** Real drafted names only. All team eligibility, rates, ROS utilities, starts and matchup numbers below are illustrative manual inputs. */
 const names:[string,string,string][]=[
  ['Nathan MacKinnon','COL','C'],['Martin Necas','COL','RW'],['Moritz Seider','DET','D'],['Tim Stutzle','OTT','C,LW'],
@@ -18,17 +18,16 @@ const mockRates:[number,number,number,number,number,number,number][]=[
 const roster:SeasonPlayer[]=names.map(([name,team,pos],i)=>{
  const [G,A,PPP,SOG,HIT,BLK,rosValue]=mockRates[i];
  return {id:`manual-${i}`,name,team,positions:pos.split(','),kind:pos==='G'?'goalie':'skater',
- usableGames:pos==='G'?undefined:i===15?1:2,rosValue:pos==='G'?undefined:rosValue,
+ gameDates:pos==='G'?undefined:team==='NJD'?['2026-10-06','2026-10-08']:['2026-10-06','2026-10-08','2026-10-10','2026-10-11'],rosValue:pos==='G'?undefined:rosValue,
  perGame:pos==='G'?undefined:{G,A,P:G+A,PPP,SOG,HIT,BLK}};
 });
-const remaining=Object.fromEntries(SKATER_CATEGORIES.map(c=>[c,roster.filter(p=>p.kind==='skater').reduce((sum,p)=>sum+p.perGame![c]!*p.usableGames!,0)]));
 export const manualSeasonFixture:SeasonLeagueState=normalizeSeasonState({
- source:{kind:'manual',label:'Manual · mock matchup',asOf:null,notes:'Real Yzerplan drafted roster. Eligibility, projections, ROS utilities, weekly starts, opponent and free-agent ownership are mock examples—not live data or uploaded projections. No transactions are executed.'},
- week:1,leagueTeams:10,categories:['G','A','P','PPP','SOG','HIT','BLK','W','SV%','SO'],
+ source:{kind:'manual',label:'Manual · mock matchup',asOf:null,notes:'Real Yzerplan drafted roster. Eligibility, projections, ROS utilities, exact game dates, opponent and free-agent ownership are mock examples—not live data or uploaded projections. No transactions are executed.'},
+ week:1,leagueTeams:10,weekDates:{start:'2026-10-05',end:'2026-10-11',remainingFrom:'2026-10-05'},categories:['G','A','P','PPP','SOG','HIT','BLK','W','SV%','SO'],
  rosterSlots:{C:2,LW:2,RW:2,D:4,G:2,BN:4,'IR+':2},
  swingUnits:{G:2,A:3,P:5,PPP:2,SOG:10,HIT:10,BLK:6,W:1,'SV%':.005,SO:1},
- myTeam:{id:'yzerplan',name:'Yzerplan',roster,current:{G:8,A:14,P:22,PPP:5,SOG:80,HIT:45,BLK:30,W:1,'SV%':.911,SO:0},remaining},
+ myTeam:{id:'yzerplan',name:'Yzerplan',roster,current:{G:8,A:14,P:22,PPP:5,SOG:80,HIT:45,BLK:30,W:1,'SV%':.911,SO:0},remaining:{}},
  opponent:{id:'mock-opponent',name:'Example opponent',roster:[],current:{G:12,A:12,P:24,PPP:6,SOG:104,HIT:76,BLK:30,W:2,'SV%':.907,SO:0},remaining:{G:6,A:10,P:16,PPP:4,SOG:50,HIT:25,BLK:20}},
- freeAgents:[{id:'mock-wing',name:'Example checking winger',team:'DEMO',positions:['LW','RW'],kind:'skater',usableGames:3,rosValue:.6,perGame:{G:.15,A:.25,P:.4,PPP:.05,SOG:2,HIT:3,BLK:.6}},
- {id:'mock-center',name:'Example scoring center',team:'DEMO',positions:['C'],kind:'skater',usableGames:2,rosValue:1.8,perGame:{G:.3,A:.5,P:.8,PPP:.3,SOG:2.5,HIT:.3,BLK:.2}}]
+ freeAgents:[{id:'mock-wing',name:'Example checking winger',team:'DEMO',positions:['LW','RW'],kind:'skater',gameDates:['2026-10-05','2026-10-07','2026-10-09'],rosValue:.6,perGame:{G:.15,A:.25,P:.4,PPP:.05,SOG:2,HIT:3,BLK:.6}},
+ {id:'mock-center',name:'Example scoring center',team:'DEMO',positions:['C'],kind:'skater',gameDates:['2026-10-06','2026-10-08','2026-10-10','2026-10-11'],rosValue:1.8,perGame:{G:.3,A:.5,P:.8,PPP:.3,SOG:2.5,HIT:.3,BLK:.2}}]
 });
