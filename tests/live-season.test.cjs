@@ -63,7 +63,7 @@ test('waivers and unknown ownership stay diagnostic, never immediately actionabl
 });
 test('live route requires host cookie; explicit source switch has no automatic mock fallback',async()=>{
  const {GET}=load('src/app/api/yahoo/season/live/route.ts'),{NextRequest}=require('next/server');assert.equal((await GET(new NextRequest('https://test/api/yahoo/season/live'))).status,401);
- const fs=require('node:fs'),source=fs.readFileSync('src/components/LiveSeasonMode.tsx','utf8');assert.match(source,/mode==='manual'\?<SeasonMode\/>/);assert.match(source,/setError\(/);assert.match(source,/setData\(null\)/);
+ const fs=require('node:fs'),source=fs.readFileSync('src/components/LiveSeasonMode.tsx','utf8');assert.match(source,/mode==='manual'\?<SeasonMode\/>/);const lifecycle=fs.readFileSync('src/hooks/useLiveSeason.ts','utf8');assert.match(lifecycle,/setError\(/);assert.match(lifecycle,/setData\(null\)/);
 });
 test('live Yahoo orchestration preserves both rosters, paginated pool and optional date stats',async()=>{
  const {readYahooLive}=load('src/lib/yahoo/live.ts');
