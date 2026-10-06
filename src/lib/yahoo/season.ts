@@ -4,25 +4,25 @@ import {CATEGORIES, validDate, type Category, type SeasonPlayer, type Totals} fr
 type ObjectValue = Record<string,unknown>;
 const object=(v:unknown):v is ObjectValue=>!!v&&typeof v==='object'&&!Array.isArray(v);
 /** Yahoo resource metadata is split across arrays; merge only direct fragments. */
-function fields(v:unknown):ObjectValue {
+export function fields(v:unknown):ObjectValue {
   if(object(v))return v;
   if(Array.isArray(v))return Object.assign({},...v.map(fields));
   return {};
 }
 /** Locate semantic resource keys through Yahoo's numeric collection wrappers. */
-function resources(v:unknown,key:string):unknown[]{
+export function resources(v:unknown,key:string):unknown[]{
   if(Array.isArray(v))return v.flatMap(x=>resources(x,key));
   if(!object(v))return [];
   return Object.entries(v).flatMap(([k,x])=>k===key?[x]:resources(x,key));
 }
-const text=(v:unknown)=>typeof v==='string'&&v.trim()?v.trim():undefined;
-const numeric=(v:unknown)=>typeof v==='number'?Number.isFinite(v)?v:undefined:
+export const text=(v:unknown)=>typeof v==='string'&&v.trim()?v.trim():undefined;
+export const numeric=(v:unknown)=>typeof v==='number'?Number.isFinite(v)?v:undefined:
   typeof v==='string'&&/^\d*(?:\.\d+)?$/.test(v.trim())&&v.trim()?Number(v):undefined;
 const positiveInt=(v:unknown)=>{const n=numeric(v);return n!==undefined&&Number.isInteger(n)&&n>0?n:undefined;};
 function required(v:unknown,label:string):string {const s=text(v);if(!s)throw new YahooSeasonError(`Missing ${label}`);return s;}
-function key(v:unknown,label:string):string {const s=required(v,label);if(!/^\d+\.(?:l|t|p)\.\d+(?:\.t\.\d+)?$/.test(s))throw new YahooSeasonError(`Invalid ${label}`);return s;}
-function one(v:unknown,label:string):ObjectValue {const r=resources(v,label);if(r.length!==1)throw new YahooSeasonError(`Expected one ${label} resource`);return fields(r[0]);}
-function collection(v:unknown,singular:string):unknown[]{
+export function key(v:unknown,label:string):string {const s=required(v,label);if(!/^\d+\.(?:l|t|p)\.\d+(?:\.t\.\d+)?$/.test(s))throw new YahooSeasonError(`Invalid ${label}`);return s;}
+export function one(v:unknown,label:string):ObjectValue {const r=resources(v,label);if(r.length!==1)throw new YahooSeasonError(`Expected one ${label} resource`);return fields(r[0]);}
+export function collection(v:unknown,singular:string):unknown[]{
   if(v===undefined)throw new YahooSeasonError(`Missing ${singular} collection`);
   const found=resources(v,singular),count=numeric(fields(v).count);
   if(count!==undefined&&count!==found.length)throw new YahooSeasonError(`Incomplete ${singular} collection`);
@@ -77,7 +77,7 @@ export function parseRoster(payload:unknown){
     if(positionType!=='G'&&positionType!=='P')throw new YahooSeasonError(`Unsupported player position type for ${id}`);
     if(details[id])throw new YahooSeasonError('Duplicate roster player');
     details[id]={yahooId:text(p.player_id),selectedPosition:text(fields(p.selected_position).position),status:text(p.status)};
-    return {id,name,team:required(p.editorial_team_abbr,'NHL team'),positions:[...new Set(positions)],kind:positionType==='G'?'goalie':'skater'} as SeasonPlayer;
+    return {id,name,team:text(p.editorial_team_abbr)??'',positions:[...new Set(positions)],kind:positionType==='G'?'goalie':'skater'} as SeasonPlayer;
   });
   return {players,details};
 }
@@ -125,5 +125,5 @@ export async function readYahooSeason(get:YahooGet,season:number,asOf=new Date()
     opponent:matchup?{id:matchup.opponent.id,name:matchup.opponent.name,roster:opponentRoster?.players,current:matchup.theirs}:undefined,
   };
   return {league,myTeam:mine,opponent:matchup?.opponent,matchupDates:matchup?.dates,
-    rosterDetails:{mine:myRoster.details,opponent:opponentRoster?.details},snapshot};
+    statMap:settings.statMap,rosterDetails:{mine:myRoster.details,opponent:opponentRoster?.details},snapshot};
 }
