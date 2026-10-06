@@ -46,6 +46,30 @@ test('maps only enabled settings using supplied stat IDs; rejects unsupported ca
  assert.equal(parseSettings(s).statMap['99'],'G');assert.equal(parseSettings(s).categories.includes('PIM'),false);
  s.settings[1].stat_categories.stats.at(-1).stat.enabled='1';assert.throws(()=>parseSettings(s),/Unsupported/);
 });
+test('enabled display-only stats are excluded at direct and nested Yahoo locations; scored SV% stays exact',()=>{
+ for(const metadata of [
+  {is_only_display_stat:1},
+  {is_only_display_stat:'1'},
+  {stat_position_types:{stat_position_type:{position_type:'G',is_only_display_stat:'1'}}},
+  {stat_position_types:[{stat_position_type:[{position_type:'G'},{is_only_display_stat:1}]}]},
+  {is_only_display_stat:'0',stat_position_types:wrap('stat_position_type',[{position_type:'G',is_only_display_stat:'1'}])},
+  {is_only_display_stat:'1',stat_position_types:{stat_position_type:{position_type:'G',is_only_display_stat:'0'}}},
+ ]){
+  const fixture=structuredClone(settings);
+  fixture.settings[1].stat_categories.stats.push({stat:{stat_id:'500',display_name:'SV',enabled:'1',...metadata}});
+  fixture.settings[1].stat_categories.stats[8].stat={stat_id:'9',display_name:'SV%',enabled:1,is_only_display_stat:0,stat_position_types:{stat_position_type:{position_type:'G',is_only_display_stat:'0'}}};
+  const parsed=parseSettings(fixture);
+  assert.deepEqual(parsed.categories,cat);assert.equal(parsed.statMap['500'],undefined);assert.equal(parsed.statMap['9'],'SV%');
+ }
+});
+test('display-only exclusion is generic; genuinely scored unsupported categories still fail',()=>{
+ const fixture=structuredClone(settings),stats=fixture.settings[1].stat_categories.stats;
+ stats.push({stat:{stat_id:'500',display_name:'PIM',enabled:1,is_only_display_stat:1}});
+ assert.deepEqual(parseSettings(fixture).categories,cat);
+ stats.at(-1).stat.is_only_display_stat=0;assert.throws(()=>parseSettings(fixture),/Unsupported enabled category: PIM/);
+ stats.at(-1).stat={stat_id:'500',display_name:'SV',enabled:1,stat_position_types:{stat_position_type:{position_type:'G',is_only_display_stat:0}}};
+ assert.throws(()=>parseSettings(fixture),/Unsupported enabled category: SV/);
+});
 test('zero and SV ratio are preserved; absent values and non-provider projections stay unknown',async()=>{
  const {snapshot:s}=await read(payloads());assert.equal(s.myTeam.current.G,0);assert.equal(s.myTeam.current.A,undefined);
  assert.equal(s.myTeam.current['SV%'],.913);assert.equal(s.opponent.current.G,3);

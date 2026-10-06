@@ -50,6 +50,9 @@ export function parseSettings(payload:unknown){
   const stats=fields(settings.stat_categories).stats;
   for(const value of collection(stats,'stat')){
     const s=fields(value);if(s.enabled!==undefined&&String(s.enabled)==='0')continue;
+    // Yahoo enables supporting/display stats too; only scored stats belong here.
+    const displayOnly=numeric(s.is_only_display_stat)===1||resources(s.stat_position_types,'stat_position_type').some(position=>numeric(fields(position).is_only_display_stat)===1);
+    if(displayOnly)continue;
     const display=required(s.display_name,'category display name');
     const alias:Record<string,Category>={Pts:'P',PTS:'P',Shutouts:'SO',SHO:'SO'};
     const category=alias[display]??display;
