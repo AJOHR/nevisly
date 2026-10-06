@@ -77,6 +77,25 @@ test('zero and SV ratio are preserved; absent values and non-provider projection
  for(const k of ['freeAgents','weekDates','swingUnits'])assert.equal(s[k],undefined);
  assert.equal(s.myTeam.remaining,undefined);
 });
+test('direct and numerically wrapped roster players preserve identities, positions and status',()=>{
+ const direct=roster([player(1,['C','LW']),player(2,['G'],'G')]);
+ const expected=parseRoster(direct);
+ // Yahoo's roster metadata and players sub-resource occupy separate numeric entries.
+ const wrapped={fantasy_content:{team:[team(1,'Mine',true),{roster:{'0':{coverage_type:'date',date:'2026-10-05'},'1':{players:direct.team[1].roster.players}}}]}};
+ assert.deepEqual(parseRoster(wrapped),expected);
+ assert.deepEqual(expected.players[0],{id:'465.p.1',name:'Player 1',team:'COL',positions:['C','LW'],kind:'skater'});
+ assert.equal(expected.players[1].kind,'goalie');
+ assert.deepEqual(expected.details['465.p.1'],{yahooId:'1',selectedPosition:'C',status:'DTD'});
+ const arrayWrapped={roster:[{coverage_type:'date'}, {'0':{players:direct.team[1].roster.players}}]};
+ assert.deepEqual(parseRoster(arrayWrapped),expected);
+});
+test('wrapped roster collections remain strict about missing, malformed, incomplete and ambiguous data',()=>{
+ assert.throws(()=>parseRoster({roster:{'0':{coverage_type:'date'}}}),/Missing player collection/);
+ assert.throws(()=>parseRoster({roster:{'0':{players:{irrelevant:'metadata'}}}}),/Malformed player collection/);
+ assert.throws(()=>parseRoster({roster:{'0':{players:{count:2,'0':{player:player(1,['C'])}}}}}),/Incomplete player collection/);
+ assert.deepEqual(parseRoster({roster:{'0':{players:{count:0}}}}).players,[]);
+ assert.throws(()=>parseRoster({roster:{'0':{players:{count:0}},'1':{players:{count:0}}}}),/Ambiguous roster players collection/);
+});
 test('missing/partial roster collections fail explicitly; confirmed empty roster is preserved',()=>{
  assert.throws(()=>parseRoster({roster:{}}),/Missing/);
  const r=roster([player(1,['C'])]);r.team[1].roster.players.count=2;assert.throws(()=>parseRoster(r),/Incomplete/);
