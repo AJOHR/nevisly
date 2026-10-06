@@ -72,7 +72,9 @@ export function selectMyTeam(payload:unknown){
 }
 export function parseRoster(payload:unknown){
   const roster=one(payload,'roster'),details:Record<string,{yahooId?:string;selectedPosition?:string;status?:string}>={};
-  const players=collection(roster.players,'player').map(value=>{
+  const playerCollections=resources(roster,'players');
+  if(playerCollections.length>1)throw new YahooSeasonError('Ambiguous roster players collection');
+  const players=collection(playerCollections[0],'player').map(value=>{
     const p=fields(value),id=key(p.player_key,'player key'),name=required(fields(p.name).full,'player name');
     const positions=resources(p.eligible_positions,'position').map(v=>required(v,'eligible position'));
     if(!positions.length)throw new YahooSeasonError(`Missing eligible positions for ${id}`);
