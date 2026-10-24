@@ -9,7 +9,7 @@ import { categories, categoryLabels } from './config';
 import { allocate, rosterSlots, compareIds } from './allocation';
 import { modelConfig } from './config';
 import { rosterSelectionCapacity } from './config';
-import { prepareDraftOpportunity, prepareNearTermScarcity, prepareThreePickOpportunity } from './draftOpportunity';
+import { prepareDraftOpportunity, prepareMarketDeferral, prepareNearTermScarcity, prepareThreePickOpportunity } from './draftOpportunity';
 import { defaultMarketSnapshot, prepareMarketDemand, marketTiming, type MarketSnapshot } from './marketDemand';
 import { rosterConcentrationAdjustment } from './rosterConcentration';
 import { resolveCurrentNhlTeam } from '@/lib/projections/identity';
@@ -147,6 +147,9 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
   // to the established two-pick planner near the end of the draft.
   if(turn.onClock&&turn.nextMyPick<=context.leagueTeams*rosterSelectionCapacity&&opponentSelections>0) {
     const available=recommendations.filter(p=>!taken.has(p.id));
+    // Capture immediate Value + Fit before the planner mutates recommendation scores.
+    const deferral=prepareMarketDeferral(available,turn.currentPick,opponentSelections,demand.ids,
+      new Map([...demand.matches].map(([id,p])=>[id,p.adp])));
     const nearTermScarcity=prepareNearTermScarcity(available,opponentSelections,demand.ids);
     const futureTurns=getFutureOwnTurns(context.draftPicks,context.leagueTeams,context.myDraftSlot,2);
     const thirdTurn=futureTurns[1];
@@ -204,6 +207,17 @@ export function rankRecommendations(context:FinalContext, market = replacementVa
           `Next-pick plan: ${timing.alternative.name} (${timing.alternative.positions.join('/')}) remains in the modeled pool`:
           'No complementary starter upgrade remains in the modeled next-pick shortlist');
       }
+    }
+    for(const player of available) {
+      if(!player.fit.starterImprovement)continue;
+      const {adjustment}=deferral(player,player.decision.draftUrgency.adjustment);
+      if(adjustment===0)continue;
+      player.decision.draftUrgency.adjustment+=adjustment;
+      player.contributions={...player.contributions,marketDeferral:adjustment};
+      player.score+=adjustment;
+      player.explanations.unshift(
+        `Yahoo market supports waiting until pick ${turn.nextMyPick}; earlier-demand alternatives add ${adjustment.toFixed(2)} Timing opportunity cost (not a survival probability)`
+      );
     }
   }
   return recommendations.sort(compareRecommendations);
